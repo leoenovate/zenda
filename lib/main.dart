@@ -16,12 +16,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.dark(
-          primary: const Color(0xFFD4AF37),
-          secondary: const Color(0xFF4A4A4A),
+          primary: const Color(0xFF1E88E5), // School blue
+          secondary: const Color(0xFFF5F5F5), // Light gray/white
           surface: const Color(0xFF2A2A2A),
           background: const Color(0xFF1A1A1A),
-          onPrimary: const Color(0xFF1A1A1A),
-          onSecondary: Colors.white,
+          onPrimary: Colors.white,
+          onSecondary: const Color(0xFF1A1A1A),
           onSurface: const Color(0xFFF5F5F5),
           onBackground: const Color(0xFFF5F5F5),
         ),
@@ -621,8 +621,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: Border(
                           left: BorderSide(
                             color: worker.period == 'Night'
-                                ? const Color(0xFF6C63FF) // Purple for night shift
-                                : const Color(0xFFD4AF37), // Gold for day shift
+                                ? const Color(0xFF1E88E5) // School blue for night shift
+                                : const Color(0xFFF5F5F5), // Light gray/white for day shift
                             width: 4,
                           ),
                         ),
@@ -634,15 +634,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         leading: CircleAvatar(
                           backgroundColor: worker.period == 'Night'
-                              ? const Color(0xFF6C63FF).withOpacity(0.2)
-                              : const Color(0xFFD4AF37).withOpacity(0.2),
+                              ? const Color(0xFF1E88E5).withOpacity(0.2)
+                              : const Color(0xFFF5F5F5).withOpacity(0.2),
                           radius: 26,
                           child: Text(
                             worker.name[0],
                             style: TextStyle(
                               color: worker.period == 'Night'
-                                  ? const Color(0xFF6C63FF)
-                                  : const Color(0xFFD4AF37),
+                                  ? const Color(0xFF1E88E5)
+                                  : const Color(0xFFF5F5F5),
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -664,16 +664,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : Icons.wb_sunny,
                               size: 16,
                               color: worker.period == 'Night'
-                                  ? const Color(0xFF6C63FF)
-                                  : const Color(0xFFD4AF37),
+                                  ? const Color(0xFF1E88E5)
+                                  : const Color(0xFFF5F5F5),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               worker.period,
                               style: TextStyle(
                                 color: worker.period == 'Night'
-                                    ? const Color(0xFF6C63FF)
-                                    : const Color(0xFFD4AF37),
+                                    ? const Color(0xFF1E88E5)
+                                    : const Color(0xFFF5F5F5),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
