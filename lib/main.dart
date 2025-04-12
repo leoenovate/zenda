@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'zenda Mining Workers',
+      title: 'School Attendance System',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.dark(
@@ -93,7 +93,7 @@ class Worker {
 
   // Helper method to validate period
   static bool isValidPeriod(String period) {
-    return ['Day', 'Night'].contains(period);
+    return ['Morning', 'Afternoon'].contains(period);
   }
 
   // Helper method to get short form of period
@@ -183,11 +183,11 @@ class _HomeScreenState extends State<HomeScreen> {
         String sector = worker.sector ?? '';
         String cell = worker.cell ?? '';
         
-        // Simplify period to Day/Night
+        // Simplify period to Morning/Afternoon
         String period = worker.period;
 
         return AlertDialog(
-          title: const Text('Edit Worker'),
+          title: const Text('Edit Student'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -204,8 +204,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 DropdownButtonFormField<String>(
                   value: period,
-                  decoration: const InputDecoration(labelText: 'Shift'),
-                  items: ['Day', 'Night'].map((String value) {
+                  decoration: const InputDecoration(labelText: 'Session'),
+                  items: ['Morning', 'Afternoon'].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -323,8 +323,8 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Worker'),
-        content: const Text('Are you sure you want to delete this worker?'),
+        title: const Text('Delete Student'),
+        content: const Text('Are you sure you want to delete this student?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -388,12 +388,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Icon(
-                    worker.period == 'Night'
-                        ? Icons.nightlight_round
-                        : Icons.wb_sunny,
-                    color: worker.period == 'Night'
-                        ? const Color(0xFF6C63FF)
-                        : const Color(0xFFD4AF37),
+                    worker.period == 'Afternoon'
+                        ? Icons.wb_sunny
+                        : Icons.brightness_5,
+                    color: worker.period == 'Afternoon'
+                        ? const Color(0xFF1E88E5)
+                        : const Color(0xFFF5F5F5),
+                    size: 24,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -579,13 +580,13 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Row(
           children: [
             Icon(
-              Icons.engineering,
+              Icons.school,
               color: Theme.of(context).colorScheme.primary,
               size: 28,
             ),
             const SizedBox(width: 12),
             const Text(
-              'Mining Workers Directory',
+              'School Attendance System',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
@@ -620,9 +621,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         border: Border(
                           left: BorderSide(
-                            color: worker.period == 'Night'
-                                ? const Color(0xFF1E88E5) // School blue for night shift
-                                : const Color(0xFFF5F5F5), // Light gray/white for day shift
+                            color: worker.period == 'Afternoon'
+                                ? const Color(0xFF1E88E5) // School blue for afternoon session
+                                : const Color(0xFFF5F5F5), // Light gray/white for morning session
                             width: 4,
                           ),
                         ),
@@ -633,14 +634,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           vertical: 12,
                         ),
                         leading: CircleAvatar(
-                          backgroundColor: worker.period == 'Night'
+                          backgroundColor: worker.period == 'Afternoon'
                               ? const Color(0xFF1E88E5).withOpacity(0.2)
                               : const Color(0xFFF5F5F5).withOpacity(0.2),
                           radius: 26,
                           child: Text(
                             worker.name[0],
                             style: TextStyle(
-                              color: worker.period == 'Night'
+                              color: worker.period == 'Afternoon'
                                   ? const Color(0xFF1E88E5)
                                   : const Color(0xFFF5F5F5),
                               fontSize: 20,
@@ -659,11 +660,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         subtitle: Row(
                           children: [
                             Icon(
-                              worker.period == 'Night'
-                                  ? Icons.nightlight_round
-                                  : Icons.wb_sunny,
-                              size: 16,
-                              color: worker.period == 'Night'
+                              worker.period == 'Afternoon'
+                                  ? Icons.wb_sunny
+                                  : Icons.brightness_5,
+                              color: worker.period == 'Afternoon'
                                   ? const Color(0xFF1E88E5)
                                   : const Color(0xFFF5F5F5),
                             ),
@@ -671,7 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               worker.period,
                               style: TextStyle(
-                                color: worker.period == 'Night'
+                                color: worker.period == 'Afternoon'
                                     ? const Color(0xFF1E88E5)
                                     : const Color(0xFFF5F5F5),
                                 fontWeight: FontWeight.w500,
@@ -691,13 +691,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () => _editWorker(index),
-                              tooltip: 'Edit Worker',
+                              tooltip: 'Edit Student',
                               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () => _deleteWorker(index),
-                              tooltip: 'Delete Worker',
+                              tooltip: 'Delete Student',
                               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ],
