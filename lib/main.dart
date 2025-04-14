@@ -33,8 +33,28 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF2A2A2A),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF1E88E5)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: const Color(0xFFF5F5F5).withOpacity(0.1)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF1E88E5)),
+          ),
+        ),
       ),
-      home: const HomeScreen(),
+      initialRoute: '/parent-login',
+      routes: {
+        '/parent-login': (context) => const ParentLoginScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }
@@ -137,8 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ].where((s) => s.isNotEmpty).join(' '),
                   period: (data['Class']?.toString().toLowerCase() ?? '')
                           .contains('night') 
-                      ? 'Night'
-                      : 'Day',
+                      ? 'Afternoon'
+                      : 'Morning',
                   registrationNumber: data['Registration_Number'],
                   gender: data['Gender'],
                   birthdate: data['Birthdate'],
@@ -375,9 +395,9 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: worker.period == 'Night'
-                  ? const Color(0xFF6C63FF)
-                  : const Color(0xFFD4AF37),
+              color: worker.period == 'Afternoon'
+                  ? const Color(0xFF1E88E5)  // School blue
+                  : const Color(0xFFF5F5F5), // Light gray/white
               width: 2,
             ),
           ),
@@ -708,6 +728,239 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
+    );
+  }
+}
+
+class ParentLoginScreen extends StatefulWidget {
+  const ParentLoginScreen({super.key});
+
+  @override
+  State<ParentLoginScreen> createState() => _ParentLoginScreenState();
+}
+
+class _ParentLoginScreenState extends State<ParentLoginScreen> {
+  final _phoneController = TextEditingController();
+  final _verificationController = TextEditingController();
+  List<Worker> workers = [];
+  Worker? matchedStudent;
+  String? parentName;
+  bool isLoading = false;
+  bool showVerification = false;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkers();
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _verificationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadWorkers() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/data.json');
+      final List<dynamic> jsonData = jsonDecode(jsonString);
+      
+      setState(() {
+        workers = jsonData
+            .where((data) => data['LastName']?.isNotEmpty == true)
+            .map((data) => Worker(
+                  name: [
+                    data['LastName'] ?? '',
+                    data['middleName'] ?? '',
+                    data['Firstname'] ?? ''
+                  ].where((s) => s.isNotEmpty).join(' '),
+                  period: (data['Class']?.toString().toLowerCase() ?? '')
+                          .contains('night') 
+                      ? 'Afternoon'
+                      : 'Morning',
+                  registrationNumber: data['Registration_Number'],
+                  gender: data['Gender'],
+                  birthdate: data['Birthdate'],
+                  fatherName: data['Father_Names'],
+                  fatherPhone: data['Father_PhoneNumber'],
+                  motherName: data['Mother_Names'],
+                  motherPhone: data['Mother_PhoneNumber'],
+                  country: data['Country'],
+                  province: data['Province'],
+                  district: data['District'],
+                  sector: data['Sector'],
+                  cell: data['Cell'],
+                  attendanceHistory: [],
+                ))
+            .toList();
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Failed to load student data';
+      });
+    }
+  }
+
+  void _verifyPhoneNumber() {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+      matchedStudent = null;
+      parentName = null;
+    });
+
+    final phoneNumber = _phoneController.text.trim();
+    
+    // Search for matching parent phone number
+    final matchedWorker = workers.firstWhere(
+      (worker) => 
+        worker.fatherPhone == phoneNumber || 
+        worker.motherPhone == phoneNumber,
+      orElse: () => Worker(name: '', period: ''),
+    );
+
+    setState(() {
+      isLoading = false;
+      if (matchedWorker.name.isNotEmpty) {
+        matchedStudent = matchedWorker;
+        parentName = matchedWorker.fatherPhone == phoneNumber
+            ? matchedWorker.fatherName
+            : matchedWorker.motherName;
+        showVerification = true;
+      } else {
+        errorMessage = 'No student found with this parent phone number';
+      }
+    });
+  }
+
+  void _verifyCode() {
+    final code = _verificationController.text.trim();
+    // In a real app, you would verify this code against a backend
+    // For demo purposes, we'll accept any 6-digit code
+    if (code.length == 6 && RegExp(r'^\d+$').hasMatch(code)) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      setState(() {
+        errorMessage = 'Please enter a valid 6-digit code';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(
+                  Icons.school,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Parent Login',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onBackground,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                TextField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: 'Enter your phone number',
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  enabled: !showVerification,
+                ),
+                const SizedBox(height: 16),
+                if (!showVerification) ElevatedButton(
+                  onPressed: _verifyPhoneNumber,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Verify Phone Number'),
+                ),
+                if (showVerification) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, ${parentName ?? "Parent"}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Student: ${matchedStudent?.name ?? ""}'),
+                          Text('Class: ${matchedStudent?.period ?? ""} Session'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _verificationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Verification Code',
+                      hintText: 'Enter 6-digit code',
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _verifyCode,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                    child: const Text('Verify Code'),
+                  ),
+                ],
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
