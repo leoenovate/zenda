@@ -187,7 +187,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Verify Phone Number'),
+                      : const Text('Verify Phone Number', style: TextStyle(color: Colors.white)),
                 ),
                 if (showVerification) ...[
                   Card(
@@ -228,7 +228,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
-                    child: const Text('Verify Code'),
+                    child: const Text('Verify Code', style: TextStyle(color: Colors.white)),
                   ),
                 ],
                 if (errorMessage != null) ...[

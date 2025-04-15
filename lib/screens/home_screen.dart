@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/worker.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,12 +13,27 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Worker> workers = [];
+  List<Worker> filteredWorkers = [];
   bool _isLoading = true;
+  
+  // Search and filter variables
+  final TextEditingController _searchController = TextEditingController();
+  String? selectedPeriod;
+  String? selectedGender;
+  DateTime? selectedDate;
+  String? selectedAttendanceStatus;
 
   @override
   void initState() {
     super.initState();
     _loadWorkers();
+    _searchController.addListener(_filterWorkers);
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadWorkers() async {
@@ -52,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   attendanceHistory: [],
                 ))
             .toList();
+        filteredWorkers = List.from(workers);
         _isLoading = false;
       });
     } catch (e) {
@@ -60,6 +77,67 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     }
+  }
+  
+  void _filterWorkers() {
+    setState(() {
+      filteredWorkers = workers.where((worker) {
+        // Search by name, registration number
+        final query = _searchController.text.toLowerCase();
+        final matchesSearch = query.isEmpty || 
+            worker.name.toLowerCase().contains(query) || 
+            (worker.registrationNumber?.toLowerCase().contains(query) ?? false);
+        
+        // Filter by period (class)
+        final matchesPeriod = selectedPeriod == null || worker.period == selectedPeriod;
+        
+        // Filter by gender
+        final matchesGender = selectedGender == null || worker.gender == selectedGender;
+        
+        // Filter by attendance date
+        bool matchesDate = true;
+        if (selectedDate != null && worker.attendanceHistory.isNotEmpty) {
+          matchesDate = worker.attendanceHistory.any((attendance) => 
+            attendance.date.year == selectedDate!.year && 
+            attendance.date.month == selectedDate!.month && 
+            attendance.date.day == selectedDate!.day);
+        }
+        
+        // Filter by attendance status
+        bool matchesStatus = true;
+        if (selectedAttendanceStatus != null && worker.attendanceHistory.isNotEmpty) {
+          AttendanceStatus status;
+          switch (selectedAttendanceStatus) {
+            case 'Present':
+              status = AttendanceStatus.present;
+              break;
+            case 'Late':
+              status = AttendanceStatus.late;
+              break;
+            case 'Absent':
+              status = AttendanceStatus.absent;
+              break;
+            default:
+              status = AttendanceStatus.present;
+          }
+          matchesStatus = worker.attendanceHistory.any((attendance) => 
+            attendance.status == status);
+        }
+        
+        return matchesSearch && matchesPeriod && matchesGender && matchesDate && matchesStatus;
+      }).toList();
+    });
+  }
+  
+  void _resetFilters() {
+    setState(() {
+      _searchController.clear();
+      selectedPeriod = null;
+      selectedGender = null;
+      selectedDate = null;
+      selectedAttendanceStatus = null;
+      filteredWorkers = List.from(workers);
+    });
   }
 
   void _editWorker(int index) {
@@ -207,6 +285,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
                 Navigator.pop(context);
               },
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
               child: const Text('Save'),
             ),
           ],
@@ -233,6 +314,9 @@ class _HomeScreenState extends State<HomeScreen> {
               });
               Navigator.pop(context);
             },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -490,115 +574,599 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Theme.of(context).colorScheme.background,
-                    Theme.of(context).colorScheme.surface,
+          : Column(
+              children: [
+                _buildSearchAndFilterBar(context),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Theme.of(context).colorScheme.background,
+                          Theme.of(context).colorScheme.surface,
+                        ],
+                      ),
+                    ),
+                    child: filteredWorkers.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off,
+                                size: 64,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No students match your filters',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: _resetFilters,
+                                icon: const Icon(Icons.refresh, color: Colors.white),
+                                label: const Text('Reset Filters', style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredWorkers.length,
+                          itemBuilder: (context, index) {
+                            final worker = filteredWorkers[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: worker.period == 'Afternoon'
+                                          ? const Color(0xFF1E88E5)
+                                          : const Color(0xFFF5F5F5),
+                                      width: 4,
+                                    ),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                  leading: CircleAvatar(
+                                    backgroundColor: worker.period == 'Afternoon'
+                                        ? const Color(0xFF1E88E5).withOpacity(0.2)
+                                        : const Color(0xFFF5F5F5).withOpacity(0.2),
+                                    radius: 26,
+                                    child: Text(
+                                      worker.name[0],
+                                      style: TextStyle(
+                                        color: worker.period == 'Afternoon'
+                                            ? const Color(0xFF1E88E5)
+                                            : const Color(0xFFF5F5F5),
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    worker.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                  subtitle: Row(
+                                    children: [
+                                      Icon(
+                                        worker.period == 'Afternoon'
+                                            ? Icons.wb_sunny
+                                            : Icons.brightness_5,
+                                        color: worker.period == 'Afternoon'
+                                            ? const Color(0xFF1E88E5)
+                                            : const Color(0xFFF5F5F5),
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        worker.period,
+                                        style: TextStyle(
+                                          color: worker.period == 'Afternoon'
+                                              ? const Color(0xFF1E88E5)
+                                              : const Color(0xFFF5F5F5),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      if (worker.gender != null)
+                                        Icon(
+                                          worker.gender == 'M' ? Icons.male : Icons.female,
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                          size: 16,
+                                        ),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.visibility),
+                                        onPressed: () => _viewAttendance(worker),
+                                        tooltip: 'View Attendance',
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => _editWorker(workers.indexOf(worker)),
+                                        tooltip: 'Edit Student',
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: () => _deleteWorker(workers.indexOf(worker)),
+                                        tooltip: 'Delete Student',
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+  
+  Widget _buildSearchAndFilterBar(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or registration number',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _filterWorkers();
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    builder: (context) => _buildFilterBottomSheet(context),
+                  );
+                },
+                icon: const Icon(Icons.filter_list),
+                tooltip: 'Filter',
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(
+                      color: (selectedPeriod != null || selectedGender != null || 
+                              selectedDate != null || selectedAttendanceStatus != null)
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                    ),
+                  ),
+                  backgroundColor: (selectedPeriod != null || selectedGender != null || 
+                                    selectedDate != null || selectedAttendanceStatus != null)
+                      ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          if (selectedPeriod != null || selectedGender != null || 
+              selectedDate != null || selectedAttendanceStatus != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    if (selectedPeriod != null)
+                      _buildFilterChip(
+                        label: 'Class: $selectedPeriod',
+                        onRemove: () {
+                          setState(() {
+                            selectedPeriod = null;
+                            _filterWorkers();
+                          });
+                        },
+                      ),
+                    if (selectedGender != null)
+                      _buildFilterChip(
+                        label: 'Gender: ${selectedGender == 'M' ? 'Male' : 'Female'}',
+                        onRemove: () {
+                          setState(() {
+                            selectedGender = null;
+                            _filterWorkers();
+                          });
+                        },
+                      ),
+                    if (selectedDate != null)
+                      _buildFilterChip(
+                        label: 'Date: ${DateFormat('yyyy-MM-dd').format(selectedDate!)}',
+                        onRemove: () {
+                          setState(() {
+                            selectedDate = null;
+                            _filterWorkers();
+                          });
+                        },
+                      ),
+                    if (selectedAttendanceStatus != null)
+                      _buildFilterChip(
+                        label: 'Status: $selectedAttendanceStatus',
+                        onRemove: () {
+                          setState(() {
+                            selectedAttendanceStatus = null;
+                            _filterWorkers();
+                          });
+                        },
+                      ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _resetFilters,
+                      child: const Text('Clear All'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: workers.length,
-                itemBuilder: (context, index) {
-                  final worker = workers[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: worker.period == 'Afternoon'
-                                ? const Color(0xFF1E88E5)
-                                : const Color(0xFFF5F5F5),
-                            width: 4,
-                          ),
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFilterChip({required String label, required VoidCallback onRemove}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(label),
+        deleteIcon: const Icon(Icons.close, size: 16),
+        onDeleted: onRemove,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+      ),
+    );
+  }
+  
+  Widget _buildFilterBottomSheet(BuildContext context) {
+    String? tempPeriod = selectedPeriod;
+    String? tempGender = selectedGender;
+    DateTime? tempDate = selectedDate;
+    String? tempAttendanceStatus = selectedAttendanceStatus;
+    
+    return StatefulBuilder(
+      builder: (context, setModalState) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filter Students',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              
+              // Filter options
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Text(
+                      'Class',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildFilterOption(
+                          label: 'Morning',
+                          isSelected: tempPeriod == 'Morning',
+                          onTap: () {
+                            setModalState(() {
+                              tempPeriod = tempPeriod == 'Morning' ? null : 'Morning';
+                            });
+                          },
                         ),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                        _buildFilterOption(
+                          label: 'Afternoon',
+                          isSelected: tempPeriod == 'Afternoon',
+                          onTap: () {
+                            setModalState(() {
+                              tempPeriod = tempPeriod == 'Afternoon' ? null : 'Afternoon';
+                            });
+                          },
                         ),
-                        leading: CircleAvatar(
-                          backgroundColor: worker.period == 'Afternoon'
-                              ? const Color(0xFF1E88E5).withOpacity(0.2)
-                              : const Color(0xFFF5F5F5).withOpacity(0.2),
-                          radius: 26,
-                          child: Text(
-                            worker.name[0],
-                            style: TextStyle(
-                              color: worker.period == 'Afternoon'
-                                  ? const Color(0xFF1E88E5)
-                                  : const Color(0xFFF5F5F5),
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Text(
+                      'Gender',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildFilterOption(
+                          label: 'Male',
+                          isSelected: tempGender == 'M',
+                          onTap: () {
+                            setModalState(() {
+                              tempGender = tempGender == 'M' ? null : 'M';
+                            });
+                          },
                         ),
-                        title: Text(
-                          worker.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            letterSpacing: 0.3,
-                          ),
+                        _buildFilterOption(
+                          label: 'Female',
+                          isSelected: tempGender == 'F',
+                          onTap: () {
+                            setModalState(() {
+                              tempGender = tempGender == 'F' ? null : 'F';
+                            });
+                          },
                         ),
-                        subtitle: Row(
-                          children: [
-                            Icon(
-                              worker.period == 'Afternoon'
-                                  ? Icons.wb_sunny
-                                  : Icons.brightness_5,
-                              color: worker.period == 'Afternoon'
-                                  ? const Color(0xFF1E88E5)
-                                  : const Color(0xFFF5F5F5),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              worker.period,
-                              style: TextStyle(
-                                color: worker.period == 'Afternoon'
-                                    ? const Color(0xFF1E88E5)
-                                    : const Color(0xFFF5F5F5),
-                                fontWeight: FontWeight.w500,
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Text(
+                      'Attendance Status',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildFilterOption(
+                          label: 'Present',
+                          isSelected: tempAttendanceStatus == 'Present',
+                          onTap: () {
+                            setModalState(() {
+                              tempAttendanceStatus = tempAttendanceStatus == 'Present' ? null : 'Present';
+                            });
+                          },
+                        ),
+                        _buildFilterOption(
+                          label: 'Late',
+                          isSelected: tempAttendanceStatus == 'Late',
+                          onTap: () {
+                            setModalState(() {
+                              tempAttendanceStatus = tempAttendanceStatus == 'Late' ? null : 'Late';
+                            });
+                          },
+                        ),
+                        _buildFilterOption(
+                          label: 'Absent',
+                          isSelected: tempAttendanceStatus == 'Absent',
+                          onTap: () {
+                            setModalState(() {
+                              tempAttendanceStatus = tempAttendanceStatus == 'Absent' ? null : 'Absent';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    Text(
+                      'Date',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final DateTime? picked = await showDatePicker(
+                                context: context,
+                                initialDate: tempDate ?? DateTime.now(),
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  tempDate = picked;
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: tempDate != null
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                color: tempDate != null
+                                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    tempDate != null
+                                        ? DateFormat('yyyy-MM-dd').format(tempDate!)
+                                        : 'Select a date',
+                                    style: TextStyle(
+                                      color: tempDate != null
+                                          ? Theme.of(context).colorScheme.primary
+                                          : null,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 20,
+                                    color: tempDate != null
+                                        ? Theme.of(context).colorScheme.primary
+                                        : null,
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.visibility),
-                              onPressed: () => _viewAttendance(worker),
-                              tooltip: 'View Attendance',
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _editWorker(index),
-                              tooltip: 'Edit Student',
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _deleteWorker(index),
-                              tooltip: 'Delete Student',
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
-                          ],
-                        ),
+                        if (tempDate != null)
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () {
+                              setModalState(() {
+                                tempDate = null;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Apply button
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setModalState(() {
+                            tempPeriod = null;
+                            tempGender = null;
+                            tempDate = null;
+                            tempAttendanceStatus = null;
+                          });
+                        },
+                        child: const Text('Reset'),
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            selectedPeriod = tempPeriod;
+                            selectedGender = tempGender;
+                            selectedDate = tempDate;
+                            selectedAttendanceStatus = tempAttendanceStatus;
+                            _filterWorkers();
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Apply', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildFilterOption({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Theme.of(context).colorScheme.primary : null,
+            fontWeight: isSelected ? FontWeight.bold : null,
+          ),
+        ),
+      ),
     );
   }
 } 

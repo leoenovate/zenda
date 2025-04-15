@@ -54,6 +54,17 @@ class MyApp extends StatelessWidget {
             borderSide: const BorderSide(color: Color(0xFF1E88E5)),
           ),
         ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white, // Text color
+            backgroundColor: const Color(0xFF1E88E5), // Button background color
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF1E88E5), // Text color for text buttons
+          ),
+        ),
       ),
       initialRoute: '/',
       routes: {

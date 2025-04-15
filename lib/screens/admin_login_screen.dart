@@ -105,7 +105,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Login'),
+                      : const Text('Login', style: TextStyle(color: Colors.white)),
                 ),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 16),
