@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/worker.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +12,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   List<Worker> workers = [];
   List<Worker> filteredWorkers = [];
   bool _isLoading = true;
@@ -22,17 +23,49 @@ class _HomeScreenState extends State<HomeScreen> {
   String? selectedGender;
   DateTime? selectedDate;
   String? selectedAttendanceStatus;
+  
+  // Animation controllers
+  late AnimationController _controller;
+  late Animation<double> _headerAnimation;
+  late Animation<double> _searchAnimation;
+  late Animation<double> _listAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadWorkers();
     _searchController.addListener(_filterWorkers);
+    
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    
+    _headerAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+    );
+    
+    _searchAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+    );
+    
+    _listAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+    );
+    
+    // Start animations after a short delay
+    Timer(const Duration(milliseconds: 300), () {
+      _controller.forward();
+    });
   }
   
   @override
   void dispose() {
     _searchController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -551,326 +584,331 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(
-              Icons.school,
-              color: Theme.of(context).colorScheme.primary,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'School Attendance System',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 8,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildSearchAndFilterBar(context),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Theme.of(context).colorScheme.background,
-                          Theme.of(context).colorScheme.surface,
-                        ],
+      backgroundColor: const Color(0xFF1E1E1E), // Dark background
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  // Animated Header
+                  FadeTransition(
+                    opacity: _headerAnimation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.2),
+                        end: Offset.zero,
+                      ).animate(_headerAnimation),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.school_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'School Attendance System',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    child: filteredWorkers.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No students match your filters',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: _resetFilters,
-                                icon: const Icon(Icons.refresh, color: Colors.white),
-                                label: const Text('Reset Filters', style: TextStyle(color: Colors.white)),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: filteredWorkers.length,
-                          itemBuilder: (context, index) {
-                            final worker = filteredWorkers[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 16),
+                  ),
+                  
+                  // Animated Search
+                  FadeTransition(
+                    opacity: _searchAnimation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.2),
+                        end: Offset.zero,
+                      ).animate(_searchAnimation),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: worker.period == 'Afternoon'
-                                          ? const Color(0xFF1E88E5)
-                                          : const Color(0xFFF5F5F5),
-                                      width: 4,
-                                    ),
-                                  ),
+                                  color: const Color(0xFF2A2A2A),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  leading: CircleAvatar(
-                                    backgroundColor: worker.period == 'Afternoon'
-                                        ? const Color(0xFF1E88E5).withOpacity(0.2)
-                                        : const Color(0xFFF5F5F5).withOpacity(0.2),
-                                    radius: 26,
-                                    child: Text(
-                                      worker.name[0],
-                                      style: TextStyle(
-                                        color: worker.period == 'Afternoon'
-                                            ? const Color(0xFF1E88E5)
-                                            : const Color(0xFFF5F5F5),
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    worker.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                  subtitle: Row(
-                                    children: [
-                                      Icon(
-                                        worker.period == 'Afternoon'
-                                            ? Icons.wb_sunny
-                                            : Icons.brightness_5,
-                                        color: worker.period == 'Afternoon'
-                                            ? const Color(0xFF1E88E5)
-                                            : const Color(0xFFF5F5F5),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        worker.period,
-                                        style: TextStyle(
-                                          color: worker.period == 'Afternoon'
-                                              ? const Color(0xFF1E88E5)
-                                              : const Color(0xFFF5F5F5),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      if (worker.gender != null)
-                                        Icon(
-                                          worker.gender == 'M' ? Icons.male : Icons.female,
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                          size: 16,
-                                        ),
-                                    ],
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility),
-                                        onPressed: () => _viewAttendance(worker),
-                                        tooltip: 'View Attendance',
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit),
-                                        onPressed: () => _editWorker(workers.indexOf(worker)),
-                                        tooltip: 'Edit Student',
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete),
-                                        onPressed: () => _deleteWorker(workers.indexOf(worker)),
-                                        tooltip: 'Delete Student',
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                      ),
-                                    ],
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Search by name or registration number',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    prefixIcon: Icon(Icons.search, color: Colors.grey),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(vertical: 16),
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: const Color(0xFF2A2A2A),
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                                  ),
+                                  builder: (context) => _buildFilterBottomSheet(context),
+                                );
+                              },
+                              icon: const Icon(Icons.filter_list, color: Colors.white),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFF2A2A2A),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-    );
-  }
-  
-  Widget _buildSearchAndFilterBar(BuildContext context) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or registration number',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _filterWorkers();
-                            },
+                  
+                  // Animated Content
+                  Expanded(
+                    child: FadeTransition(
+                      opacity: _listAnimation,
+                      child: filteredWorkers.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 64,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No students match your filters',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: _resetFilters,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Reset Filters'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(20),
+                            itemCount: filteredWorkers.length,
+                            itemBuilder: (context, index) {
+                              final worker = filteredWorkers[index];
+                              
+                              // Create a staggered animation for each list item
+                              return AnimatedBuilder(
+                                animation: _listAnimation,
+                                builder: (context, child) {
+                                  final itemAnimation = Tween<double>(
+                                    begin: 0.0,
+                                    end: 1.0,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: _controller,
+                                      curve: Interval(
+                                        0.4 + (index * 0.05).clamp(0.0, 0.5),
+                                        0.7 + (index * 0.05).clamp(0.0, 0.5),
+                                        curve: Curves.easeOut,
+                                      ),
+                                    ),
+                                  );
+                                  
+                                  return FadeTransition(
+                                    opacity: itemAnimation,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0, 0.2),
+                                        end: Offset.zero,
+                                      ).animate(itemAnimation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2A2A2A),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: Stack(
+                                        children: [
+                                          if (worker.period == 'Afternoon')
+                                            Positioned(
+                                              left: 0,
+                                              top: 0,
+                                              bottom: 0,
+                                              child: Container(
+                                                width: 4,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          ListTile(
+                                            contentPadding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+                                            leading: CircleAvatar(
+                                              backgroundColor: Colors.grey.shade800,
+                                              radius: 24,
+                                              child: Text(
+                                                worker.name[0].toUpperCase(),
+                                                style: TextStyle(
+                                                  color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                            title: Text(
+                                              worker.name.toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                            subtitle: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.brightness_5_rounded,
+                                                  color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                  size: 14,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  worker.period,
+                                                  style: TextStyle(
+                                                    color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                if (worker.gender != null)
+                                                  Icon(
+                                                    worker.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
+                                                    color: Colors.grey,
+                                                    size: 14,
+                                                  ),
+                                              ],
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                _buildActionButton(
+                                                  icon: Icons.visibility_rounded,
+                                                  color: const Color(0xFF2D3B55),
+                                                  onTap: () => _viewAttendance(worker),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                _buildActionButton(
+                                                  icon: Icons.edit_rounded,
+                                                  color: const Color(0xFF2D3B55),
+                                                  onTap: () => _editWorker(workers.indexOf(worker)),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                _buildActionButton(
+                                                  icon: Icons.delete_rounded,
+                                                  color: const Color(0xFF3D2D32),
+                                                  iconColor: Colors.redAccent,
+                                                  onTap: () => _deleteWorker(workers.indexOf(worker)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                    ),
-                    builder: (context) => _buildFilterBottomSheet(context),
-                  );
-                },
-                icon: const Icon(Icons.filter_list),
-                tooltip: 'Filter',
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(
-                      color: (selectedPeriod != null || selectedGender != null || 
-                              selectedDate != null || selectedAttendanceStatus != null)
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.transparent,
-                    ),
-                  ),
-                  backgroundColor: (selectedPeriod != null || selectedGender != null || 
-                                    selectedDate != null || selectedAttendanceStatus != null)
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                      : null,
-                ),
-              ),
-            ],
+      ),
+      floatingActionButton: FadeTransition(
+        opacity: _listAnimation,
+        child: ScaleTransition(
+          scale: _listAnimation,
+          child: FloatingActionButton(
+            backgroundColor: Colors.blue,
+            onPressed: () {
+              // Add a new student
+            },
+            child: const Icon(Icons.add, color: Colors.white),
           ),
-          if (selectedPeriod != null || selectedGender != null || 
-              selectedDate != null || selectedAttendanceStatus != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    if (selectedPeriod != null)
-                      _buildFilterChip(
-                        label: 'Class: $selectedPeriod',
-                        onRemove: () {
-                          setState(() {
-                            selectedPeriod = null;
-                            _filterWorkers();
-                          });
-                        },
-                      ),
-                    if (selectedGender != null)
-                      _buildFilterChip(
-                        label: 'Gender: ${selectedGender == 'M' ? 'Male' : 'Female'}',
-                        onRemove: () {
-                          setState(() {
-                            selectedGender = null;
-                            _filterWorkers();
-                          });
-                        },
-                      ),
-                    if (selectedDate != null)
-                      _buildFilterChip(
-                        label: 'Date: ${DateFormat('yyyy-MM-dd').format(selectedDate!)}',
-                        onRemove: () {
-                          setState(() {
-                            selectedDate = null;
-                            _filterWorkers();
-                          });
-                        },
-                      ),
-                    if (selectedAttendanceStatus != null)
-                      _buildFilterChip(
-                        label: 'Status: $selectedAttendanceStatus',
-                        onRemove: () {
-                          setState(() {
-                            selectedAttendanceStatus = null;
-                            _filterWorkers();
-                          });
-                        },
-                      ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: _resetFilters,
-                      child: const Text('Clear All'),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
   
-  Widget _buildFilterChip({required String label, required VoidCallback onRemove}) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Chip(
-        label: Text(label),
-        deleteIcon: const Icon(Icons.close, size: 16),
-        onDeleted: onRemove,
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    Color? iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(
+              icon,
+              color: iconColor ?? Colors.white,
+              size: 20,
+            ),
+          ),
+        ),
       ),
     );
   }
