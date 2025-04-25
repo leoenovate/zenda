@@ -12,6 +12,10 @@ class LogParser {
     
     final RegExp endpointRegex = RegExp(r'ENDPOINT:\s+([^\n]+)');
     final RegExp payloadRegex = RegExp(r'INFO\s+-\s+\{\s+"([^"]+)":\s+"([^"]+)"');
+    final RegExp deviceStatusRegex = RegExp(
+      r'endpoint:\s+"([^"]+)".+?\n\s+device_id:\s+"([^"]+)".+?\n\s+response.+?is_online:\s+(true|false)',
+      dotAll: true
+    );
     
     final matches = logEntryRegex.allMatches(logText);
     
@@ -34,13 +38,29 @@ class LogParser {
         fullEndpoint = endpointMatch.group(1) ?? endpoint;
       }
       
-      // Try to extract payload
+      // Try to extract device status information
       String payload = '';
-      final payloadMatch = payloadRegex.firstMatch(logText.substring(match.start));
-      if (payloadMatch != null) {
-        final key = payloadMatch.group(1);
-        final value = payloadMatch.group(2);
-        payload = '{ "$key": "$value" }';
+      String? deviceId;
+      
+      // Check for device status endpoint
+      if (endpoint.contains('device-status') || fullEndpoint.contains('device-status')) {
+        final deviceStatusMatch = deviceStatusRegex.firstMatch(logText.substring(match.start));
+        if (deviceStatusMatch != null) {
+          final matchedEndpoint = deviceStatusMatch.group(1);
+          deviceId = deviceStatusMatch.group(2);
+          final isOnline = deviceStatusMatch.group(3) == 'true';
+          
+          // Construct a JSON-like payload for device status
+          payload = '{"device_id": "$deviceId", "is_online": $isOnline}';
+        }
+      } else {
+        // Try to extract regular payload
+        final payloadMatch = payloadRegex.firstMatch(logText.substring(match.start));
+        if (payloadMatch != null) {
+          final key = payloadMatch.group(1);
+          final value = payloadMatch.group(2);
+          payload = '{ "$key": "$value" }';
+        }
       }
       
       // Parse timestamp
@@ -56,6 +76,7 @@ class LogParser {
         endpoint: fullEndpoint,
         statusCode: statusCode,
         payload: payload,
+        deviceId: deviceId,
       ));
     }
     

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/api_log.dart';
 import '../firebase_config.dart';
 import '../utils/log_parser.dart';
+import '../widgets/api_logs_chart.dart';
 import 'package:intl/intl.dart';
 
 class ApiLogsScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class ApiLogsScreen extends StatefulWidget {
   State<ApiLogsScreen> createState() => _ApiLogsScreenState();
 }
 
-class _ApiLogsScreenState extends State<ApiLogsScreen> {
+class _ApiLogsScreenState extends State<ApiLogsScreen> with SingleTickerProviderStateMixin {
   List<ApiLog> logs = [];
   bool isLoading = true;
   String? selectedEndpoint;
@@ -21,16 +22,21 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
   final TextEditingController _importController = TextEditingController();
   bool _isImporting = false;
   List<String> _importResults = [];
-
+  
+  // Tab controller
+  late TabController _tabController;
+  
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadLogs();
   }
   
   @override
   void dispose() {
     _importController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -267,6 +273,13 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
             tooltip: 'Refresh logs',
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.analytics_outlined), text: 'Charts'),
+            Tab(icon: Icon(Icons.list), text: 'Logs List'),
+          ],
+        ),
       ),
       backgroundColor: const Color(0xFF1A1A1A),
       body: Column(
@@ -386,251 +399,28 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
             ),
           ),
           
-          // Log list
+          // Tab content
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : logs.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.search_off_rounded,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No logs match your filters',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  selectedEndpoint = null;
-                                  selectedDate = null;
-                                  searchQuery = '';
-                                });
-                                _loadLogs();
-                              },
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Reset Filters'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: logs.length,
-                        padding: const EdgeInsets.all(16),
-                        itemBuilder: (context, index) {
-                          final log = logs[index];
-                          final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(log.timestamp);
-                          
-                          // Determine status color
-                          Color statusColor;
-                          if (log.statusCode >= 200 && log.statusCode < 300) {
-                            statusColor = Colors.green;
-                          } else if (log.statusCode >= 300 && log.statusCode < 400) {
-                            statusColor = Colors.amber;
-                          } else if (log.statusCode >= 400) {
-                            statusColor = Colors.red;
-                          } else {
-                            statusColor = Colors.grey;
-                          }
-                          
-                          return Card(
-                            color: const Color(0xFF2A2A2A),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ExpansionTile(
-                              title: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      log.statusCode.toString(),
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      log.endpoint,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      formattedDate,
-                                      style: TextStyle(
-                                        color: Colors.grey[400],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      log.ipAddress,
-                                      style: TextStyle(
-                                        color: Colors.grey[400],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text(
-                                            'Method:',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Text(
-                                            log.requestMethod,
-                                            style: const TextStyle(color: Colors.white),
-                                          ),
-                                        ],
-                                      ),
-                                      const Divider(color: Colors.grey),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text(
-                                            'Device ID:',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Text(
-                                            log.deviceId ?? 'N/A',
-                                            style: const TextStyle(color: Colors.white),
-                                          ),
-                                        ],
-                                      ),
-                                      const Divider(color: Colors.grey),
-                                      const Text(
-                                        'Payload:',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF212121),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                log.payload.length > 500
-                                                    ? '${log.payload.substring(0, 500)}...'
-                                                    : log.payload,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontFamily: 'monospace',
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.copy,
-                                                color: Colors.grey,
-                                                size: 18,
-                                              ),
-                                              onPressed: () => _copyToClipboard(log.payload),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (log.errorMessage != null) ...[
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          'Error:',
-                                          style: TextStyle(
-                                            color: Colors.red,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: Colors.red.withOpacity(0.3)),
-                                          ),
-                                          child: Text(
-                                            log.errorMessage!,
-                                            style: const TextStyle(
-                                              color: Colors.red,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Charts View
+                isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : logs.isEmpty
+                    ? _buildEmptyState()
+                    : SingleChildScrollView(
+                        child: ApiLogsChart(logs: logs),
                       ),
+                      
+                // List View (existing implementation)
+                isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : logs.isEmpty
+                    ? _buildEmptyState()
+                    : _buildLogsList(),
+              ],
+            ),
           ),
         ],
       ),
@@ -692,6 +482,290 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
         child: const Icon(Icons.delete_sweep, color: Colors.white),
         tooltip: 'Delete old logs',
       ),
+    );
+  }
+  
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No logs match your filters',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                selectedEndpoint = null;
+                selectedDate = null;
+                searchQuery = '';
+              });
+              _loadLogs();
+            },
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Reset Filters'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLogsList() {
+    return ListView.builder(
+      itemCount: logs.length,
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, index) {
+        final log = logs[index];
+        final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(log.timestamp);
+        
+        // Determine status color
+        Color statusColor;
+        if (log.statusCode >= 200 && log.statusCode < 300) {
+          statusColor = Colors.green;
+        } else if (log.statusCode >= 300 && log.statusCode < 400) {
+          statusColor = Colors.amber;
+        } else if (log.statusCode >= 400) {
+          statusColor = Colors.red;
+        } else {
+          statusColor = Colors.grey;
+        }
+        
+        return Card(
+          color: const Color(0xFF2A2A2A),
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ExpansionTile(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    log.statusCode.toString(),
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    log.endpoint,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    formattedDate,
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    log.ipAddress,
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Method:',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          log.requestMethod,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.grey),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Device ID:',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          log.deviceId ?? 'N/A',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.grey),
+                    
+                    // Add device status info if available
+                    if (log.endpoint.contains('device-status')) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Status:',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: log.payload.contains('true') ? Colors.green : Colors.red,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                log.payload.contains('true') ? 'Online' : 'Offline',
+                                style: TextStyle(
+                                  color: log.payload.contains('true') ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.grey),
+                    ],
+                    
+                    const Text(
+                      'Payload:',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF212121),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              log.payload.length > 500
+                                  ? '${log.payload.substring(0, 500)}...'
+                                  : log.payload,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.copy,
+                              color: Colors.grey,
+                              size: 18,
+                            ),
+                            onPressed: () => _copyToClipboard(log.payload),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (log.errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Error:',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          log.errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 } 
