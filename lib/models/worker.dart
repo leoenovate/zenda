@@ -17,6 +17,7 @@ enum AttendanceStatus {
 }
 
 class Worker {
+  final String? id;
   final String name;
   final String period;
   final String? registrationNumber;
@@ -34,6 +35,7 @@ class Worker {
   final List<Attendance> attendanceHistory;
 
   const Worker({
+    this.id,
     required this.name,
     required this.period,
     this.registrationNumber,
@@ -48,7 +50,7 @@ class Worker {
     this.district,
     this.sector,
     this.cell,
-    this.attendanceHistory = const [],
+    required this.attendanceHistory,
   });
 
   // Helper method to validate period

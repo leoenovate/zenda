@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/worker.dart';
 import 'package:intl/intl.dart';
+import '../firebase_config.dart' as firebase_service;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,17 +44,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     _headerAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
     );
     
     _searchAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+      curve: const Interval(0.2, 0.6, curve: Curves.easeOut),
     );
     
     _listAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+      curve: const Interval(0.3, 0.9, curve: Curves.easeOut),
     );
     
     // Start animations after a short delay
@@ -71,36 +72,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> _loadWorkers() async {
     try {
-      final jsonString = await rootBundle.loadString('assets/data.json');
-      final List<dynamic> jsonData = jsonDecode(jsonString);
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final List<Worker> loadedWorkers = await firebase_service.FirebaseService.getWorkers();
+      
       if (!mounted) return;
       setState(() {
-        workers = jsonData
-            .where((data) => data['LastName']?.isNotEmpty == true)
-            .map((data) => Worker(
-                  name: [
-                    data['LastName'] ?? '',
-                    data['middleName'] ?? '',
-                    data['Firstname'] ?? ''
-                  ].where((s) => s.isNotEmpty).join(' '),
-                  period: (data['Class']?.toString().toLowerCase() ?? '').contains('night')
-                      ? 'Afternoon'
-                      : 'Morning',
-                  registrationNumber: data['Registration_Number'],
-                  gender: data['Gender'],
-                  birthdate: data['Birthdate'],
-                  fatherName: data['Father_Names'],
-                  fatherPhone: data['Father_PhoneNumber'],
-                  motherName: data['Mother_Names'],
-                  motherPhone: data['Mother_PhoneNumber'],
-                  country: data['Country'],
-                  province: data['Province'],
-                  district: data['District'],
-                  sector: data['Sector'],
-                  cell: data['Cell'],
-                  attendanceHistory: [],
-                ))
-            .toList();
+        workers = loadedWorkers;
         filteredWorkers = List.from(workers);
         _isLoading = false;
       });
@@ -109,6 +89,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       setState(() {
         _isLoading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading workers: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
   
@@ -330,6 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _deleteWorker(int index) {
+    final worker = workers[index];
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -341,11 +328,35 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                workers.removeAt(index);
-              });
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                // Delete from Firebase
+                if (worker.id == null) {
+                  throw Exception('Worker ID not found');
+                }
+                await firebase_service.FirebaseService.deleteWorker(worker.id!);
+                
+                setState(() {
+                  workers.removeAt(index);
+                  _filterWorkers();
+                });
+                
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Student deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting student: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
@@ -581,6 +592,202 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _addWorker() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String name = '';
+        String registrationNumber = '';
+        String gender = 'M';
+        String birthdate = '';
+        String fatherName = '';
+        String fatherPhone = '';
+        String motherName = '';
+        String motherPhone = '';
+        String country = '';
+        String province = '';
+        String district = '';
+        String sector = '';
+        String cell = '';
+        String period = 'Morning';
+
+        return AlertDialog(
+          title: const Text('Add New Student'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Name *'),
+                  onChanged: (value) => name = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Registration Number *'),
+                  onChanged: (value) => registrationNumber = value,
+                ),
+                DropdownButtonFormField<String>(
+                  value: period,
+                  decoration: const InputDecoration(labelText: 'Session *'),
+                  items: ['Morning', 'Afternoon'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) period = value;
+                  },
+                ),
+                DropdownButtonFormField<String>(
+                  value: gender,
+                  decoration: const InputDecoration(labelText: 'Gender *'),
+                  items: ['M', 'F'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value == 'M' ? 'Male' : 'Female'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) gender = value;
+                  },
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Birthdate (YYYY-MM-DD)'),
+                  onChanged: (value) => birthdate = value,
+                ),
+                const Divider(),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Father\'s Name'),
+                  onChanged: (value) => fatherName = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Father\'s Phone'),
+                  onChanged: (value) => fatherPhone = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Mother\'s Name'),
+                  onChanged: (value) => motherName = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Mother\'s Phone'),
+                  onChanged: (value) => motherPhone = value,
+                ),
+                const Divider(),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Country'),
+                  onChanged: (value) => country = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Province'),
+                  onChanged: (value) => province = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'District'),
+                  onChanged: (value) => district = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Sector'),
+                  onChanged: (value) => sector = value,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Cell'),
+                  onChanged: (value) => cell = value,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (name.isEmpty || registrationNumber.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Name and Registration Number are required'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                
+                final workerData = {
+                  'name': name,
+                  'period': period,
+                  'registrationNumber': registrationNumber,
+                  'gender': gender,
+                  'birthdate': birthdate,
+                  'fatherName': fatherName,
+                  'fatherPhone': fatherPhone,
+                  'motherName': motherName,
+                  'motherPhone': motherPhone,
+                  'country': country,
+                  'province': province,
+                  'district': district,
+                  'sector': sector,
+                  'cell': cell,
+                  'attendanceHistory': [], // Empty array for new students
+                  'createdAt': DateTime.now().toIso8601String(), // Add creation timestamp
+                };
+
+                try {
+                  // Add to Firebase
+                  final String workerId = await firebase_service.FirebaseService.addWorker(workerData);
+
+                  final worker = Worker(
+                    id: workerId,
+                    name: name,
+                    period: period,
+                    registrationNumber: registrationNumber,
+                    gender: gender,
+                    birthdate: birthdate,
+                    fatherName: fatherName,
+                    fatherPhone: fatherPhone,
+                    motherName: motherName,
+                    motherPhone: motherPhone,
+                    country: country,
+                    province: province,
+                    district: district,
+                    sector: sector,
+                    cell: cell,
+                    attendanceHistory: [], // Required field for Worker constructor
+                  );
+
+                  setState(() {
+                    workers.add(worker);
+                    _filterWorkers();
+                  });
+
+                  Navigator.pop(context);
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Student added successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error adding student: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -744,8 +951,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     CurvedAnimation(
                                       parent: _controller,
                                       curve: Interval(
-                                        0.4 + (index * 0.05).clamp(0.0, 0.5),
-                                        0.7 + (index * 0.05).clamp(0.0, 0.5),
+                                        0.3 + (index * 0.05).clamp(0.0, 0.5),
+                                        0.6 + (index * 0.05).clamp(0.0, 0.5),
                                         curve: Curves.easeOut,
                                       ),
                                     ),
@@ -874,9 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           scale: _listAnimation,
           child: FloatingActionButton(
             backgroundColor: Colors.blue,
-            onPressed: () {
-              // Add a new student
-            },
+            onPressed: _addWorker,
             child: const Icon(Icons.add, color: Colors.white),
           ),
         ),

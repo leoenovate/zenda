@@ -144,7 +144,11 @@ class _ParentLoginScreenState extends State<ParentLoginScreen>
       (worker) => 
         worker.fatherPhone == phoneNumber || 
         worker.motherPhone == phoneNumber,
-      orElse: () => Worker(name: '', period: ''),
+      orElse: () => Worker(
+        name: '',
+        period: '',
+        attendanceHistory: [],
+      ),
     );
     
     if (matchedWorker.name.isNotEmpty) {
