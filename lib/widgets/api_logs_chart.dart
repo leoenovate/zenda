@@ -167,7 +167,6 @@ class ApiLogsChart extends StatelessWidget {
           lineBarsData: _createStatusCodeLineBars(sortedLogs, endpointColors),
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              tooltipBgColor: const Color(0xff2C2C2C),
               getTooltipItems: (List<LineBarSpot> touchedSpots) {
                 return touchedSpots.map((spot) {
                   final index = spot.x.toInt();
@@ -337,7 +336,6 @@ class ApiLogsChart extends StatelessWidget {
           ],
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              tooltipBgColor: const Color(0xff2C2C2C),
               getTooltipItems: (List<LineBarSpot> touchedSpots) {
                 return touchedSpots.map((spot) {
                   final index = spot.x.toInt();
