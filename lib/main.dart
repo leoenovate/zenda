@@ -6,6 +6,7 @@ import 'models/worker.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/api_logs_screen.dart';
 import 'firebase_config.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -80,6 +81,7 @@ class MyApp extends StatelessWidget {
         '/parent-login': (context) => const ParentLoginScreen(),
         '/admin': (context) => const HomeScreen(),
         '/parent-dashboard': (context) => const ParentDashboardScreen(),
+        '/api-logs': (context) => const ApiLogsScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
