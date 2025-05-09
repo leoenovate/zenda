@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'dart:developer' as developer;
 
 class FingerprintStep extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -28,14 +27,14 @@ class _FingerprintStepState extends State<FingerprintStep> {
 
   @override
   void dispose() {
-    developer.log('Disposing FingerprintStep, cleaning up resources');
+    print('[Fingerprint] Disposing and cleaning up resources');
     _fingerprintSubscription?.cancel();
     _timeoutTimer?.cancel();
     super.dispose();
   }
 
   void _startTimeoutTimer() {
-    developer.log('Starting timeout timer: ${timeoutDuration.inSeconds} seconds');
+    print('[Fingerprint] Starting timeout timer: ${timeoutDuration.inSeconds} seconds');
     final totalTicks = timeoutDuration.inMilliseconds ~/ timeoutTickInterval.inMilliseconds;
     int currentTick = 0;
     
@@ -48,18 +47,18 @@ class _FingerprintStepState extends State<FingerprintStep> {
       
       // Log every 10 seconds
       if (currentTick % 100 == 0) {
-        developer.log('Timeout progress: ${(_timeoutProgress * 100).toStringAsFixed(1)}% remaining (${(_timeoutProgress * timeoutDuration.inSeconds).round()} seconds)');
+        print('[Fingerprint] Progress: ${(_timeoutProgress * 100).toStringAsFixed(1)}% remaining (${(_timeoutProgress * timeoutDuration.inSeconds).round()}s)');
       }
       
       if (currentTick >= totalTicks) {
-        developer.log('Timeout timer completed');
+        print('[Fingerprint] Timeout timer completed');
         timer.cancel();
       }
     });
   }
 
   Future<void> _startFingerprintScan() async {
-    developer.log('Starting fingerprint scan process');
+    print('[Fingerprint] Starting scan process');
     setState(() {
       _isScanning = true;
       _errorMessage = null;
@@ -68,8 +67,7 @@ class _FingerprintStepState extends State<FingerprintStep> {
     
     _startTimeoutTimer();
     
-    // Show fingerprint scanning dialog
-    developer.log('Showing fingerprint scanning dialog');
+    print('[Fingerprint] Showing scanning dialog');
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -99,10 +97,9 @@ class _FingerprintStepState extends State<FingerprintStep> {
       ),
     );
 
-    // Start listening for new fingerprint documents
-    developer.log('Starting Firestore listener for fingerprint collection');
+    print('[Fingerprint] Starting Firestore listener');
     final timestamp = DateTime.now();
-    developer.log('Reference timestamp: ${timestamp.toIso8601String()}');
+    print('[Fingerprint] Reference timestamp: ${timestamp.toIso8601String()}');
     
     _fingerprintSubscription = FirebaseFirestore.instance
         .collection('fingerprints')
@@ -113,40 +110,38 @@ class _FingerprintStepState extends State<FingerprintStep> {
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final data = doc.data() as Map<String, dynamic>;
-            developer.log('Received fingerprint document: ${doc.id}');
+            print('[Fingerprint] Received document: ${doc.id}');
             
-            // Check if this is a new fingerprint (after we started scanning)
             if (data['timestamp'] != null) {
               final fingerprintTimestamp = (data['timestamp'] as Timestamp).toDate();
-              developer.log('Fingerprint timestamp: ${fingerprintTimestamp.toIso8601String()}');
+              print('[Fingerprint] Document timestamp: ${fingerprintTimestamp.toIso8601String()}');
               
               if (fingerprintTimestamp.isAfter(timestamp)) {
-                developer.log('New fingerprint detected! Processing...');
-                // We found a new fingerprint
+                print('[Fingerprint] New fingerprint detected!');
                 _fingerprintSubscription?.cancel();
                 _timeoutTimer?.cancel();
                 
-                developer.log('Sample data length: ${data['fingerprint_sample'].toString().length} characters');
+                print('[Fingerprint] Fingerprint base64: ${data}');
                 widget.onChanged('fingerprintData', data['fingerprint_sample']);
                 widget.onChanged('fingerprintTimestamp', fingerprintTimestamp.toIso8601String());
                 
-                developer.log('Fingerprint capture successful, closing dialog');
-                Navigator.pop(context); // Close scanning dialog
+                print('[Fingerprint] Capture successful');
+                Navigator.pop(context);
                 setState(() {
                   _isScanning = false;
                   _errorMessage = null;
                 });
               } else {
-                developer.log('Received old fingerprint document, continuing to wait...');
+                print('[Fingerprint] Old document, continuing to wait...');
               }
             } else {
-              developer.log('Warning: Fingerprint document missing timestamp field');
+              print('[Fingerprint] Warning: Document missing timestamp field');
             }
           } else {
-            developer.log('No fingerprint documents found in snapshot');
+            print('[Fingerprint] No documents found in snapshot');
           }
         }, onError: (error) {
-          developer.log('Error in Firestore listener: $error', error: error, stackTrace: StackTrace.current);
+          print('[Fingerprint] Error in Firestore listener: $error');
           _timeoutTimer?.cancel();
           setState(() {
             _errorMessage = 'Error connecting to fingerprint scanner';
@@ -155,11 +150,10 @@ class _FingerprintStepState extends State<FingerprintStep> {
           Navigator.pop(context);
         });
 
-    // Timeout after 2 minutes
-    developer.log('Starting timeout countdown');
+    print('[Fingerprint] Starting timeout countdown');
     await Future.delayed(timeoutDuration);
     if (_isScanning) {
-      developer.log('Scan timed out after ${timeoutDuration.inSeconds} seconds');
+      print('[Fingerprint] Scan timed out after ${timeoutDuration.inSeconds} seconds');
       _fingerprintSubscription?.cancel();
       _timeoutTimer?.cancel();
       Navigator.pop(context);
@@ -192,7 +186,7 @@ class _FingerprintStepState extends State<FingerprintStep> {
             color: Colors.transparent,
             child: InkWell(
               onTap: _isScanning ? null : () {
-                developer.log('Fingerprint scan button clicked');
+                print('[Fingerprint] Fingerprint scan button clicked');
                 _startFingerprintScan();
               },
               borderRadius: BorderRadius.circular(120),
@@ -203,129 +197,34 @@ class _FingerprintStepState extends State<FingerprintStep> {
                   color: Colors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _isScanning 
-                      ? Colors.blue 
-                      : widget.formData['fingerprintData'] != null
-                        ? Colors.green
-                        : Colors.blue,
+                    color: Colors.blue,
                     width: 2,
                   ),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_isScanning)
-                      SizedBox(
-                        width: 240,
-                        height: 240,
-                        child: CircularProgressIndicator(
-                          value: _timeoutProgress,
-                          strokeWidth: 2,
-                          backgroundColor: Colors.grey.withOpacity(0.2),
-                        ),
+                    Icon(
+                      Icons.fingerprint,
+                      size: 64,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isScanning 
+                        ? 'Scanning...' 
+                        : widget.formData['fingerprintData'] != null
+                          ? 'Fingerprint captured'
+                          : 'Click to scan fingerprint',
+                      style: TextStyle(
+                        color: _isScanning 
+                          ? Colors.blue
+                          : widget.formData['fingerprintData'] != null
+                            ? Colors.green
+                            : Colors.grey[800],
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isScanning) ...[
-                          const Icon(
-                            Icons.fingerprint,
-                            size: 64,
-                            color: Colors.blue,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Scanning... ${(_timeoutProgress * 120).round()}s',
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ] else if (widget.formData['fingerprintData'] != null) ...[
-                          const Icon(
-                            Icons.check_circle_outline,
-                            size: 64,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Fingerprint captured',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (widget.formData['fingerprintTimestamp'] != null) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                DateTime.parse(widget.formData['fingerprintTimestamp'])
-                                    .toLocal()
-                                    .toString()
-                                    .split('.')[0],
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Fingerprint Data:',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    widget.formData['fingerprintData'].toString(),
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 10,
-                                      fontFamily: 'monospace',
-                                    ),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ] else ...[
-                          const Icon(
-                            Icons.fingerprint,
-                            size: 64,
-                            color: Colors.black54,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Click to scan fingerprint',
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
                     ),
                   ],
                 ),
@@ -337,7 +236,7 @@ class _FingerprintStepState extends State<FingerprintStep> {
         if (widget.formData['fingerprintData'] != null)
           OutlinedButton.icon(
             onPressed: _isScanning ? null : () {
-              developer.log('Scan Again button clicked');
+              print('[Fingerprint] Scan Again button clicked');
               _startFingerprintScan();
             },
             icon: const Icon(Icons.refresh),
