@@ -1,22 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:zenda/models/attendance.dart';
 
-class Attendance {
-  final DateTime date;
-  final AttendanceStatus status;
-
-  const Attendance({
-    required this.date,
-    required this.status,
-  });
-}
-
-enum AttendanceStatus {
-  present,
-  late,
-  absent,
-}
-
-class Worker {
+class Student {
   final String? id;
   final String name;
   final String period;
@@ -34,7 +19,7 @@ class Worker {
   final String? cell;
   final List<Attendance> attendanceHistory;
 
-  const Worker({
+  const Student({
     this.id,
     required this.name,
     required this.period,

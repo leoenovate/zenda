@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
-import 'parent_screens.dart';
-import 'models/worker.dart';
-import 'screens/welcome_screen.dart';
-import 'screens/admin_login_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/api_logs_screen.dart';
-import 'firebase_config.dart';
-import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +21,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.dark(
-          primary: const Color(0xFF1E88E5), // School blue
-          secondary: const Color(0xFFF5F5F5), // Light gray/white
+          primary: const Color(0xFF1E88E5),
+          secondary: const Color(0xFFF5F5F5),
           surface: const Color(0xFF2A2A2A),
           background: const Color(0xFF1A1A1A),
           onPrimary: Colors.white,
@@ -46,42 +38,10 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF2A2A2A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1E88E5)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: const Color(0xFFF5F5F5).withOpacity(0.1)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1E88E5)),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white, // Text color
-            backgroundColor: const Color(0xFF1E88E5), // Button background color
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF1E88E5), // Text color for text buttons
-          ),
-        ),
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const WelcomeScreen(),
-        '/admin-login': (context) => const AdminLoginScreen(),
-        '/parent-login': (context) => const ParentLoginScreen(),
-        '/admin': (context) => const HomeScreen(),
-        '/parent-dashboard': (context) => const ParentDashboardScreen(),
-        '/api-logs': (context) => const ApiLogsScreen(),
+        '/': (context) => const HomeScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

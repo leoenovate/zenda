@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
-import '../models/worker.dart';
+import '../models/student.dart';
+import '../models/attendance.dart';
 import 'package:intl/intl.dart';
-import '../firebase_config.dart' as firebase_service;
+import '../services/firebase_service.dart';
+import '../widgets/student_form/add_student_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,8 +16,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  List<Worker> workers = [];
-  List<Worker> filteredWorkers = [];
+  List<Student> students = [];
+  List<Student> filteredStudents = [];
   bool _isLoading = true;
   
   // Search and filter variables
@@ -34,8 +36,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _loadWorkers();
-    _searchController.addListener(_filterWorkers);
+    _loadStudents();
+    _searchController.addListener(_filterStudents);
     
     _controller = AnimationController(
       vsync: this,
@@ -70,18 +72,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _loadWorkers() async {
+  Future<void> _loadStudents() async {
     try {
       setState(() {
         _isLoading = true;
       });
       
-      final List<Worker> loadedWorkers = await firebase_service.FirebaseService.getWorkers();
+      final List<Student> loadedStudents = await FirebaseService.getStudents();
       
       if (!mounted) return;
       setState(() {
-        workers = loadedWorkers;
-        filteredWorkers = List.from(workers);
+        students = loadedStudents;
+        filteredStudents = List.from(students);
         _isLoading = false;
       });
     } catch (e) {
@@ -91,32 +93,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error loading workers: $e'),
+          content: Text('Error loading students: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
   
-  void _filterWorkers() {
+  void _filterStudents() {
     setState(() {
-      filteredWorkers = workers.where((worker) {
+      filteredStudents = students.where((student) {
         // Search by name, registration number
         final query = _searchController.text.toLowerCase();
         final matchesSearch = query.isEmpty || 
-            worker.name.toLowerCase().contains(query) || 
-            (worker.registrationNumber?.toLowerCase().contains(query) ?? false);
+            student.name.toLowerCase().contains(query) || 
+            (student.registrationNumber?.toLowerCase().contains(query) ?? false);
         
         // Filter by period (class)
-        final matchesPeriod = selectedPeriod == null || worker.period == selectedPeriod;
+        final matchesPeriod = selectedPeriod == null || student.period == selectedPeriod;
         
         // Filter by gender
-        final matchesGender = selectedGender == null || worker.gender == selectedGender;
+        final matchesGender = selectedGender == null || student.gender == selectedGender;
         
         // Filter by attendance date
         bool matchesDate = true;
-        if (selectedDate != null && worker.attendanceHistory.isNotEmpty) {
-          matchesDate = worker.attendanceHistory.any((attendance) => 
+        if (selectedDate != null && student.attendanceHistory.isNotEmpty) {
+          matchesDate = student.attendanceHistory.any((attendance) => 
             attendance.date.year == selectedDate!.year && 
             attendance.date.month == selectedDate!.month && 
             attendance.date.day == selectedDate!.day);
@@ -124,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         
         // Filter by attendance status
         bool matchesStatus = true;
-        if (selectedAttendanceStatus != null && worker.attendanceHistory.isNotEmpty) {
+        if (selectedAttendanceStatus != null && student.attendanceHistory.isNotEmpty) {
           AttendanceStatus status;
           switch (selectedAttendanceStatus) {
             case 'Present':
@@ -139,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             default:
               status = AttendanceStatus.present;
           }
-          matchesStatus = worker.attendanceHistory.any((attendance) => 
+          matchesStatus = student.attendanceHistory.any((attendance) => 
             attendance.status == status);
         }
         
@@ -155,29 +157,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       selectedGender = null;
       selectedDate = null;
       selectedAttendanceStatus = null;
-      filteredWorkers = List.from(workers);
+      filteredStudents = List.from(students);
     });
   }
 
-  void _editWorker(int index) {
-    final worker = workers[index];
+  void _editStudent(int index) {
+    final student = students[index];
     showDialog(
       context: context,
       builder: (context) {
-        String name = worker.name;
-        String registrationNumber = worker.registrationNumber ?? '';
-        String gender = worker.gender ?? '';
-        String birthdate = worker.birthdate ?? '';
-        String fatherName = worker.fatherName ?? '';
-        String fatherPhone = worker.fatherPhone ?? '';
-        String motherName = worker.motherName ?? '';
-        String motherPhone = worker.motherPhone ?? '';
-        String country = worker.country ?? '';
-        String province = worker.province ?? '';
-        String district = worker.district ?? '';
-        String sector = worker.sector ?? '';
-        String cell = worker.cell ?? '';
-        String period = worker.period;
+        String name = student.name;
+        String registrationNumber = student.registrationNumber ?? '';
+        String gender = student.gender ?? '';
+        String birthdate = student.birthdate ?? '';
+        String fatherName = student.fatherName ?? '';
+        String fatherPhone = student.fatherPhone ?? '';
+        String motherName = student.motherName ?? '';
+        String motherPhone = student.motherPhone ?? '';
+        String country = student.country ?? '';
+        String province = student.province ?? '';
+        String district = student.district ?? '';
+        String sector = student.sector ?? '';
+        String cell = student.cell ?? '';
+        String period = student.period;
 
         return AlertDialog(
           title: const Text('Edit Student'),
@@ -284,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             TextButton(
               onPressed: () {
                 setState(() {
-                  workers[index] = Worker(
+                  students[index] = Student(
                     name: name,
                     period: period,
                     registrationNumber: registrationNumber,
@@ -299,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     district: district,
                     sector: sector,
                     cell: cell,
-                    attendanceHistory: worker.attendanceHistory,
+                    attendanceHistory: student.attendanceHistory,
                   );
                 });
                 Navigator.pop(context);
@@ -315,8 +317,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _deleteWorker(int index) {
-    final worker = workers[index];
+  void _deleteStudent(int index) {
+    final student = students[index];
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -331,14 +333,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             onPressed: () async {
               try {
                 // Delete from Firebase
-                if (worker.id == null) {
-                  throw Exception('Worker ID not found');
+                if (student.id == null) {
+                  throw Exception('Student ID not found');
                 }
-                await firebase_service.FirebaseService.deleteWorker(worker.id!);
+                await FirebaseService.deleteStudent(student.id!);
                 
                 setState(() {
-                  workers.removeAt(index);
-                  _filterWorkers();
+                  students.removeAt(index);
+                  _filterStudents();
                 });
                 
                 Navigator.pop(context);
@@ -368,8 +370,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _viewAttendance(Worker worker) {
-    final attendanceData = worker.attendanceHistory.isEmpty ? [
+  void _viewAttendance(Student student) {
+    final attendanceData = student.attendanceHistory.isEmpty ? [
       Attendance(date: DateTime.now().subtract(const Duration(days: 6)), status: AttendanceStatus.present),
       Attendance(date: DateTime.now().subtract(const Duration(days: 5)), status: AttendanceStatus.present),
       Attendance(date: DateTime.now().subtract(const Duration(days: 4)), status: AttendanceStatus.late),
@@ -377,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       Attendance(date: DateTime.now().subtract(const Duration(days: 2)), status: AttendanceStatus.absent),
       Attendance(date: DateTime.now().subtract(const Duration(days: 1)), status: AttendanceStatus.present),
       Attendance(date: DateTime.now(), status: AttendanceStatus.present),
-    ] : worker.attendanceHistory;
+    ] : student.attendanceHistory;
 
     int present = attendanceData.where((a) => a.status == AttendanceStatus.present).length;
     int late = attendanceData.where((a) => a.status == AttendanceStatus.late).length;
@@ -397,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: worker.period == 'Afternoon'
+              color: student.period == 'Afternoon'
                   ? const Color(0xFF1E88E5)
                   : const Color(0xFFF5F5F5),
               width: 2,
@@ -410,10 +412,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Row(
                 children: [
                   Icon(
-                    worker.period == 'Afternoon'
+                    student.period == 'Afternoon'
                         ? Icons.wb_sunny
                         : Icons.brightness_5,
-                    color: worker.period == 'Afternoon'
+                    color: student.period == 'Afternoon'
                         ? const Color(0xFF1E88E5)
                         : const Color(0xFFF5F5F5),
                     size: 24,
@@ -421,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '${worker.name} Attendance',
+                      '${student.name} Attendance',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -490,6 +492,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                   AttendanceStatus.present => Colors.green.withOpacity(0.7),
                                   AttendanceStatus.late => Colors.orange.withOpacity(0.7),
                                   AttendanceStatus.absent => Colors.red.withOpacity(0.7),
+                                  _ => Colors.grey.withOpacity(0.7),
                                 },
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -527,6 +530,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               AttendanceStatus.present => Colors.green.withOpacity(0.1),
                               AttendanceStatus.late => Colors.orange.withOpacity(0.1),
                               AttendanceStatus.absent => Colors.red.withOpacity(0.1),
+                              _ => Colors.grey.withOpacity(0.1),
                             },
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -535,11 +539,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               AttendanceStatus.present => Icons.check_circle,
                               AttendanceStatus.late => Icons.access_time,
                               AttendanceStatus.absent => Icons.cancel,
+                              _ => Icons.help_outline,
                             },
                             color: switch (attendance.status) {
                               AttendanceStatus.present => Colors.green,
                               AttendanceStatus.late => Colors.orange,
                               AttendanceStatus.absent => Colors.red,
+                              _ => Colors.grey,
                             },
                             size: 20,
                           ),
@@ -553,6 +559,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             AttendanceStatus.present => 'Present',
                             AttendanceStatus.late => 'Late',
                             AttendanceStatus.absent => 'Absent',
+                            _ => 'Unknown',
                           },
                         ),
                       ),
@@ -592,199 +599,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _addWorker() {
+  void _addStudent() {
     showDialog(
       context: context,
-      builder: (context) {
-        String name = '';
-        String registrationNumber = '';
-        String gender = 'M';
-        String birthdate = '';
-        String fatherName = '';
-        String fatherPhone = '';
-        String motherName = '';
-        String motherPhone = '';
-        String country = '';
-        String province = '';
-        String district = '';
-        String sector = '';
-        String cell = '';
-        String period = 'Morning';
-
-        return AlertDialog(
-          title: const Text('Add New Student'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Name *'),
-                  onChanged: (value) => name = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Registration Number *'),
-                  onChanged: (value) => registrationNumber = value,
-                ),
-                DropdownButtonFormField<String>(
-                  value: period,
-                  decoration: const InputDecoration(labelText: 'Session *'),
-                  items: ['Morning', 'Afternoon'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) period = value;
-                  },
-                ),
-                DropdownButtonFormField<String>(
-                  value: gender,
-                  decoration: const InputDecoration(labelText: 'Gender *'),
-                  items: ['M', 'F'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value == 'M' ? 'Male' : 'Female'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) gender = value;
-                  },
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Birthdate (YYYY-MM-DD)'),
-                  onChanged: (value) => birthdate = value,
-                ),
-                const Divider(),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Father\'s Name'),
-                  onChanged: (value) => fatherName = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Father\'s Phone'),
-                  onChanged: (value) => fatherPhone = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Mother\'s Name'),
-                  onChanged: (value) => motherName = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Mother\'s Phone'),
-                  onChanged: (value) => motherPhone = value,
-                ),
-                const Divider(),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Country'),
-                  onChanged: (value) => country = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Province'),
-                  onChanged: (value) => province = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'District'),
-                  onChanged: (value) => district = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Sector'),
-                  onChanged: (value) => sector = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Cell'),
-                  onChanged: (value) => cell = value,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (name.isEmpty || registrationNumber.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Name and Registration Number are required'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                
-                final workerData = {
-                  'name': name,
-                  'period': period,
-                  'registrationNumber': registrationNumber,
-                  'gender': gender,
-                  'birthdate': birthdate,
-                  'fatherName': fatherName,
-                  'fatherPhone': fatherPhone,
-                  'motherName': motherName,
-                  'motherPhone': motherPhone,
-                  'country': country,
-                  'province': province,
-                  'district': district,
-                  'sector': sector,
-                  'cell': cell,
-                  'attendanceHistory': [], // Empty array for new students
-                  'createdAt': DateTime.now().toIso8601String(), // Add creation timestamp
-                };
-
-                try {
-                  // Add to Firebase
-                  final String workerId = await firebase_service.FirebaseService.addWorker(workerData);
-
-                  final worker = Worker(
-                    id: workerId,
-                    name: name,
-                    period: period,
-                    registrationNumber: registrationNumber,
-                    gender: gender,
-                    birthdate: birthdate,
-                    fatherName: fatherName,
-                    fatherPhone: fatherPhone,
-                    motherName: motherName,
-                    motherPhone: motherPhone,
-                    country: country,
-                    province: province,
-                    district: district,
-                    sector: sector,
-                    cell: cell,
-                    attendanceHistory: [], // Required field for Worker constructor
-                  );
-
-                  setState(() {
-                    workers.add(worker);
-                    _filterWorkers();
-                  });
-
-                  Navigator.pop(context);
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Student added successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error adding student: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-              ),
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AddStudentDialog(
+        onStudentAdded: (student) {
+          setState(() {
+            students.add(student);
+            _filterStudents();
+          });
+        },
+      ),
     );
   }
 
@@ -911,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Expanded(
                     child: FadeTransition(
                       opacity: _listAnimation,
-                      child: filteredWorkers.isEmpty
+                      child: filteredStudents.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -948,9 +773,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.all(20),
-                            itemCount: filteredWorkers.length,
+                            itemCount: filteredStudents.length,
                             itemBuilder: (context, index) {
-                              final worker = filteredWorkers[index];
+                              final student = filteredStudents[index];
                               
                               // Create a staggered animation for each list item
                               return AnimatedBuilder(
@@ -993,7 +818,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                       color: Colors.transparent,
                                       child: Stack(
                                         children: [
-                                          if (worker.period == 'Afternoon')
+                                          if (student.period == 'Afternoon')
                                             Positioned(
                                               left: 0,
                                               top: 0,
@@ -1009,16 +834,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                               backgroundColor: Colors.grey.shade800,
                                               radius: 24,
                                               child: Text(
-                                                worker.name[0].toUpperCase(),
+                                                student.name[0].toUpperCase(),
                                                 style: TextStyle(
-                                                  color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
                                                   fontSize: 20,
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
                                             ),
                                             title: Text(
-                                              worker.name.toUpperCase(),
+                                              student.name.toUpperCase(),
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
@@ -1030,21 +855,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                               children: [
                                                 Icon(
                                                   Icons.brightness_5_rounded,
-                                                  color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
                                                   size: 14,
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  worker.period,
+                                                  student.period,
                                                   style: TextStyle(
-                                                    color: worker.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                                                    color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
                                                     fontSize: 12,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 16),
-                                                if (worker.gender != null)
+                                                if (student.gender != null)
                                                   Icon(
-                                                    worker.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
+                                                    student.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
                                                     color: Colors.grey,
                                                     size: 14,
                                                   ),
@@ -1056,20 +881,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                                 _buildActionButton(
                                                   icon: Icons.visibility_rounded,
                                                   color: const Color(0xFF2D3B55),
-                                                  onTap: () => _viewAttendance(worker),
+                                                  onTap: () => _viewAttendance(student),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 _buildActionButton(
                                                   icon: Icons.edit_rounded,
                                                   color: const Color(0xFF2D3B55),
-                                                  onTap: () => _editWorker(workers.indexOf(worker)),
+                                                  onTap: () => _editStudent(students.indexOf(student)),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 _buildActionButton(
                                                   icon: Icons.delete_rounded,
                                                   color: const Color(0xFF3D2D32),
                                                   iconColor: Colors.redAccent,
-                                                  onTap: () => _deleteWorker(workers.indexOf(worker)),
+                                                  onTap: () => _deleteStudent(students.indexOf(student)),
                                                 ),
                                               ],
                                             ),
@@ -1093,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           scale: _listAnimation,
           child: FloatingActionButton(
             backgroundColor: Colors.blue,
-            onPressed: _addWorker,
+            onPressed: _addStudent,
             child: const Icon(Icons.add, color: Colors.white),
           ),
         ),
@@ -1376,7 +1201,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             selectedGender = tempGender;
                             selectedDate = tempDate;
                             selectedAttendanceStatus = tempAttendanceStatus;
-                            _filterWorkers();
+                            _filterStudents();
                           });
                           Navigator.pop(context);
                         },
