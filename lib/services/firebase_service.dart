@@ -47,6 +47,8 @@ class FirebaseService {
           district: data['district'],
           sector: data['sector'],
           cell: data['cell'],
+          fingerprintData: data['fingerprintData'],
+          fingerprintTimestamp: data['fingerprintTimestamp'],
           attendanceHistory: (data['attendanceHistory'] as List<dynamic>? ?? []).map((attendance) {
             return Attendance(
               date: DateTime.parse(attendance['date']),

@@ -18,6 +18,8 @@ class Student {
   final String? sector;
   final String? cell;
   final List<Attendance> attendanceHistory;
+  final String? fingerprintData;
+  final String? fingerprintTimestamp;
 
   const Student({
     this.id,
@@ -36,6 +38,8 @@ class Student {
     this.sector,
     this.cell,
     required this.attendanceHistory,
+    this.fingerprintData,
+    this.fingerprintTimestamp,
   });
 
   // Helper method to validate period

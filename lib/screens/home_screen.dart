@@ -7,6 +7,7 @@ import '../models/attendance.dart';
 import 'package:intl/intl.dart';
 import '../services/firebase_service.dart';
 import '../widgets/student_form/add_student_dialog.dart';
+import '../widgets/student_form/student_form_stepper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -163,157 +164,113 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _editStudent(int index) {
     final student = students[index];
+    final Map<String, dynamic> formData = {
+      'name': student.name,
+      'registrationNumber': student.registrationNumber ?? '',
+      'gender': student.gender ?? 'M',
+      'birthdate': student.birthdate ?? '',
+      'period': student.period,
+      'fatherName': student.fatherName ?? '',
+      'fatherPhone': student.fatherPhone ?? '',
+      'motherName': student.motherName ?? '',
+      'motherPhone': student.motherPhone ?? '',
+      'country': student.country ?? '',
+      'province': student.province ?? '',
+      'district': student.district ?? '',
+      'sector': student.sector ?? '',
+      'cell': student.cell ?? '',
+      'fingerprintData': student.fingerprintData,
+      'fingerprintTimestamp': student.fingerprintTimestamp,
+    };
+
     showDialog(
       context: context,
-      builder: (context) {
-        String name = student.name;
-        String registrationNumber = student.registrationNumber ?? '';
-        String gender = student.gender ?? '';
-        String birthdate = student.birthdate ?? '';
-        String fatherName = student.fatherName ?? '';
-        String fatherPhone = student.fatherPhone ?? '';
-        String motherName = student.motherName ?? '';
-        String motherPhone = student.motherPhone ?? '';
-        String country = student.country ?? '';
-        String province = student.province ?? '';
-        String district = student.district ?? '';
-        String sector = student.sector ?? '';
-        String cell = student.cell ?? '';
-        String period = student.period;
-
-        return AlertDialog(
-          title: const Text('Edit Student'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  controller: TextEditingController(text: name),
-                  onChanged: (value) => name = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Registration Number'),
-                  controller: TextEditingController(text: registrationNumber),
-                  onChanged: (value) => registrationNumber = value,
-                ),
-                DropdownButtonFormField<String>(
-                  value: period,
-                  decoration: const InputDecoration(labelText: 'Session'),
-                  items: ['Morning', 'Afternoon'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) period = value;
-                  },
-                ),
-                DropdownButtonFormField<String>(
-                  value: gender,
-                  decoration: const InputDecoration(labelText: 'Gender'),
-                  items: ['M', 'F'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value == 'M' ? 'Male' : 'Female'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) gender = value;
-                  },
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Birthdate (YYYY-MM-DD)'),
-                  controller: TextEditingController(text: birthdate),
-                  onChanged: (value) => birthdate = value,
-                ),
-                const Divider(),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Father\'s Name'),
-                  controller: TextEditingController(text: fatherName),
-                  onChanged: (value) => fatherName = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Father\'s Phone'),
-                  controller: TextEditingController(text: fatherPhone),
-                  onChanged: (value) => fatherPhone = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Mother\'s Name'),
-                  controller: TextEditingController(text: motherName),
-                  onChanged: (value) => motherName = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Mother\'s Phone'),
-                  controller: TextEditingController(text: motherPhone),
-                  onChanged: (value) => motherPhone = value,
-                ),
-                const Divider(),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Country'),
-                  controller: TextEditingController(text: country),
-                  onChanged: (value) => country = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Province'),
-                  controller: TextEditingController(text: province),
-                  onChanged: (value) => province = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'District'),
-                  controller: TextEditingController(text: district),
-                  onChanged: (value) => district = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Sector'),
-                  controller: TextEditingController(text: sector),
-                  onChanged: (value) => sector = value,
-                ),
-                TextField(
-                  decoration: const InputDecoration(labelText: 'Cell'),
-                  controller: TextEditingController(text: cell),
-                  onChanged: (value) => cell = value,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Text('Edit Student'),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  students[index] = Student(
-                    name: name,
-                    period: period,
-                    registrationNumber: registrationNumber,
-                    gender: gender,
-                    birthdate: birthdate,
-                    fatherName: fatherName,
-                    fatherPhone: fatherPhone,
-                    motherName: motherName,
-                    motherPhone: motherPhone,
-                    country: country,
-                    province: province,
-                    district: district,
-                    sector: sector,
-                    cell: cell,
-                    attendanceHistory: student.attendanceHistory,
-                  );
-                });
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-              ),
-              child: const Text('Save'),
             ),
           ],
-        );
-      },
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: StudentFormStepper(
+            initialData: formData,
+            onSubmit: (studentData) async {
+              try {
+                // Update in Firebase
+                await FirebaseService.updateStudent(
+                  student.id!,
+                  {
+                    'name': studentData['name'],
+                    'period': studentData['period'],
+                    'registrationNumber': studentData['registrationNumber'],
+                    'gender': studentData['gender'],
+                    'birthdate': studentData['birthdate'],
+                    'fatherName': studentData['fatherName'],
+                    'fatherPhone': studentData['fatherPhone'],
+                    'motherName': studentData['motherName'],
+                    'motherPhone': studentData['motherPhone'],
+                    'country': studentData['country'],
+                    'province': studentData['province'],
+                    'district': studentData['district'],
+                    'sector': studentData['sector'],
+                    'cell': studentData['cell'],
+                    'fingerprintData': studentData['fingerprintData'],
+                    'fingerprintTimestamp': studentData['fingerprintTimestamp'],
+                  }
+                );
+
+                // Update local state
+                setState(() {
+                  students[index] = Student(
+                    id: student.id,
+                    name: studentData['name'],
+                    period: studentData['period'],
+                    registrationNumber: studentData['registrationNumber'],
+                    gender: studentData['gender'],
+                    birthdate: studentData['birthdate'],
+                    fatherName: studentData['fatherName'],
+                    fatherPhone: studentData['fatherPhone'],
+                    motherName: studentData['motherName'],
+                    motherPhone: studentData['motherPhone'],
+                    country: studentData['country'],
+                    province: studentData['province'],
+                    district: studentData['district'],
+                    sector: studentData['sector'],
+                    cell: studentData['cell'],
+                    fingerprintData: studentData['fingerprintData'],
+                    fingerprintTimestamp: studentData['fingerprintTimestamp'],
+                    attendanceHistory: student.attendanceHistory,
+                  );
+                  _filterStudents(); // Refresh filtered list
+                });
+
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Student updated successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error updating student: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ),
     );
   }
 

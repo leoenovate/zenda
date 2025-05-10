@@ -6,10 +6,12 @@ import 'steps/fingerprint_step.dart';
 
 class StudentFormStepper extends StatefulWidget {
   final Function(Map<String, dynamic>) onSubmit;
+  final Map<String, dynamic>? initialData;
 
   const StudentFormStepper({
     Key? key,
     required this.onSubmit,
+    this.initialData,
   }) : super(key: key);
 
   @override
@@ -18,23 +20,34 @@ class StudentFormStepper extends StatefulWidget {
 
 class _StudentFormStepperState extends State<StudentFormStepper> {
   int _currentStep = 0;
-  final _formData = <String, dynamic>{
-    'name': '',
-    'registrationNumber': '',
-    'gender': 'M',
-    'birthdate': '',
-    'period': 'Morning',
-    'fatherName': '',
-    'fatherPhone': '',
-    'motherName': '',
-    'motherPhone': '',
-    'country': '',
-    'province': '',
-    'district': '',
-    'sector': '',
-    'cell': '',
-    'fingerprintData': null,
-  };
+  late final Map<String, dynamic> _formData;
+
+  @override
+  void initState() {
+    super.initState();
+    _formData = {
+      'name': '',
+      'registrationNumber': '',
+      'gender': 'M',
+      'birthdate': '',
+      'period': 'Morning',
+      'fatherName': '',
+      'fatherPhone': '',
+      'motherName': '',
+      'motherPhone': '',
+      'country': '',
+      'province': '',
+      'district': '',
+      'sector': '',
+      'cell': '',
+      'fingerprintData': null,
+    };
+
+    // If initial data is provided, update the form data
+    if (widget.initialData != null) {
+      _formData.addAll(widget.initialData!);
+    }
+  }
 
   void _updateFormData(String key, dynamic value) {
     setState(() {
