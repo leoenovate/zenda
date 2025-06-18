@@ -4,10 +4,16 @@ import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/student.dart';
 import '../models/attendance.dart';
+import '../models/message.dart';
 import 'package:intl/intl.dart';
 import '../services/firebase_service.dart';
 import '../widgets/student_form/add_student_dialog.dart';
 import '../widgets/student_form/student_form_stepper.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../firebase_options.dart';
+import '../widgets/dashboard/attendance_dashboard.dart';
+import 'chat_list_screen.dart';
+import '../utils/responsive_builder.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +85,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         _isLoading = true;
       });
       
+      // Check if Firebase is initialized
+      if (!Firebase.apps.isNotEmpty) {
+        // Wait for Firebase to initialize if it's not ready yet
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+      
       final List<Student> loadedStudents = await FirebaseService.getStudents();
       
       if (!mounted) return;
@@ -88,14 +102,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         _isLoading = false;
       });
     } catch (e) {
+      print('Error loading students: $e');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
+      
+      // Show a more descriptive error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error loading students: $e'),
+          content: Text('Error loading students: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'RETRY',
+            onPressed: _loadStudents,
+            textColor: Colors.white,
+          ),
         ),
       );
     }
@@ -570,6 +593,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _navigateToChat() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatListScreen(
+          students: students,
+          userType: MessageSender.school, // School staff perspective
+          userName: 'School Admin',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -588,42 +624,62 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         end: Offset.zero,
                       ).animate(_headerAnimation),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                        padding: EdgeInsets.fromLTRB(
+                          context.spacingMd, 
+                          context.spacingSm, 
+                          context.spacingMd, 
+                          context.spacingSm
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            // App title with adaptive layout
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.school_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  SizedBox(width: context.spacingSm),
+                                  Expanded(
+                                    child: Text(
+                                      'School Attendance System',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: context.isMobile ? 18 : 20,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.school_rounded,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                                  onPressed: _isLoading ? null : _navigateToChat,
+                                  tooltip: 'Chat with Parents',
                                 ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'School Attendance System',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.analytics_outlined, color: Colors.white),
+                                  onPressed: () {
+                                    Navigator.pushNamed(context, '/api-logs');
+                                  },
+                                  tooltip: 'API Logs',
                                 ),
                               ],
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.analytics_outlined, color: Colors.white),
-                              onPressed: () {
-                                Navigator.pushNamed(context, '/api-logs');
-                              },
-                              tooltip: 'API Logs',
                             ),
                           ],
                         ),
@@ -631,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ),
                   
-                  // Animated Search
+                  // Animated Search - Adaptive to screen size
                   FadeTransition(
                     opacity: _searchAnimation,
                     child: SlideTransition(
@@ -640,7 +696,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         end: Offset.zero,
                       ).animate(_searchAnimation),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                        padding: EdgeInsets.fromLTRB(
+                          context.spacingMd, 
+                          context.spacingXs, 
+                          context.spacingMd, 
+                          context.spacingMd
+                        ),
                         child: Row(
                           children: [
                             Expanded(
@@ -652,17 +713,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 child: TextField(
                                   controller: _searchController,
                                   style: const TextStyle(color: Colors.white),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Search by name or registration number',
-                                    hintStyle: TextStyle(color: Colors.grey),
-                                    prefixIcon: Icon(Icons.search, color: Colors.grey),
+                                  decoration: InputDecoration(
+                                    hintText: context.screenWidth < 400 
+                                        ? 'Search students...' 
+                                        : 'Search by name or registration number',
+                                    hintStyle: const TextStyle(color: Colors.grey),
+                                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(vertical: 16),
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: context.spacingSm),
                             IconButton(
                               onPressed: () {
                                 showModalBottomSheet(
@@ -689,7 +752,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ),
                   
-                  // Animated Content
+                  // Animated Content with responsive layout
                   Expanded(
                     child: FadeTransition(
                       opacity: _listAnimation,
@@ -700,10 +763,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               children: [
                                 Icon(
                                   Icons.search_off_rounded,
-                                  size: 64,
+                                  size: context.isMobile ? 48 : 64,
                                   color: Colors.grey,
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: context.spacingMd),
                                 const Text(
                                   'No students match your filters',
                                   style: TextStyle(
@@ -711,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     color: Colors.grey,
                                   ),
                                 ),
-                                const SizedBox(height: 24),
+                                SizedBox(height: context.spacingMd),
                                 ElevatedButton.icon(
                                   onPressed: _resetFilters,
                                   icon: const Icon(Icons.refresh_rounded),
@@ -728,141 +791,90 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               ],
                             ),
                           )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(20),
-                            itemCount: filteredStudents.length,
-                            itemBuilder: (context, index) {
-                              final student = filteredStudents[index];
-                              
-                              // Create a staggered animation for each list item
-                              return AnimatedBuilder(
-                                animation: _listAnimation,
-                                builder: (context, child) {
-                                  final itemAnimation = Tween<double>(
-                                    begin: 0.0,
-                                    end: 1.0,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: _controller,
-                                      curve: Interval(
-                                        0.3 + (index * 0.05).clamp(0.0, 0.5),
-                                        0.6 + (index * 0.05).clamp(0.0, 0.5),
-                                        curve: Curves.easeOut,
-                                      ),
-                                    ),
-                                  );
-                                  
-                                  return FadeTransition(
-                                    opacity: itemAnimation,
-                                    child: SlideTransition(
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              return ListView.builder(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: context.isMobile ? 4 : 8, 
+                                  vertical: 0
+                                ),
+                                itemCount: filteredStudents.length + 1, // +1 for the dashboard
+                                itemBuilder: (context, index) {
+                                  // Show dashboard at the top - adapts to screen size
+                                  if (index == 0) {
+                                    return SlideTransition(
                                       position: Tween<Offset>(
                                         begin: const Offset(0, 0.2),
                                         end: Offset.zero,
-                                      ).animate(itemAnimation),
-                                      child: child,
+                                      ).animate(_headerAnimation),
+                                      child: FadeTransition(
+                                        opacity: _headerAnimation,
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: context.isMobile ? 8 : 16,
+                                          ),
+                                          child: AttendanceDashboard(students: students),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  
+                                  // Adjust index for student items
+                                  final studentIndex = index - 1;
+                                  final student = filteredStudents[studentIndex];
+                                  
+                                  // Create a staggered animation for each list item
+                                  return AnimatedBuilder(
+                                    animation: _listAnimation,
+                                    builder: (context, child) {
+                                      final itemAnimation = Tween<double>(
+                                        begin: 0.0,
+                                        end: 1.0,
+                                      ).animate(
+                                        CurvedAnimation(
+                                          parent: _controller,
+                                          curve: Interval(
+                                            0.3 + (studentIndex * 0.05).clamp(0.0, 0.5),
+                                            0.6 + (studentIndex * 0.05).clamp(0.0, 0.5),
+                                            curve: Curves.easeOut,
+                                          ),
+                                        ),
+                                      );
+                                      
+                                      return FadeTransition(
+                                        opacity: itemAnimation,
+                                        child: SlideTransition(
+                                          position: Tween<Offset>(
+                                            begin: const Offset(0, 0.2),
+                                            end: Offset.zero,
+                                          ).animate(itemAnimation),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      margin: EdgeInsets.fromLTRB(
+                                        context.isMobile ? 8 : 16, 
+                                        0, 
+                                        context.isMobile ? 8 : 16, 
+                                        context.spacingSm
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2A2A2A),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: _buildStudentListItem(student),
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2A2A2A),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: Stack(
-                                        children: [
-                                          if (student.period == 'Afternoon')
-                                            Positioned(
-                                              left: 0,
-                                              top: 0,
-                                              bottom: 0,
-                                              child: Container(
-                                                width: 4,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
-                                          ListTile(
-                                            contentPadding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
-                                            leading: CircleAvatar(
-                                              backgroundColor: Colors.grey.shade800,
-                                              radius: 24,
-                                              child: Text(
-                                                student.name[0].toUpperCase(),
-                                                style: TextStyle(
-                                                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                            title: Text(
-                                              student.name.toUpperCase(),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                letterSpacing: 0.3,
-                                              ),
-                                            ),
-                                            subtitle: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.brightness_5_rounded,
-                                                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
-                                                  size: 14,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  student.period,
-                                                  style: TextStyle(
-                                                    color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                if (student.gender != null)
-                                                  Icon(
-                                                    student.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
-                                                    color: Colors.grey,
-                                                    size: 14,
-                                                  ),
-                                              ],
-                                            ),
-                                            trailing: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                _buildActionButton(
-                                                  icon: Icons.visibility_rounded,
-                                                  color: const Color(0xFF2D3B55),
-                                                  onTap: () => _viewAttendance(student),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                _buildActionButton(
-                                                  icon: Icons.edit_rounded,
-                                                  color: const Color(0xFF2D3B55),
-                                                  onTap: () => _editStudent(students.indexOf(student)),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                _buildActionButton(
-                                                  icon: Icons.delete_rounded,
-                                                  color: const Color(0xFF3D2D32),
-                                                  iconColor: Colors.redAccent,
-                                                  onTap: () => _deleteStudent(students.indexOf(student)),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               );
-                            },
+                            }
                           ),
                     ),
                   ),
@@ -883,6 +895,151 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
   
+  // New method to build student list item with adaptive layout
+  Widget _buildStudentListItem(Student student) {
+    return Stack(
+      children: [
+        if (student.period == 'Afternoon')
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 4,
+              color: Colors.blue,
+            ),
+          ),
+        ListTile(
+          contentPadding: EdgeInsets.fromLTRB(20, 12, context.isMobile ? 8 : 12, 12),
+          leading: CircleAvatar(
+            backgroundColor: Colors.grey.shade800,
+            radius: context.isMobile ? 20 : 24,
+            child: Text(
+              student.name[0].toUpperCase(),
+              style: TextStyle(
+                color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                fontSize: context.isMobile ? 16 : 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          title: Text(
+            student.name.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: context.isMobile ? 14 : 16,
+              letterSpacing: 0.3,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Row(
+            children: [
+              Icon(
+                Icons.brightness_5_rounded,
+                color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                student.period,
+                style: TextStyle(
+                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 16),
+              if (student.gender != null && context.screenWidth > 320)
+                Icon(
+                  student.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
+                  color: Colors.grey,
+                  size: 14,
+                ),
+            ],
+          ),
+          trailing: context.isMobile
+              ? _buildCompactActions(student)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildActionButton(
+                      icon: Icons.visibility_rounded,
+                      color: const Color(0xFF2D3B55),
+                      onTap: () => _viewAttendance(student),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      icon: Icons.edit_rounded,
+                      color: const Color(0xFF2D3B55),
+                      onTap: () => _editStudent(students.indexOf(student)),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      icon: Icons.delete_rounded,
+                      color: const Color(0xFF3D2D32),
+                      iconColor: Colors.redAccent,
+                      onTap: () => _deleteStudent(students.indexOf(student)),
+                    ),
+                  ],
+                ),
+          onTap: context.isMobile
+              ? () => _showStudentActions(student)
+              : null,
+        ),
+      ],
+    );
+  }
+  
+  // Create compact action button for mobile view
+  Widget _buildCompactActions(Student student) {
+    return IconButton(
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      onPressed: () => _showStudentActions(student),
+    );
+  }
+  
+  // Show actions in a bottom sheet for mobile view
+  void _showStudentActions(Student student) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.visibility_rounded),
+              title: const Text('View Attendance'),
+              onTap: () {
+                Navigator.pop(context);
+                _viewAttendance(student);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Edit Student'),
+              onTap: () {
+                Navigator.pop(context);
+                _editStudent(students.indexOf(student));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+              title: const Text('Delete Student', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteStudent(students.indexOf(student));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required Color color,

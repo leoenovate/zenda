@@ -65,7 +65,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
         ),
         DropdownButtonFormField<String>(
           value: widget.formData['period'],
-          decoration: const InputDecoration(labelText: 'Session *'),
+          decoration: const InputDecoration(labelText: 'Class *'),
           items: ['Morning', 'Afternoon'].map((String value) {
             return DropdownMenuItem<String>(
               value: value,

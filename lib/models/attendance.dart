@@ -2,7 +2,8 @@
 enum AttendanceStatus { 
   present, 
   late, 
-  absent 
+  absent,
+  unknown
 }
 
 /// Represents a single attendance record for a worker/student

@@ -2,13 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
+import 'screens/chat_list_screen.dart';
+import 'utils/responsive_builder.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const MyApp());
+  try {
+    // Ensure Flutter is initialized
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    // Initialize Firebase with platform-specific options
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    
+    // Log successful initialization
+    print('Firebase successfully initialized');
+    
+    // Run the app
+    runApp(const MyApp());
+  } catch (e) {
+    // Log any errors during initialization
+    print('Error initializing Firebase: $e');
+    
+    // Run the app anyway, it will show error UI
+    runApp(const MyApp());
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -38,10 +56,33 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
+        // Adding text theme for better responsive typography
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+        ),
       ),
       initialRoute: '/',
       routes: {
         '/': (context) => const HomeScreen(),
+      },
+      builder: (context, child) {
+        // Apply a MediaQuery to ensure proper sizing on all devices
+        final mediaQuery = MediaQuery.of(context);
+        final scale = mediaQuery.textScaleFactor.clamp(0.8, 1.35);
+        
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaleFactor: scale, 
+          ),
+          child: child!,
+        );
       },
       debugShowCheckedModeBanner: false,
     );
