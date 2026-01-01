@@ -5,16 +5,13 @@ import '../models/attendance.dart';
 import '../models/message.dart';
 import 'package:intl/intl.dart';
 import '../services/firebase_service.dart';
-import '../services/auth_storage_service.dart';
 import '../widgets/student_form/add_student_dialog.dart';
 import '../widgets/student_form/student_form_stepper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../firebase_options.dart';
 import '../widgets/dashboard/attendance_dashboard.dart';
 import 'chat_list_screen.dart';
-import 'api_logs_screen.dart';
 import '../utils/responsive_builder.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -351,141 +348,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _markAttendance(Student student) {
-    final today = DateTime.now();
-    final todayAttendance = student.attendanceHistory.firstWhere(
-      (a) => a.date.year == today.year && 
-             a.date.month == today.month && 
-             a.date.day == today.day,
-      orElse: () => Attendance(date: today, status: AttendanceStatus.unknown),
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Mark Attendance - ${student.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Date: ${DateFormat('EEEE, MMMM d, yyyy').format(today)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            if (todayAttendance.status != AttendanceStatus.unknown)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Current: ${todayAttendance.status.name.toUpperCase()}',
-                        style: const TextStyle(color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _recordAttendance(student, today, AttendanceStatus.present),
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('Present'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _recordAttendance(student, today, AttendanceStatus.late),
-                    icon: const Icon(Icons.access_time),
-                    label: const Text('Late'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _recordAttendance(student, today, AttendanceStatus.absent),
-                icon: const Icon(Icons.cancel),
-                label: const Text('Absent'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _recordAttendance(Student student, DateTime date, AttendanceStatus status) async {
-    if (student.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Student ID not found'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    try {
-      await FirebaseService.recordAttendance(
-        studentId: student.id!,
-        date: date,
-        status: status,
-      );
-
-      // Reload students to get updated attendance
-      await _loadStudents();
-
-      if (!mounted) return;
-      Navigator.pop(context); // Close the dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${student.name} marked as ${status.name.toUpperCase()}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error recording attendance: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   void _viewAttendance(Student student) {
     final attendanceData = student.attendanceHistory.isEmpty ? [
       Attendance(date: DateTime.now().subtract(const Duration(days: 6)), status: AttendanceStatus.present),
@@ -742,34 +604,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Future<void> _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await FirebaseAuth.instance.signOut();
-      await AuthStorageService.clearStoredLogin();
-      if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -839,19 +673,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 IconButton(
                                   icon: const Icon(Icons.analytics_outlined, color: Colors.white),
                                   onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const ApiLogsScreen(),
-                                      ),
-                                    );
+                                    Navigator.pushNamed(context, '/api-logs');
                                   },
                                   tooltip: 'API Logs',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.logout, color: Colors.white),
-                                  onPressed: _logout,
-                                  tooltip: 'Logout',
                                 ),
                               ],
                             ),
@@ -1137,13 +961,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildActionButton(
-                      icon: Icons.check_circle_rounded,
-                      color: Colors.green.shade700,
-                      iconColor: Colors.green,
-                      onTap: () => _markAttendance(student),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionButton(
                       icon: Icons.visibility_rounded,
                       color: const Color(0xFF2D3B55),
                       onTap: () => _viewAttendance(student),
@@ -1191,14 +1008,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.check_circle_rounded, color: Colors.green),
-              title: const Text('Mark Attendance'),
-              onTap: () {
-                Navigator.pop(context);
-                _markAttendance(student);
-              },
-            ),
             ListTile(
               leading: const Icon(Icons.visibility_rounded),
               title: const Text('View Attendance'),
