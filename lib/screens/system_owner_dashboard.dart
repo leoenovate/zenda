@@ -5,6 +5,7 @@ import '../models/school.dart';
 import '../models/device.dart';
 import '../models/user.dart' as app_user;
 import '../models/student.dart';
+import '../models/session.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
@@ -83,7 +84,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     
     // Tablet and Desktop layout
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: Colors.white,
       body: Row(
         children: [
           _buildSidebar(isTablet: isTablet),
@@ -95,14 +96,22 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildMobileLayout() {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: Colors.white,
       drawer: _buildMobileDrawer(),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text('Zenda Admin'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Zenda Admin', style: TextStyle(color: Color(0xFF2C2C2C))),
+        iconTheme: const IconThemeData(color: Color(0xFF2C2C2C)),
         actions: [
-          IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Color(0xFF666666)), 
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF666666)), 
+            onPressed: _logout,
+          ),
         ],
       ),
       body: _buildMainContent(),
@@ -118,10 +127,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       width: sidebarWidth,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: const Color(0xFF1A5F5F),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(2, 0),
           ),
@@ -142,10 +151,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: const Color(0xFFD4AF37).withOpacity(0.3),
+                            color: Colors.white.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
@@ -153,7 +162,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                           child: Text(
                             'Z',
                             style: TextStyle(
-                              color: Color(0xFFD4AF37),
+                              color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -186,7 +195,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ],
             ),
           ),
-          const Divider(color: Colors.white24, height: 1),
+          const Divider(color: Colors.white30, height: 1),
           // Navigation items
           Expanded(
             child: ListView(
@@ -201,13 +210,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           // User profile section
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.white24, width: 1)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1)),
             ),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFD4AF37),
+                  backgroundColor: Colors.white.withOpacity(0.2),
                   radius: 16,
                   child: const Text(
                     'S',
@@ -248,7 +257,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildMobileDrawer() {
     return Drawer(
-      backgroundColor: const Color(0xFF2A2A2A),
+      backgroundColor: const Color(0xFF1A5F5F),
       child: Column(
         children: [
           Container(
@@ -258,7 +267,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4AF37),
+                    color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.school, color: Colors.white, size: 24),
@@ -275,7 +284,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ],
             ),
           ),
-          const Divider(color: Colors.white24),
+          Divider(color: Colors.white.withOpacity(0.3)),
           ListTile(
             leading: const Icon(Icons.dashboard, color: Colors.white70),
             title: const Text('Dashboard', style: TextStyle(color: Colors.white)),
@@ -319,10 +328,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF0A2E1A) : Colors.transparent,
+        color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: isSelected
-            ? Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1)
+            ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
             : null,
       ),
       child: Material(
@@ -336,7 +345,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? const Color(0xFFD4AF37) : Colors.white70,
+                  color: isSelected ? Colors.white : Colors.white70,
                   size: 18,
                 ),
                 if (!_sidebarCollapsed) ...[
@@ -345,7 +354,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     child: Text(
                       label,
                       style: TextStyle(
-                        color: isSelected ? const Color(0xFFD4AF37) : Colors.white70,
+                        color: isSelected ? Colors.white : Colors.white70,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                       ),
@@ -362,7 +371,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildMainContent() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
+        ),
+      );
     }
 
     switch (_selectedIndex) {
@@ -405,14 +418,14 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFFD4AF37),
-                  const Color(0xFFC9A030),
+                  const Color(0xFF1A5F5F),
+                  const Color(0xFF2A8A8A),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFD4AF37).withOpacity(0.3),
+                  color: const Color(0xFF1A5F5F).withOpacity(0.2),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -638,10 +651,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
@@ -671,7 +684,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Icon(
                 Icons.show_chart,
-                color: Colors.white.withOpacity(0.2),
+                color: const Color(0xFF999999),
                 size: 16,
               ),
             ],
@@ -684,7 +697,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Text(
                 value,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: const Color(0xFF2C2C2C),
                   fontSize: valueFontSize,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
@@ -695,7 +708,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: const Color(0xFF666666),
                   fontSize: labelFontSize,
                   fontWeight: FontWeight.w500,
                   height: 1.2,
@@ -712,17 +725,17 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -732,11 +745,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.business, color: Colors.white70, size: 20),
+              const Icon(Icons.business, color: Color(0xFF1A5F5F), size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Schools Summary',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -748,11 +761,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.pie_chart_outline, color: Colors.white.withOpacity(0.3), size: 48),
+                        Icon(Icons.pie_chart_outline, color: const Color(0xFF999999), size: 48),
                         const SizedBox(height: 8),
                         Text(
                           'No data available',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                          style: const TextStyle(color: Color(0xFF999999), fontSize: 12),
                         ),
                       ],
                     ),
@@ -815,7 +828,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Center(
             child: Text(
               '${schools.length} Total Schools',
-              style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Color(0xFF666666), fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -840,10 +853,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
@@ -860,11 +873,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.fingerprint, color: Colors.white70, size: 20),
+              const Icon(Icons.fingerprint, color: Color(0xFF1A5F5F), size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Device Status',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -876,11 +889,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.pie_chart_outline, color: Colors.white.withOpacity(0.3), size: 48),
+                        Icon(Icons.pie_chart_outline, color: const Color(0xFF999999), size: 48),
                         const SizedBox(height: 8),
                         Text(
                           'No devices',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                          style: const TextStyle(color: Color(0xFF999999), fontSize: 12),
                         ),
                       ],
                     ),
@@ -964,10 +977,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
@@ -984,11 +997,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.bolt, color: Colors.white70, size: 20),
+              const Icon(Icons.bolt, color: Color(0xFF1A5F5F), size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Quick Actions',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1014,10 +1027,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.white.withOpacity(0.05),
+              color: const Color(0xFFE0E0E0),
               width: 1,
             ),
           ),
@@ -1036,7 +1049,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF2C2C2C),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1044,7 +1057,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                color: Colors.white.withOpacity(0.5),
+                color: const Color(0xFF999999),
                 size: 12,
               ),
             ],
@@ -1065,10 +1078,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
@@ -1088,17 +1101,17 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.access_time, color: Colors.white70, size: 20),
+                  const Icon(Icons.access_time, color: Color(0xFF1A5F5F), size: 20),
                   const SizedBox(width: 8),
                   const Text(
                     'Recent Activity',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               TextButton(
                 onPressed: () {},
-                child: const Text('View All', style: TextStyle(color: Color(0xFFD4AF37))),
+                child: const Text('View All', style: TextStyle(color: Color(0xFF1A5F5F))),
               ),
             ],
           ),
@@ -1120,10 +1133,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
       ),
@@ -1162,7 +1175,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF2C2C2C),
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -1170,8 +1183,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 1),
                 Text(
                   'ID: $id',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
                     fontSize: 10,
                   ),
                 ),
@@ -1221,10 +1234,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
         boxShadow: [
@@ -1244,17 +1257,17 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.laptop, color: Colors.white70, size: 20),
+                  const Icon(Icons.laptop, color: Color(0xFF1A5F5F), size: 20),
                   const SizedBox(width: 8),
                   const Text(
                     'Devices Overview',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               TextButton(
                 onPressed: () {},
-                child: const Text('Manage', style: TextStyle(color: Color(0xFFD4AF37))),
+                child: const Text('Manage', style: TextStyle(color: Color(0xFF1A5F5F))),
               ),
             ],
           ),
@@ -1285,7 +1298,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -1301,7 +1314,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.2),
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 11, height: 1.2),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1315,10 +1328,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
       ),
@@ -1340,7 +1353,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 Text(
                   device.deviceId,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF2C2C2C),
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -1349,8 +1362,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 1),
                   Text(
                     device.deviceName!,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                    style: const TextStyle(
+                      color: Color(0xFF666666),
                       fontSize: 10,
                     ),
                   ),
@@ -1413,7 +1426,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 4),
-        Text('$label ($count)', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        Text('$label ($count)', style: const TextStyle(color: Color(0xFF666666), fontSize: 10)),
       ],
     );
   }
@@ -1425,7 +1438,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Text('$label ($count)', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text('$label ($count)', style: const TextStyle(color: Color(0xFF666666), fontSize: 12)),
         ],
       ),
     );
@@ -1476,13 +1489,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   Text(
                     'Schools Management',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: const Color(0xFF2C2C2C),
                       fontSize: context.isMobile ? 24 : 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white70),
+                    icon: const Icon(Icons.refresh, color: Color(0xFF666666)),
                     onPressed: () => _loadData(),
                     tooltip: 'Refresh',
                   ),
@@ -1494,10 +1507,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A3A),
+                  color: const Color(0xFF1A5F5F),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: const Color(0xFF1A5F5F),
                     width: 1,
                   ),
                 ),
@@ -1506,12 +1519,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withOpacity(0.2),
+                        color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.school,
-                        color: Color(0xFFD4AF37),
+                        color: Colors.white,
                         size: 40,
                       ),
                     ),
@@ -1564,24 +1577,24 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: const Color(0xFFE0E0E0),
                     width: 1,
                   ),
                 ),
                 child: TextField(
                   onChanged: (value) => setState(() => _searchQuery = value),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF2C2C2C)),
                   decoration: InputDecoration(
                     hintText: 'Search schools by name, city, or country...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                    hintStyle: const TextStyle(color: Color(0xFF999999)),
                     border: InputBorder.none,
-                    prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.5)),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.5)),
+                            icon: const Icon(Icons.clear, color: Color(0xFF666666)),
                             onPressed: () => setState(() => _searchQuery = ''),
                           )
                         : null,
@@ -1600,15 +1613,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         Icon(
                           Icons.school_outlined,
                           size: 64,
-                          color: Colors.white.withOpacity(0.3),
+                          color: const Color(0xFF999999),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           _searchQuery.isEmpty
                               ? 'No schools found'
                               : 'No schools match your search',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
                             fontSize: 16,
                           ),
                         ),
@@ -1635,7 +1648,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           right: context.isMobile ? 20 : 30,
           child: FloatingActionButton.extended(
             onPressed: () => _showAddSchoolDialog(),
-            backgroundColor: Colors.green,
+            backgroundColor: const Color(0xFF1A5F5F),
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'Add School',
@@ -1651,8 +1664,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFE0E0E0),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1673,8 +1690,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Text(
                 label,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                style: const TextStyle(
+                  color: Color(0xFF666666),
                   fontSize: 12,
                 ),
               ),
@@ -1697,12 +1714,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: const Color(0xFFE0E0E0),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1736,7 +1760,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 Text(
                   school.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF2C2C2C),
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1745,8 +1769,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 4),
                   Text(
                     school.code!,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                    style: const TextStyle(
+                      color: Color(0xFF666666),
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                     ),
@@ -1755,13 +1779,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.white.withOpacity(0.6)),
+                    const Icon(Icons.location_on, size: 16, color: Color(0xFF666666)),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         location,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                        style: const TextStyle(
+                          color: Color(0xFF666666),
                           fontSize: 13,
                         ),
                       ),
@@ -1772,13 +1796,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.email, size: 16, color: Colors.white.withOpacity(0.6)),
+                      const Icon(Icons.email, size: 16, color: Color(0xFF666666)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           school.email!,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
                             fontSize: 13,
                           ),
                         ),
@@ -1789,14 +1813,14 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.fingerprint, size: 16, color: Colors.white.withOpacity(0.6)),
+                    const Icon(Icons.fingerprint, size: 16, color: Color(0xFF666666)),
                     const SizedBox(width: 4),
                     Text(
                       deviceCount == 0
                           ? '0 devices'
                           : '$deviceCount device${deviceCount > 1 ? 's' : ''} • $activeDeviceCount active',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
                         fontSize: 13,
                       ),
                     ),
@@ -1811,8 +1835,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: Colors.white.withOpacity(0.7)),
-                color: const Color(0xFF2A2A2A),
+                icon: const Icon(Icons.more_vert, color: Color(0xFF666666)),
+                color: Colors.white,
                 onSelected: (value) {
                   if (value == 'edit') {
                     _showEditSchoolDialog(school);
@@ -1825,9 +1849,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, color: Colors.white70, size: 18),
+                        Icon(Icons.edit, color: Color(0xFF666666), size: 18),
                         SizedBox(width: 8),
-                        Text('Edit', style: TextStyle(color: Colors.white70)),
+                        Text('Edit', style: TextStyle(color: Color(0xFF2C2C2C))),
                       ],
                     ),
                   ),
@@ -1847,8 +1871,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 8),
                 Text(
                   school.phone!,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                  style: const TextStyle(
+                    color: Color(0xFF666666),
                     fontSize: 12,
                   ),
                 ),
@@ -1857,8 +1881,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 4),
                 Text(
                   'Updated: ${_formatDate(school.createdAt!)}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                  style: const TextStyle(
+                    color: Color(0xFF999999),
                     fontSize: 11,
                   ),
                 ),
@@ -1869,7 +1893,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 icon: const Icon(Icons.visibility, size: 16),
                 label: const Text('View'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
+                  backgroundColor: const Color(0xFF1A5F5F),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
@@ -1903,10 +1927,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
+        backgroundColor: Colors.white,
         title: Text(
           school == null ? 'Add School' : 'Edit School',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Color(0xFF2C2C2C)),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -1914,75 +1938,75 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF2C2C2C)),
                 decoration: InputDecoration(
                   labelText: 'School Name *',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  labelStyle: const TextStyle(color: Color(0xFF666666)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: codeController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF2C2C2C)),
                 decoration: InputDecoration(
                   labelText: 'School Code',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  labelStyle: const TextStyle(color: Color(0xFF666666)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: addressController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF2C2C2C)),
                 decoration: InputDecoration(
                   labelText: 'Address',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  labelStyle: const TextStyle(color: Color(0xFF666666)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF2C2C2C)),
                 decoration: InputDecoration(
                   labelText: 'Phone',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  labelStyle: const TextStyle(color: Color(0xFF666666)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: emailController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF2C2C2C)),
                 decoration: InputDecoration(
                   labelText: 'Email',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  labelStyle: const TextStyle(color: Color(0xFF666666)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFD4AF37)),
+                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
                   ),
                 ),
               ),
@@ -2038,7 +2062,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
+              backgroundColor: const Color(0xFF1A5F5F),
               foregroundColor: Colors.white,
             ),
             child: Text(school == null ? 'Add' : 'Update'),
@@ -2052,16 +2076,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text('Delete School', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white,
+        title: const Text('Delete School', style: TextStyle(color: Color(0xFF2C2C2C))),
         content: Text(
           'Are you sure you want to delete "${school.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: Color(0xFF666666)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -2089,7 +2113,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
-  void _showSchoolDetails(School school, int deviceCount, int activeDeviceCount) {
+  void _showSchoolDetails(School school, int deviceCount, int activeDeviceCount) async {
     final schoolDevices = devices.where((d) => d.schoolId == school.id).toList();
     final offlineDeviceCount = deviceCount - activeDeviceCount;
     final schoolAdmins = users.where((u) => u.schoolId == school.id && u.role == 'admin').toList();
@@ -2098,124 +2122,279 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final colors = [Colors.teal, Colors.blue, Colors.green, Colors.orange, Colors.purple];
     final color = colors[school.id.hashCode % colors.length];
     
+    // Fetch sessions for this school
+    List<Session> schoolSessions = [];
+    if (school.id != null) {
+      try {
+        schoolSessions = await FirebaseService.getSchoolSessions(school.id!);
+      } catch (e) {
+        print('Error fetching sessions: $e');
+        // Continue without sessions if fetch fails
+      }
+    }
+    
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => _SchoolDetailsPanel(
+          school: school,
+          schoolDevices: schoolDevices,
+          schoolAdmins: schoolAdmins,
+          schoolSessions: schoolSessions,
+          deviceCount: deviceCount,
+          activeDeviceCount: activeDeviceCount,
+          offlineDeviceCount: offlineDeviceCount,
+          initial: initial,
+          color: color,
+          onAddAdmin: () => _showAddAdminDialog(school.id!),
+          onEditAdmin: (admin) => _showEditAdminDialog(admin),
+          onResetPassword: (admin) => _showResetPasswordDialog(admin),
+          onDeactivateAdmin: (admin) => _showDeactivateAdminDialog(admin),
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.ease;
+
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+        opaque: false,
+        barrierColor: Colors.black54,
+      ),
+    );
+  }
+
+  void _showAddAdminDialog(String schoolId) {
+    // TODO: Implement add admin dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Add admin functionality coming soon')),
+    );
+  }
+
+  void _showEditAdminDialog(app_user.AppUser admin) {
+    // TODO: Implement edit admin dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edit admin functionality coming soon')),
+    );
+  }
+
+  void _showResetPasswordDialog(app_user.AppUser admin) {
+    // TODO: Implement reset password dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reset password functionality coming soon')),
+    );
+  }
+
+  void _showDeactivateAdminDialog(app_user.AppUser admin) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: context.isMobile ? 16 : 40,
-          vertical: context.isMobile ? 16 : 40,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Deactivate Administrator', style: TextStyle(color: Color(0xFF2C2C2C))),
+        content: Text(
+          'Are you sure you want to deactivate ${admin.name ?? admin.email}?',
+          style: const TextStyle(color: Color(0xFF666666)),
         ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: context.isMobile ? double.infinity : 800,
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
           ),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(16),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                // TODO: Implement deactivate admin
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Deactivate functionality coming soon')),
+                );
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Deactivate'),
           ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-                  ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDevicesView() {
+    return const Center(child: Text('Devices View - Coming Soon', style: TextStyle(color: Color(0xFF2C2C2C))));
+  }
+}
+
+class _SchoolDetailsPanel extends StatelessWidget {
+  final School school;
+  final List<Device> schoolDevices;
+  final List<app_user.AppUser> schoolAdmins;
+  final List<Session> schoolSessions;
+  final int deviceCount;
+  final int activeDeviceCount;
+  final int offlineDeviceCount;
+  final String initial;
+  final Color color;
+  final VoidCallback onAddAdmin;
+  final Function(app_user.AppUser) onEditAdmin;
+  final Function(app_user.AppUser) onResetPassword;
+  final Function(app_user.AppUser) onDeactivateAdmin;
+
+  const _SchoolDetailsPanel({
+    required this.school,
+    required this.schoolDevices,
+    required this.schoolAdmins,
+    required this.schoolSessions,
+    required this.deviceCount,
+    required this.activeDeviceCount,
+    required this.offlineDeviceCount,
+    required this.initial,
+    required this.color,
+    required this.onAddAdmin,
+    required this.onEditAdmin,
+    required this.onResetPassword,
+    required this.onDeactivateAdmin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final panelWidth = context.isMobile 
+        ? MediaQuery.of(context).size.width 
+        : (context.isTablet 
+            ? MediaQuery.of(context).size.width * 0.6 
+            : MediaQuery.of(context).size.width * 0.5);
+    
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Row(
+        children: [
+          // Backdrop - tap to close
+          Expanded(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+          // Right panel
+          Container(
+            width: panelWidth,
+            height: MediaQuery.of(context).size.height,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(-5, 0),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          initial,
-                          style: TextStyle(
-                            color: color,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: const Color(0xFFE0E0E0)),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            school.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (school.tagline != null) ...[
-                            const SizedBox(height: 4),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              school.tagline!,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
+                              school.name,
+                              style: const TextStyle(
+                                color: Color(0xFF2C2C2C),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if (school.tagline != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                school.tagline!,
+                                style: const TextStyle(
+                                  color: Color(0xFF666666),
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Description Section
-                      if (school.description != null) ...[
-                        _buildSectionTitle('Description'),
-                        const SizedBox(height: 8),
-                        Text(
-                          school.description!,
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
                         ),
-                        const SizedBox(height: 24),
-                      ],
-                      
-                      // Contact Information Section
-                      _buildSectionTitle('Contact Information'),
-                      const SizedBox(height: 12),
-                      if (school.address != null)
-                        _buildInfoRow(Icons.location_on, 'Address', school.address!),
-                      if (school.city != null)
-                        _buildInfoRow(Icons.business, 'City', school.city!),
-                      if (school.country != null)
-                        _buildInfoRow(Icons.flag, 'Country', school.country!),
-                      if (school.phone != null)
-                        _buildInfoRow(Icons.phone, 'Phone', school.phone!),
-                      if (school.email != null)
-                        _buildInfoRow(Icons.email, 'Email', school.email!),
-                      if (school.website != null)
-                        _buildInfoRow(Icons.language, 'Website', school.website!),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF666666)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                      // Description Section - Always show
+                      _buildSectionTitle('Description'),
+                      const SizedBox(height: 8),
+                      Text(
+                        school.description ?? 'No description provided',
+                        style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
+                      ),
                       const SizedBox(height: 24),
                       
-                      // Attendance Settings Section
+                      // Contact Information Section - Always show all fields
+                      _buildSectionTitle('Contact Information'),
+                      const SizedBox(height: 12),
+                      _buildInfoRow(Icons.location_on, 'Address', school.address ?? 'No address provided'),
+                      _buildInfoRow(Icons.business, 'City', school.city ?? 'No city provided'),
+                      _buildInfoRow(Icons.flag, 'Country', school.country ?? 'No country provided'),
+                      _buildInfoRow(Icons.phone, 'Phone', school.phone ?? 'No phone provided'),
+                      _buildInfoRow(Icons.email, 'Email', school.email ?? 'No email provided'),
+                      _buildInfoRow(Icons.language, 'Website', school.website ?? 'No website provided'),
+                      const SizedBox(height: 24),
+                      
+                      // Attendance Settings Section - Always show if times exist
                       if (school.morningStart != null || school.afternoonStart != null) ...[
                         _buildSectionTitle('Attendance Settings'),
                         const SizedBox(height: 12),
@@ -2225,25 +2404,29 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                             'Morning',
                             '${school.morningStart} - ${school.morningEnd}',
                             school.morningLateTime,
-                          ),
+                          )
+                        else
+                          _buildInfoRow(Icons.wb_sunny, 'Morning', 'Not configured'),
                         if (school.afternoonStart != null && school.afternoonEnd != null)
                           _buildAttendanceTime(
                             Icons.nightlight_round,
                             'Afternoon',
                             '${school.afternoonStart} - ${school.afternoonEnd}',
                             school.afternoonLateTime,
-                          ),
+                          )
+                        else if (school.morningStart != null)
+                          _buildInfoRow(Icons.nightlight_round, 'Afternoon', 'Not configured'),
                         const SizedBox(height: 24),
                       ],
                       
-                      // Assigned Devices Section
+                      // Assigned Devices Section - Always show
                       _buildSectionTitle('Assigned Devices'),
                       const SizedBox(height: 12),
-                      // Summary bar
+                      // Summary bar - Always show
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
+                          color: const Color(0xFFF5F5F5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -2257,14 +2440,14 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Device list
+                      // Device list - Always show, even if empty
                       if (schoolDevices.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: Center(
                             child: Text(
                               'No devices assigned',
-                              style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
                             ),
                           ),
                         )
@@ -2273,7 +2456,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1A1A1A),
+                                color: const Color(0xFFF5F5F5),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -2290,7 +2473,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                                   Expanded(
                                     child: Text(
                                       device.deviceName ?? device.deviceId,
-                                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                      style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
                                     ),
                                   ),
                                   Text(
@@ -2305,7 +2488,111 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                             )),
                       const SizedBox(height: 24),
                       
-                      // School Administrators Section
+                      // School Sessions Section - Always show
+                      _buildSectionTitle('School Sessions'),
+                      const SizedBox(height: 12),
+                      if (schoolSessions.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              'No sessions found',
+                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
+                            ),
+                          ),
+                        )
+                      else
+                        ...schoolSessions.take(10).map((session) => Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: session.isActive ? Colors.green : const Color(0xFFE0E0E0),
+                                  width: session.isActive ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    session.isActive ? Icons.play_circle_filled : Icons.calendar_today,
+                                    color: session.isActive ? Colors.green : const Color(0xFF666666),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _formatDate(session.date),
+                                          style: const TextStyle(
+                                            color: Color(0xFF2C2C2C),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        if (session.period != null || session.className != null) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            [
+                                              if (session.period != null) session.period,
+                                              if (session.className != null) session.className,
+                                            ].join(' • '),
+                                            style: const TextStyle(
+                                              color: Color(0xFF666666),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                        if (session.startTime != null && session.endTime != null) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${session.startTime} - ${session.endTime}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF666666),
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (session.isActive)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Text(
+                                        'Active',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            )),
+                      if (schoolSessions.length > 10)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '... and ${schoolSessions.length - 10} more sessions',
+                            style: const TextStyle(
+                              color: Color(0xFF666666),
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      
+                      // School Administrators Section - Always show
                       _buildSectionTitle('School Administrators'),
                       const SizedBox(height: 12),
                       if (schoolAdmins.isEmpty)
@@ -2314,7 +2601,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                           child: Center(
                             child: Text(
                               'No administrators assigned',
-                              style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
                             ),
                           ),
                         )
@@ -2322,11 +2609,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         ...schoolAdmins.map((admin) => _buildAdminCard(admin)),
                       const SizedBox(height: 12),
                       ElevatedButton.icon(
-                        onPressed: () => _showAddAdminDialog(school.id!),
+                        onPressed: onAddAdmin,
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('Add Another Admin'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: const Color(0xFF1A5F5F),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
@@ -2338,15 +2625,35 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             ],
           ),
         ),
-      ),
+      ],
+    ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sessionDate = DateTime(date.year, date.month, date.day);
+    
+    if (sessionDate == today) {
+      return 'Today';
+    } else if (sessionDate == today.add(const Duration(days: 1))) {
+      return 'Tomorrow';
+    } else if (sessionDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
+    } else {
+      // Format as "Mon, Jan 15, 2024"
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
   }
 
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
       style: const TextStyle(
-        color: Colors.white,
+        color: Color(0xFF2C2C2C),
         fontSize: 16,
         fontWeight: FontWeight.bold,
       ),
@@ -2358,16 +2665,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.white.withOpacity(0.6)),
+          Icon(icon, size: 18, color: const Color(0xFF666666)),
           const SizedBox(width: 8),
           Text(
             '$label: ',
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
             ),
           ),
         ],
@@ -2380,15 +2687,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.white.withOpacity(0.6)),
+          Icon(icon, size: 18, color: const Color(0xFF666666)),
           const SizedBox(width: 8),
           Text(
             '$period: ',
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
           ),
           Text(
             lateTime != null ? '$timeRange (Late: $lateTime)' : timeRange,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
           ),
         ],
       ),
@@ -2406,7 +2713,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         ),
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+          style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
         ),
       ],
     );
@@ -2420,9 +2727,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2458,7 +2765,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                           child: Text(
                             admin.name ?? 'Unknown',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Color(0xFF2C2C2C),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2484,12 +2791,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.email, size: 14, color: Colors.white70),
+                        const Icon(Icons.email, size: 14, color: Color(0xFF666666)),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             admin.email,
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
                           ),
                         ),
                       ],
@@ -2498,11 +2805,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.phone, size: 14, color: Colors.white70),
+                          const Icon(Icons.phone, size: 14, color: Color(0xFF666666)),
                           const SizedBox(width: 4),
                           Text(
                             admin.phone!,
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
                           ),
                         ],
                       ),
@@ -2517,31 +2824,31 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _showEditAdminDialog(admin),
+                  onPressed: () => onEditAdmin(admin),
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Edit'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    foregroundColor: const Color(0xFF666666),
+                    side: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _showResetPasswordDialog(admin),
+                  onPressed: () => onResetPassword(admin),
                   icon: const Icon(Icons.lock_reset, size: 16),
                   label: const Text('Reset Password'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    foregroundColor: const Color(0xFF666666),
+                    side: const BorderSide(color: Color(0xFFE0E0E0)),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _showDeactivateAdminDialog(admin),
+                  onPressed: () => onDeactivateAdmin(admin),
                   icon: const Icon(Icons.block, size: 16),
                   label: const Text('Deactivate'),
                   style: OutlinedButton.styleFrom(
@@ -2555,71 +2862,6 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         ],
       ),
     );
-  }
-
-  void _showAddAdminDialog(String schoolId) {
-    // TODO: Implement add admin dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add admin functionality coming soon')),
-    );
-  }
-
-  void _showEditAdminDialog(app_user.AppUser admin) {
-    // TODO: Implement edit admin dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit admin functionality coming soon')),
-    );
-  }
-
-  void _showResetPasswordDialog(app_user.AppUser admin) {
-    // TODO: Implement reset password dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reset password functionality coming soon')),
-    );
-  }
-
-  void _showDeactivateAdminDialog(app_user.AppUser admin) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text('Deactivate Administrator', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'Are you sure you want to deactivate ${admin.name ?? admin.email}?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                // TODO: Implement deactivate admin
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Deactivate functionality coming soon')),
-                );
-                Navigator.pop(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Deactivate'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDevicesView() {
-    return const Center(child: Text('Devices View - Coming Soon', style: TextStyle(color: Colors.white)));
   }
 }
 

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/system_owner_dashboard.dart';
+import 'screens/parent_dashboard_screen.dart';
+import 'services/auth_storage_service.dart';
+import 'services/firebase_service.dart';
 
 void main() async {
   try {
@@ -68,7 +73,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const HomeScreen(),
+        '/': (context) => const AuthWrapper(),
+        '/login': (context) => const LoginScreen(),
       },
       builder: (context, child) {
         // Apply a MediaQuery to ensure proper sizing on all devices
@@ -84,5 +90,114 @@ class MyApp extends StatelessWidget {
       },
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isLoading = true;
+  Widget? _initialScreen;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    try {
+      // Check if user is logged in
+      final isLoggedIn = await AuthStorageService.isLoggedIn();
+      
+      if (!isLoggedIn) {
+        // No user logged in, show login screen
+        if (mounted) {
+          setState(() {
+            _initialScreen = const LoginScreen();
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Get stored login information
+      final storedLogin = await AuthStorageService.getStoredDemoLogin();
+      
+      if (storedLogin == null) {
+        // No valid stored login, show login screen
+        if (mounted) {
+          setState(() {
+            _initialScreen = const LoginScreen();
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final role = storedLogin['role'] as UserRole;
+      final studentNumber = storedLogin['studentNumber'] as String?;
+
+      // Route based on role
+      Widget? targetScreen;
+      
+      if (role == UserRole.systemOwner) {
+        targetScreen = const SystemOwnerDashboard();
+      } else if (role == UserRole.parent && studentNumber != null) {
+        // For parent, fetch students by student number
+        try {
+          final students = await FirebaseService.getStudentsByStudentNumber(studentNumber);
+          if (students.isNotEmpty) {
+            final phoneNumber = students.first.fatherPhone ?? students.first.motherPhone ?? '';
+            targetScreen = ParentDashboardScreen(
+              phoneNumber: phoneNumber,
+              students: students,
+            );
+          } else {
+            // No students found, redirect to login
+            targetScreen = const LoginScreen();
+          }
+        } catch (e) {
+          print('Error fetching students for parent: $e');
+          targetScreen = const LoginScreen();
+        }
+      } else {
+        // Teacher or SchoolAdmin - go to HomeScreen
+        targetScreen = const HomeScreen();
+      }
+
+      if (mounted) {
+        setState(() {
+          _initialScreen = targetScreen ?? const LoginScreen();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error checking auth status: $e');
+      if (mounted) {
+        setState(() {
+          _initialScreen = const LoginScreen();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    return _initialScreen ?? const LoginScreen();
   }
 }

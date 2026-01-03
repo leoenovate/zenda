@@ -5,6 +5,7 @@ import '../models/message.dart';
 import '../models/school.dart';
 import '../models/device.dart';
 import '../models/user.dart' as app_user;
+import '../models/session.dart';
 import 'dart:async';
 
 class FirebaseService {
@@ -491,6 +492,36 @@ class FirebaseService {
       }).toList();
     } catch (e) {
       throw Exception('Failed to get users: $e');
+    }
+  }
+
+  // Get sessions for a specific school
+  static Future<List<Session>> getSchoolSessions(String schoolId) async {
+    try {
+      final QuerySnapshot snapshot = await _firestore
+          .collection('sessions')
+          .where('schoolId', isEqualTo: schoolId)
+          .orderBy('date', descending: true)
+          .get();
+      return snapshot.docs.map((doc) {
+        return Session.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+      }).toList();
+    } catch (e) {
+      // If index doesn't exist yet, try without orderBy
+      try {
+        final QuerySnapshot snapshot = await _firestore
+            .collection('sessions')
+            .where('schoolId', isEqualTo: schoolId)
+            .get();
+        final sessions = snapshot.docs.map((doc) {
+          return Session.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+        // Sort manually
+        sessions.sort((a, b) => b.date.compareTo(a.date));
+        return sessions;
+      } catch (e2) {
+        throw Exception('Failed to get school sessions: $e2');
+      }
     }
   }
 

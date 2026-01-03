@@ -66,47 +66,83 @@ class School {
   }
 
   factory School.fromFirestore(Map<String, dynamic> data, String id) {
-    // Handle nested address structure
+    // Handle nested holidays structure (contains name and motto/tagline)
+    String? name;
+    String? tagline;
+    if (data['holidays'] is Map) {
+      final holidaysMap = data['holidays'] as Map<String, dynamic>;
+      name = holidaysMap['name'] ?? data['name'];
+      tagline = holidaysMap['motto'] ?? data['tagline'];
+    } else {
+      name = data['name'];
+      tagline = data['tagline'];
+    }
+    
+    // Handle nested contact structure - extract all fields
     String? address;
     String? city;
     String? country;
-    
-    if (data['address'] is Map) {
-      final addrMap = data['address'] as Map<String, dynamic>;
-      address = addrMap['address'] ?? addrMap['sector'] ?? addrMap['cell'];
-      city = addrMap['city'] ?? addrMap['district'] ?? addrMap['province'];
-      country = addrMap['country'];
-    } else if (data['address'] is String) {
-      address = data['address'];
-    }
-    
-    // Handle nested contact structure
     String? phone;
     String? email;
+    
     if (data['contact'] is Map) {
       final contactMap = data['contact'] as Map<String, dynamic>;
-      phone = contactMap['phone'] ?? data['phone'];
-      email = contactMap['email'] ?? data['email'];
-    } else {
-      phone = data['phone'];
-      email = data['email'];
+      // Extract from contact object first
+      address = contactMap['address'];
+      city = contactMap['city'];
+      country = contactMap['country'];
+      phone = contactMap['phone'];
+      email = contactMap['email'];
     }
     
-    // Handle attendance settings
+    // Fallback to top-level fields if not in contact object
+    address = address ?? (data['address'] is String ? data['address'] : null);
+    city = city ?? (data['city'] is String ? data['city'] : null);
+    country = country ?? (data['country'] is String ? data['country'] : null);
+    phone = phone ?? (data['phone'] is String ? data['phone'] : null);
+    email = email ?? (data['email'] is String ? data['email'] : null);
+    
+    // Handle nested address structure (alternative format)
+    if (data['address'] is Map && address == null) {
+      final addrMap = data['address'] as Map<String, dynamic>;
+      address = addrMap['address'] ?? addrMap['sector'] ?? addrMap['cell'];
+      city = city ?? addrMap['city'] ?? addrMap['district'] ?? addrMap['province'];
+      country = country ?? addrMap['country'];
+    }
+    
+    // Handle attendance settings - check multiple possible locations
     Map<String, dynamic>? attendanceSettings;
     if (data['attendanceSettings'] is Map) {
       attendanceSettings = data['attendanceSettings'] as Map<String, dynamic>;
+    } else if (data['weeklySchedule'] is Map) {
+      // Check weeklySchedule for attendance times
+      final weeklySchedule = data['weeklySchedule'] as Map<String, dynamic>;
+        if (weeklySchedule['morning'] is Map || weeklySchedule['afternoon'] is Map) {
+          attendanceSettings = <String, dynamic>{};
+          if (weeklySchedule['morning'] is Map) {
+            final morning = weeklySchedule['morning'] as Map<String, dynamic>;
+            attendanceSettings['morningStart'] = morning['start'];
+            attendanceSettings['morningEnd'] = morning['end'];
+            attendanceSettings['morningLateTime'] = morning['lateTime'];
+          }
+          if (weeklySchedule['afternoon'] is Map) {
+            final afternoon = weeklySchedule['afternoon'] as Map<String, dynamic>;
+            attendanceSettings['afternoonStart'] = afternoon['start'];
+            attendanceSettings['afternoonEnd'] = afternoon['end'];
+            attendanceSettings['afternoonLateTime'] = afternoon['lateTime'];
+          }
+        }
     }
     
     return School(
       id: id,
-      name: data['name'] ?? '',
+      name: name ?? '',
       code: data['code'],
-      tagline: data['tagline'],
+      tagline: tagline,
       description: data['description'],
-      address: address ?? data['address'],
-      city: city ?? data['city'],
-      country: country ?? data['country'],
+      address: address,
+      city: city,
+      country: country,
       phone: phone,
       email: email,
       website: data['website'],
