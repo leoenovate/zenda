@@ -7,6 +7,46 @@ import 'screens/system_owner_dashboard.dart';
 import 'screens/parent_dashboard_screen.dart';
 import 'services/auth_storage_service.dart';
 import 'services/firebase_service.dart';
+import 'models/student.dart';
+import 'models/attendance.dart';
+
+// Synthetic student used when the demo parent (STD001) resumes a session but
+// no matching student exists in Firestore. Kept in sync with the equivalent
+// helper in `login_screen.dart` so the parent UI is usable end-to-end.
+Student _buildDemoStudent() {
+  final today = DateTime.now();
+  return Student(
+    id: 'demo-student-std001',
+    name: 'Demo Student',
+    period: 'Morning',
+    registrationNumber: 'STD001',
+    gender: 'Male',
+    birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),
+    fatherName: 'Demo Father',
+    fatherPhone: '0780000001',
+    motherName: 'Demo Mother',
+    motherPhone: '0780000002',
+    country: 'Rwanda',
+    province: 'Kigali',
+    district: 'Gasabo',
+    sector: 'Kimironko',
+    cell: 'Kibagabaga',
+    attendanceHistory: [
+      Attendance(
+        date: today.subtract(const Duration(days: 1)),
+        status: AttendanceStatus.present,
+      ),
+      Attendance(
+        date: today.subtract(const Duration(days: 2)),
+        status: AttendanceStatus.late,
+      ),
+      Attendance(
+        date: today.subtract(const Duration(days: 3)),
+        status: AttendanceStatus.present,
+      ),
+    ],
+  );
+}
 
 void main() async {
   try {
@@ -149,9 +189,26 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (role == UserRole.systemOwner) {
         targetScreen = const SystemOwnerDashboard();
       } else if (role == UserRole.parent && studentNumber != null) {
-        // For parent, fetch students by student number
+        // For parent, fetch students by student number. For the demo parent
+        // (STD001) fall back to a synthetic student so the session can resume
+        // even when Firestore has no matching record.
+        final isDemoParent =
+            studentNumber.trim().toUpperCase() == 'STD001';
+        List<Student> students = [];
         try {
-          final students = await FirebaseService.getStudentsByStudentNumber(studentNumber);
+          students = await FirebaseService.getStudentsByStudentNumber(studentNumber);
+        } catch (e) {
+          print('Error fetching students for parent: $e');
+          if (!isDemoParent) {
+            targetScreen = const LoginScreen();
+          }
+        }
+
+        if (targetScreen == null) {
+          if (students.isEmpty && isDemoParent) {
+            students = [_buildDemoStudent()];
+          }
+
           if (students.isNotEmpty) {
             final phoneNumber = students.first.fatherPhone ?? students.first.motherPhone ?? '';
             targetScreen = ParentDashboardScreen(
@@ -159,12 +216,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
               students: students,
             );
           } else {
-            // No students found, redirect to login
             targetScreen = const LoginScreen();
           }
-        } catch (e) {
-          print('Error fetching students for parent: $e');
-          targetScreen = const LoginScreen();
         }
       } else {
         // Teacher or SchoolAdmin - go to HomeScreen
