@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
 import '../models/message.dart';
 import 'package:intl/intl.dart';
 import '../services/firebase_service.dart';
+import '../services/auth_storage_service.dart';
 import '../widgets/student_form/add_student_dialog.dart';
 import '../widgets/student_form/student_form_stepper.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -591,6 +593,40 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        title: const Text('Logout', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+    await AuthStorageService.clearStoredLogin();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
   void _navigateToChat() {
     Navigator.push(
       context,
@@ -676,6 +712,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     Navigator.pushNamed(context, '/api-logs');
                                   },
                                   tooltip: 'API Logs',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  onPressed: _logout,
+                                  tooltip: 'Logout',
                                 ),
                               ],
                             ),
