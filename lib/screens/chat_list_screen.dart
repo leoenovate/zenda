@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/student.dart';
 import '../models/message.dart';
@@ -29,6 +30,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
   // Animation controllers for staggered animations
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  StreamSubscription<Map<String, int>>? _unreadSub;
 
   @override
   void initState() {
@@ -36,7 +38,6 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
     filteredStudents = List.from(widget.students);
     _searchController.addListener(_filterStudents);
     
-    // Animation setup
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -49,8 +50,8 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
     
     _animationController.forward();
     
-    // Listen for unread messages
-    FirebaseService.getAllUnreadMessages(widget.userType).listen((counts) {
+    _unreadSub = FirebaseService.getAllUnreadMessages(widget.userType).listen((counts) {
+      if (!mounted) return;
       setState(() {
         unreadMessages = counts;
       });
@@ -59,6 +60,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _unreadSub?.cancel();
     _searchController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -158,8 +160,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                       itemBuilder: (context, index) {
                         final student = filteredStudents[index];
                         final unreadCount = unreadMessages[student.id] ?? 0;
-                        
-                        // Create staggered animation for each list item
+
+                        final double begin = (0.1 + index * 0.05).clamp(0.0, 0.4);
+                        final double end = (begin + 0.5).clamp(0.0, 1.0);
                         final itemAnimation = Tween<Offset>(
                           begin: const Offset(0, 0.3),
                           end: Offset.zero,
@@ -167,14 +170,15 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                           CurvedAnimation(
                             parent: _animationController,
                             curve: Interval(
-                              0.1 + (index * 0.05).clamp(0.0, 0.6),
-                              0.6 + (index * 0.05).clamp(0.0, 0.6),
+                              begin,
+                              end,
                               curve: Curves.easeOutQuint,
                             ),
                           ),
                         );
                         
                         return SlideTransition(
+                          key: ValueKey(student.id),
                           position: itemAnimation,
                           child: Padding(
                             padding: EdgeInsets.symmetric(
