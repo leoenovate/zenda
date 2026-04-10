@@ -8,8 +8,6 @@ import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import 'chat_screen.dart';
 import '../utils/responsive_builder.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 class ParentDashboardScreen extends StatefulWidget {
   final String phoneNumber;
   final List<Student> students;
