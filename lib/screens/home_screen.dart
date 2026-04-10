@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
 import '../models/message.dart';
