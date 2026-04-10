@@ -2171,49 +2171,776 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   void _showAddAdminDialog(String schoolId) {
-    // TODO: Implement add admin dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add admin functionality coming soon')),
-    );
+    _showAdminFormDialog(schoolId: schoolId);
   }
 
   void _showEditAdminDialog(app_user.AppUser admin) {
-    // TODO: Implement edit admin dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit admin functionality coming soon')),
+    _showAdminFormDialog(admin: admin, schoolId: admin.schoolId);
+  }
+
+  void _showAdminFormDialog({app_user.AppUser? admin, String? schoolId}) {
+    final nameController = TextEditingController(text: admin?.name ?? '');
+    final emailController = TextEditingController(text: admin?.email ?? '');
+    final phoneController = TextEditingController(text: admin?.phone ?? '');
+    final passwordController = TextEditingController();
+    String role = admin?.role ?? 'admin';
+    bool isActive = admin?.isActive ?? true;
+    bool isSaving = false;
+    final isEdit = admin != null;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setStateDialog) {
+          InputDecoration field(String label, {bool required = false}) => InputDecoration(
+                labelText: required ? '$label *' : label,
+                labelStyle: const TextStyle(color: Color(0xFF666666)),
+                enabledBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
+                ),
+              );
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              isEdit ? 'Edit Administrator' : 'Add Administrator',
+              style: const TextStyle(color: Color(0xFF2C2C2C)),
+            ),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Full Name', required: true),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: emailController,
+                      enabled: !isEdit,
+                      keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Email', required: true),
+                    ),
+                    if (!isEdit) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: passwordController,
+                        obscureText: true,
+                        style: const TextStyle(color: Color(0xFF2C2C2C)),
+                        decoration: field('Temporary Password', required: true),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Phone'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: role,
+                      decoration: field('Role', required: true),
+                      dropdownColor: Colors.white,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      items: const [
+                        DropdownMenuItem(value: 'admin', child: Text('School Admin')),
+                        DropdownMenuItem(value: 'teacher', child: Text('Teacher')),
+                        DropdownMenuItem(value: 'staff', child: Text('Staff')),
+                      ],
+                      onChanged: (v) => setStateDialog(() => role = v ?? 'admin'),
+                    ),
+                    if (isEdit) ...[
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: isActive,
+                        activeColor: const Color(0xFF1A5F5F),
+                        title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                        onChanged: (v) => setStateDialog(() => isActive = v),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        final email = emailController.text.trim();
+                        final phone = phoneController.text.trim();
+                        final password = passwordController.text;
+
+                        if (name.isEmpty || email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Name and email are required')),
+                          );
+                          return;
+                        }
+                        if (!isEdit && password.length < 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password must be at least 6 characters')),
+                          );
+                          return;
+                        }
+
+                        setStateDialog(() => isSaving = true);
+                        try {
+                          if (isEdit) {
+                            final updated = app_user.AppUser(
+                              id: admin.id,
+                              email: admin.email,
+                              name: name,
+                              role: role,
+                              schoolId: schoolId ?? admin.schoolId,
+                              phone: phone.isEmpty ? null : phone,
+                              isActive: isActive,
+                              createdAt: admin.createdAt,
+                              lastLogin: admin.lastLogin,
+                            );
+                            await FirebaseService.updateAdmin(updated);
+                          } else {
+                            await FirebaseService.addAdmin(
+                              email: email,
+                              password: password,
+                              role: role,
+                              name: name,
+                              schoolId: schoolId,
+                              phone: phone.isEmpty ? null : phone,
+                            );
+                          }
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(isEdit
+                                  ? 'Administrator updated'
+                                  : 'Administrator created'),
+                            ),
+                          );
+                          _loadData();
+                        } catch (e) {
+                          setStateDialog(() => isSaving = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5F5F),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create')),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   void _showResetPasswordDialog(app_user.AppUser admin) {
-    // TODO: Implement reset password dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reset password functionality coming soon')),
-    );
-  }
-
-  void _showDeactivateAdminDialog(app_user.AppUser admin) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Deactivate Administrator', style: TextStyle(color: Color(0xFF2C2C2C))),
+        title: const Text('Reset Password', style: TextStyle(color: Color(0xFF2C2C2C))),
         content: Text(
-          'Are you sure you want to deactivate ${admin.name ?? admin.email}?',
+          'Send a password reset email to ${admin.email}?',
           style: const TextStyle(color: Color(0xFF666666)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
           ),
           ElevatedButton(
             onPressed: () async {
               try {
-                // TODO: Implement deactivate admin
+                await FirebaseService.resetAdminPassword(admin.email);
+                if (!mounted) return;
+                Navigator.pop(dialogCtx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Deactivate functionality coming soon')),
+                  SnackBar(content: Text('Reset email sent to ${admin.email}')),
                 );
-                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A5F5F),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeactivateAdminDialog(app_user.AppUser admin) {
+    final willDeactivate = admin.isActive;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(
+          willDeactivate ? 'Deactivate Administrator' : 'Reactivate Administrator',
+          style: const TextStyle(color: Color(0xFF2C2C2C)),
+        ),
+        content: Text(
+          willDeactivate
+              ? 'Are you sure you want to deactivate ${admin.name ?? admin.email}?'
+              : 'Reactivate ${admin.name ?? admin.email}?',
+          style: const TextStyle(color: Color(0xFF666666)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await FirebaseService.setAdminActive(admin.id!, !willDeactivate);
+                if (!mounted) return;
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(willDeactivate
+                        ? 'Administrator deactivated'
+                        : 'Administrator reactivated'),
+                  ),
+                );
+                _loadData();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: willDeactivate ? Colors.red : const Color(0xFF1A5F5F),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(willDeactivate ? 'Deactivate' : 'Reactivate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Devices view ---
+
+  String _deviceSearchQuery = '';
+  String _deviceStatusFilter = 'all';
+  String _deviceSchoolFilter = 'all';
+
+  Widget _buildDevicesView() {
+    final padding = context.isMobile
+        ? const EdgeInsets.all(16)
+        : const EdgeInsets.all(24);
+
+    final filtered = devices.where((d) {
+      if (_deviceStatusFilter != 'all' && (d.status ?? 'offline') != _deviceStatusFilter) {
+        return false;
+      }
+      if (_deviceSchoolFilter != 'all' && d.schoolId != _deviceSchoolFilter) {
+        return false;
+      }
+      if (_deviceSearchQuery.isNotEmpty) {
+        final q = _deviceSearchQuery.toLowerCase();
+        final name = (d.deviceName ?? '').toLowerCase();
+        final id = d.deviceId.toLowerCase();
+        final loc = (d.location ?? '').toLowerCase();
+        if (!name.contains(q) && !id.contains(q) && !loc.contains(q)) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Devices',
+                      style: TextStyle(
+                        color: Color(0xFF2C2C2C),
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Manage fingerprint scanners and other hardware',
+                      style: TextStyle(color: Color(0xFF666666), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _showDeviceFormDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Device'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5F5F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search by name, ID, or location...',
+                    hintStyle: TextStyle(color: Color(0xFF999999)),
+                    prefixIcon: Icon(Icons.search, color: Color(0xFF666666)),
+                    filled: true,
+                    fillColor: Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
+                  ),
+                  style: const TextStyle(color: Color(0xFF2C2C2C)),
+                  onChanged: (v) => setState(() => _deviceSearchQuery = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _buildDeviceDropdown(
+                value: _deviceStatusFilter,
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All statuses')),
+                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                  DropdownMenuItem(value: 'offline', child: Text('Offline')),
+                  DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
+                ],
+                onChanged: (v) => setState(() => _deviceStatusFilter = v ?? 'all'),
+              ),
+              const SizedBox(width: 12),
+              _buildDeviceDropdown(
+                value: _deviceSchoolFilter,
+                items: [
+                  const DropdownMenuItem(value: 'all', child: Text('All schools')),
+                  ...schools.map((s) =>
+                      DropdownMenuItem(value: s.id, child: Text(s.name))),
+                ],
+                onChanged: (v) => setState(() => _deviceSchoolFilter = v ?? 'all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDeviceSummaryCard(
+                  Colors.green,
+                  Icons.check_circle,
+                  '${devices.where((d) => d.status == 'active').length}',
+                  'Active',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDeviceSummaryCard(
+                  Colors.red,
+                  Icons.error_outline,
+                  '${devices.where((d) => d.status == 'offline').length}',
+                  'Offline',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDeviceSummaryCard(
+                  Colors.orange,
+                  Icons.build_circle,
+                  '${devices.where((d) => d.status == 'maintenance').length}',
+                  'Maintenance',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDeviceSummaryCard(
+                  const Color(0xFF1A5F5F),
+                  Icons.devices_other,
+                  '${devices.length}',
+                  'Total',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (filtered.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 60),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.devices_other, size: 48, color: Color(0xFF999999)),
+                  SizedBox(height: 12),
+                  Text('No devices match your filters',
+                      style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
+                ],
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                itemBuilder: (_, i) => _buildDeviceListRow(filtered[i]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceDropdown({
+    required String value,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButton<String>(
+        value: value,
+        items: items,
+        onChanged: onChanged,
+        underline: const SizedBox.shrink(),
+        dropdownColor: Colors.white,
+        style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _buildDeviceListRow(Device device) {
+    final schoolName = schools
+            .firstWhere(
+              (s) => s.id == device.schoolId,
+              orElse: () => const School(name: 'Unassigned'),
+            )
+            .name;
+
+    Color statusColor;
+    switch (device.status) {
+      case 'active':
+        statusColor = Colors.green;
+        break;
+      case 'maintenance':
+        statusColor = Colors.orange;
+        break;
+      default:
+        statusColor = Colors.red;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.fingerprint, color: statusColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device.deviceName ?? device.deviceId,
+                  style: const TextStyle(
+                    color: Color(0xFF2C2C2C),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${device.deviceId} · $schoolName${device.location != null ? ' · ${device.location}' : ''}',
+                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              (device.status ?? 'offline').toUpperCase(),
+              style: TextStyle(
+                color: statusColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            onPressed: () => _showDeviceFormDialog(device: device),
+            tooltip: 'Edit',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            onPressed: () => _showDeleteDeviceDialog(device),
+            tooltip: 'Delete',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeviceFormDialog({Device? device}) {
+    final deviceIdController = TextEditingController(text: device?.deviceId ?? '');
+    final nameController = TextEditingController(text: device?.deviceName ?? '');
+    final locationController = TextEditingController(text: device?.location ?? '');
+    String deviceType = device?.deviceType ?? 'fingerprint_scanner';
+    String status = device?.status ?? 'offline';
+    String? schoolId = device?.schoolId;
+    bool isSaving = false;
+    final isEdit = device != null;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setStateDialog) {
+          InputDecoration field(String label, {bool required = false}) => InputDecoration(
+                labelText: required ? '$label *' : label,
+                labelStyle: const TextStyle(color: Color(0xFF666666)),
+                enabledBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
+                ),
+              );
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              isEdit ? 'Edit Device' : 'Add Device',
+              style: const TextStyle(color: Color(0xFF2C2C2C)),
+            ),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: deviceIdController,
+                      enabled: !isEdit,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Device ID', required: true),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Device Name'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: deviceType,
+                      decoration: field('Type'),
+                      dropdownColor: Colors.white,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'fingerprint_scanner',
+                            child: Text('Fingerprint Scanner')),
+                        DropdownMenuItem(
+                            value: 'attendance_terminal',
+                            child: Text('Attendance Terminal')),
+                        DropdownMenuItem(value: 'other', child: Text('Other')),
+                      ],
+                      onChanged: (v) => setStateDialog(
+                          () => deviceType = v ?? 'fingerprint_scanner'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String?>(
+                      value: schoolId,
+                      decoration: field('Assigned School'),
+                      dropdownColor: Colors.white,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('Unassigned')),
+                        ...schools.map((s) => DropdownMenuItem<String?>(
+                            value: s.id, child: Text(s.name))),
+                      ],
+                      onChanged: (v) => setStateDialog(() => schoolId = v),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: locationController,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: field('Location'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: status,
+                      decoration: field('Status'),
+                      dropdownColor: Colors.white,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      items: const [
+                        DropdownMenuItem(value: 'active', child: Text('Active')),
+                        DropdownMenuItem(value: 'offline', child: Text('Offline')),
+                        DropdownMenuItem(
+                            value: 'maintenance', child: Text('Maintenance')),
+                      ],
+                      onChanged: (v) => setStateDialog(() => status = v ?? 'offline'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (deviceIdController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Device ID is required')),
+                          );
+                          return;
+                        }
+                        setStateDialog(() => isSaving = true);
+                        try {
+                          final updated = Device(
+                            id: device?.id,
+                            deviceId: deviceIdController.text.trim(),
+                            deviceName: nameController.text.trim().isEmpty
+                                ? null
+                                : nameController.text.trim(),
+                            deviceType: deviceType,
+                            schoolId: schoolId,
+                            isActive: status == 'active',
+                            lastSeen: device?.lastSeen,
+                            location: locationController.text.trim().isEmpty
+                                ? null
+                                : locationController.text.trim(),
+                            status: status,
+                          );
+                          if (isEdit) {
+                            await FirebaseService.updateDevice(updated);
+                          } else {
+                            await FirebaseService.addDevice(updated);
+                          }
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(isEdit ? 'Device updated' : 'Device added'),
+                            ),
+                          );
+                          _loadData();
+                        } catch (e) {
+                          setStateDialog(() => isSaving = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A5F5F),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDeleteDeviceDialog(Device device) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Delete Device', style: TextStyle(color: Color(0xFF2C2C2C))),
+        content: Text(
+          'Delete device "${device.deviceName ?? device.deviceId}"? This action cannot be undone.',
+          style: const TextStyle(color: Color(0xFF666666)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await FirebaseService.deleteDevice(device.id!);
+                if (!mounted) return;
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Device deleted')),
+                );
+                _loadData();
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e')),
@@ -2224,15 +2951,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Deactivate'),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildDevicesView() {
-    return const Center(child: Text('Devices View - Coming Soon', style: TextStyle(color: Color(0xFF2C2C2C))));
   }
 }
 
