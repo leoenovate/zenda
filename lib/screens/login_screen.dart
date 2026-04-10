@@ -6,6 +6,8 @@ import 'system_owner_dashboard.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
+import '../models/student.dart';
+import '../models/attendance.dart';
 
 enum UserRole {
   parent,
@@ -37,19 +39,66 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  bool _checkDemoCredentials(String email, String password, UserRole role) {
-    // Demo credentials mapping
-    final demoCredentials = {
-      UserRole.systemOwner: {'email': 'owner@school.com', 'password': 'owner123'},
-      UserRole.schoolAdmin: {'email': 'admin@school.com', 'password': 'admin123'},
-      UserRole.teacher: {'email': 'teacher@school.com', 'password': 'teacher123'},
-    };
+  // Demo credentials for non-parent roles (email-based login).
+  static const Map<UserRole, Map<String, String>> _demoCredentials = {
+    UserRole.systemOwner: {'email': 'owner@school.com', 'password': 'owner123'},
+    UserRole.schoolAdmin: {'email': 'admin@school.com', 'password': 'admin123'},
+    UserRole.teacher: {'email': 'teacher@school.com', 'password': 'teacher123'},
+  };
 
-    final expected = demoCredentials[role];
+  // Demo credentials for parent role (student-number-based login).
+  static const String _demoParentStudentNumber = 'STD001';
+  static const String _demoParentPassword = 'parent123';
+
+  bool _checkDemoCredentials(String email, String password, UserRole role) {
+    final expected = _demoCredentials[role];
     if (expected == null) return false;
 
     return email.toLowerCase().trim() == expected['email']?.toLowerCase() &&
            password == expected['password'];
+  }
+
+  bool _isDemoParentCredentials(String studentNumber, String password) {
+    return studentNumber.trim().toUpperCase() == _demoParentStudentNumber &&
+        password == _demoParentPassword;
+  }
+
+  // Synthetic student used when the demo parent logs in but no real student
+  // with registration number STD001 exists in Firestore yet. Lets the parent
+  // UI be explored end-to-end without seeding data first.
+  Student _buildDemoStudent() {
+    final today = DateTime.now();
+    return Student(
+      id: 'demo-student-std001',
+      name: 'Demo Student',
+      period: 'Morning',
+      registrationNumber: _demoParentStudentNumber,
+      gender: 'Male',
+      birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),
+      fatherName: 'Demo Father',
+      fatherPhone: '0780000001',
+      motherName: 'Demo Mother',
+      motherPhone: '0780000002',
+      country: 'Rwanda',
+      province: 'Kigali',
+      district: 'Gasabo',
+      sector: 'Kimironko',
+      cell: 'Kibagabaga',
+      attendanceHistory: [
+        Attendance(
+          date: today.subtract(const Duration(days: 1)),
+          status: AttendanceStatus.present,
+        ),
+        Attendance(
+          date: today.subtract(const Duration(days: 2)),
+          status: AttendanceStatus.late,
+        ),
+        Attendance(
+          date: today.subtract(const Duration(days: 3)),
+          status: AttendanceStatus.present,
+        ),
+      ],
+    );
   }
 
   Future<void> _login() async {
@@ -77,25 +126,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Handle parent login with student number
       if (_selectedRole == UserRole.parent) {
-        // For parents, emailOrStudentNumber is actually a student number
-        // Find the student by registration number
-        final students = await FirebaseService.getStudentsByStudentNumber(emailOrStudentNumber);
-        
-        if (students.isEmpty) {
-          throw Exception('No student found with this student number');
+        final isDemoParent = _isDemoParentCredentials(emailOrStudentNumber, password);
+
+        // For parents, emailOrStudentNumber is actually a student number.
+        // Try to find the student by registration number.
+        List<Student> students = [];
+        try {
+          students = await FirebaseService.getStudentsByStudentNumber(emailOrStudentNumber);
+        } catch (e) {
+          // Only tolerate lookup failures for the demo parent so the UI can be
+          // explored even when Firestore is unreachable or empty.
+          if (!isDemoParent) rethrow;
+          print('LoginScreen: Demo parent Firestore lookup failed: $e');
         }
 
-        // Save demo login credentials for persistence
-        print('LoginScreen: Saving parent demo login credentials...');
+        if (students.isEmpty) {
+          if (isDemoParent) {
+            // Seed a synthetic student so the parent dashboard is reachable.
+            print('LoginScreen: No real student matched STD001, using demo student');
+            students = [_buildDemoStudent()];
+          } else {
+            throw Exception('No student found with this student number');
+          }
+        } else if (!isDemoParent) {
+          // A real student exists for this registration number. We don't have a
+          // parent account system yet, so require at least a non-empty password
+          // (form already enforces >= 6 chars) and treat it as a success.
+        }
+
+        print('LoginScreen: Saving parent login credentials (demo=$isDemoParent)...');
         await AuthStorageService.saveDemoLogin(
           role: UserRole.parent,
           studentNumber: emailOrStudentNumber,
         );
-        print('LoginScreen: Parent demo login credentials saved');
+        print('LoginScreen: Parent login credentials saved');
 
-        // For parent login, we'll verify the student exists and navigate to parent dashboard
-        // In a production app, you'd verify parent credentials separately
-        // For demo purposes, we'll allow login if student exists
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -620,10 +685,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildDemoCredential('Owner', 'owner@school.com', 'owner123'),
-                      _buildDemoCredential('Admin', 'admin@school.com', 'admin123'),
-                      _buildDemoCredential('Teacher', 'teacher@school.com', 'teacher123'),
-                      _buildDemoCredential('Parent', 'STD001', 'parent123'),
+                      _buildDemoCredential('Owner', 'owner@school.com', 'owner123', UserRole.systemOwner),
+                      _buildDemoCredential('Admin', 'admin@school.com', 'admin123', UserRole.schoolAdmin),
+                      _buildDemoCredential('Teacher', 'teacher@school.com', 'teacher123', UserRole.teacher),
+                      _buildDemoCredential('Parent', 'STD001', 'parent123', UserRole.parent),
                     ],
                   ),
                 ),
@@ -740,29 +805,50 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDemoCredential(String role, String username, String password) {
+  Widget _buildDemoCredential(String role, String username, String password, UserRole userRole) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Text(
-            '$role: ',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF666666),
-              fontWeight: FontWeight.w500,
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () {
+            setState(() {
+              _selectedRole = userRole;
+              _emailController.text = username;
+              _passwordController.text = password;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  '$role: ',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '$username / $password',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.touch_app_outlined,
+                  size: 14,
+                  color: Color(0xFF999999),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: Text(
-              '$username / $password',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF666666),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
