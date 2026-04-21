@@ -57,6 +57,22 @@ class _FingerprintStepState extends State<FingerprintStep> {
     });
   }
 
+  void _cancelFingerprintScan() {
+    print('[Fingerprint] Scan cancelled by user');
+    _fingerprintSubscription?.cancel();
+    _fingerprintSubscription = null;
+    _timeoutTimer?.cancel();
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+    if (mounted) {
+      setState(() {
+        _isScanning = false;
+        _errorMessage = null;
+      });
+    }
+  }
+
   Future<void> _startFingerprintScan() async {
     print('[Fingerprint] Starting scan process');
     setState(() {
@@ -93,6 +109,15 @@ class _FingerprintStepState extends State<FingerprintStep> {
               const CircularProgressIndicator(),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: _cancelFingerprintScan,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Cancel'),
+            ),
+          ],
         ),
       ),
     );
