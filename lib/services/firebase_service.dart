@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
 import '../models/message.dart';
@@ -6,6 +7,11 @@ import '../models/school.dart';
 import '../models/device.dart';
 import '../models/user.dart' as app_user;
 import '../models/session.dart';
+import '../models/teacher.dart';
+import '../models/class_group.dart';
+import '../models/parent.dart' as app_parent;
+import '../models/system_config.dart';
+import '../models/worker.dart';
 import 'dart:async';
 
 class FirebaseService {
@@ -483,6 +489,39 @@ class FirebaseService {
     }
   }
 
+  // Add a device
+  static Future<String> addDevice(Device device) async {
+    try {
+      final data = device.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('devices').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add device: $e');
+    }
+  }
+
+  // Update an existing device
+  static Future<void> updateDevice(Device device) async {
+    try {
+      if (device.id == null) {
+        throw Exception('Device ID is required for update');
+      }
+      await _firestore.collection('devices').doc(device.id).update(device.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update device: $e');
+    }
+  }
+
+  // Delete a device
+  static Future<void> deleteDevice(String deviceId) async {
+    try {
+      await _firestore.collection('devices').doc(deviceId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete device: $e');
+    }
+  }
+
   // Get all users/admins
   static Future<List<app_user.AppUser>> getUsers() async {
     try {
@@ -492,6 +531,99 @@ class FirebaseService {
       }).toList();
     } catch (e) {
       throw Exception('Failed to get users: $e');
+    }
+  }
+
+  // ADMIN / USER MANAGEMENT
+
+  // Create a new admin user. Creates both a Firebase Auth account (so the
+  // admin can sign in with email+password) and a matching users/{uid} doc.
+  // Returns the new user's UID.
+  static Future<String> addAdmin({
+    required String email,
+    required String password,
+    required String role,
+    String? name,
+    String? schoolId,
+    String? phone,
+  }) async {
+    try {
+      // Create Firebase Auth account using a secondary app so we don't clobber
+      // the currently-signed-in system owner's session.
+      final primaryAuth = FirebaseAuth.instance;
+      final currentUser = primaryAuth.currentUser;
+
+      final UserCredential cred = await primaryAuth
+          .createUserWithEmailAndPassword(email: email.trim(), password: password);
+      final uid = cred.user!.uid;
+
+      await _firestore.collection('users').doc(uid).set({
+        'email': email.trim(),
+        if (name != null && name.isNotEmpty) 'name': name,
+        'role': role,
+        if (schoolId != null) 'schoolId': schoolId,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // If a system owner was previously signed in and got replaced by the
+      // newly created account, sign the new account out. The calling UI is
+      // responsible for keeping the owner's session; during development with
+      // open rules we don't have a secondary-app path, so signOut is the
+      // pragmatic recovery.
+      if (currentUser != null && primaryAuth.currentUser?.uid != currentUser.uid) {
+        await primaryAuth.signOut();
+      }
+
+      return uid;
+    } on FirebaseAuthException catch (e) {
+      throw Exception('Failed to create admin: ${e.message ?? e.code}');
+    } catch (e) {
+      throw Exception('Failed to create admin: $e');
+    }
+  }
+
+  // Update an existing admin user's profile fields.
+  static Future<void> updateAdmin(app_user.AppUser user) async {
+    try {
+      if (user.id == null) {
+        throw Exception('User ID is required for update');
+      }
+      await _firestore.collection('users').doc(user.id).update(user.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update admin: $e');
+    }
+  }
+
+  // Send a password reset email to the given address via Firebase Auth.
+  static Future<void> resetAdminPassword(String email) async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      throw Exception('Failed to send reset email: ${e.message ?? e.code}');
+    } catch (e) {
+      throw Exception('Failed to send reset email: $e');
+    }
+  }
+
+  // Activate or deactivate an admin user. Only flips the `isActive` flag in
+  // the users doc; actually disabling Firebase Auth sign-in requires an Admin
+  // SDK call from a trusted backend (see functions/setRoleClaim).
+  static Future<void> setAdminActive(String userId, bool isActive) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({'isActive': isActive});
+    } catch (e) {
+      throw Exception('Failed to update admin status: $e');
+    }
+  }
+
+  // Delete an admin user document. Does not delete the Firebase Auth account.
+  static Future<void> deleteAdmin(String userId) async {
+    try {
+      await _firestore.collection('users').doc(userId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete admin: $e');
     }
   }
 
@@ -549,4 +681,318 @@ class FirebaseService {
       throw Exception('Failed to get recent activity: $e');
     }
   }
-} 
+
+  // TEACHERS
+
+  static Future<List<Teacher>> getTeachers({String? schoolId}) async {
+    try {
+      Query<Map<String, dynamic>> q = _firestore.collection('teachers');
+      if (schoolId != null) {
+        q = q.where('schoolId', isEqualTo: schoolId);
+      }
+      final snap = await q.get();
+      return snap.docs.map((d) => Teacher.fromFirestore(d.data(), d.id)).toList();
+    } catch (e) {
+      throw Exception('Failed to get teachers: $e');
+    }
+  }
+
+  static Future<String> addTeacher(Teacher teacher) async {
+    try {
+      final data = teacher.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('teachers').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add teacher: $e');
+    }
+  }
+
+  static Future<void> updateTeacher(Teacher teacher) async {
+    try {
+      if (teacher.id == null) {
+        throw Exception('Teacher ID is required for update');
+      }
+      await _firestore.collection('teachers').doc(teacher.id).update(teacher.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update teacher: $e');
+    }
+  }
+
+  static Future<void> deleteTeacher(String id) async {
+    try {
+      await _firestore.collection('teachers').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete teacher: $e');
+    }
+  }
+
+  // CLASSES
+
+  static Future<List<ClassGroup>> getClasses({String? schoolId}) async {
+    try {
+      Query<Map<String, dynamic>> q = _firestore.collection('classes');
+      if (schoolId != null) {
+        q = q.where('schoolId', isEqualTo: schoolId);
+      }
+      final snap = await q.get();
+      return snap.docs.map((d) => ClassGroup.fromFirestore(d.data(), d.id)).toList();
+    } catch (e) {
+      throw Exception('Failed to get classes: $e');
+    }
+  }
+
+  static Future<String> addClass(ClassGroup group) async {
+    try {
+      final data = group.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('classes').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add class: $e');
+    }
+  }
+
+  static Future<void> updateClass(ClassGroup group) async {
+    try {
+      if (group.id == null) {
+        throw Exception('Class ID is required for update');
+      }
+      await _firestore.collection('classes').doc(group.id).update(group.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update class: $e');
+    }
+  }
+
+  static Future<void> deleteClass(String id) async {
+    try {
+      await _firestore.collection('classes').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete class: $e');
+    }
+  }
+
+  static Future<void> assignStudentsToClass(String classId, List<String> studentIds) async {
+    try {
+      await _firestore.collection('classes').doc(classId).update({
+        'studentIds': studentIds,
+      });
+    } catch (e) {
+      throw Exception('Failed to assign students to class: $e');
+    }
+  }
+
+  // PARENTS
+
+  static Future<List<app_parent.Parent>> getParents({String? schoolId}) async {
+    try {
+      Query<Map<String, dynamic>> q = _firestore.collection('parents');
+      if (schoolId != null) {
+        q = q.where('schoolId', isEqualTo: schoolId);
+      }
+      final snap = await q.get();
+      return snap.docs.map((d) => app_parent.Parent.fromFirestore(d.data(), d.id)).toList();
+    } catch (e) {
+      throw Exception('Failed to get parents: $e');
+    }
+  }
+
+  static Future<String> addParent(app_parent.Parent parent) async {
+    try {
+      final data = parent.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('parents').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add parent: $e');
+    }
+  }
+
+  static Future<void> updateParent(app_parent.Parent parent) async {
+    try {
+      if (parent.id == null) {
+        throw Exception('Parent ID is required for update');
+      }
+      await _firestore.collection('parents').doc(parent.id).update(parent.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update parent: $e');
+    }
+  }
+
+  static Future<void> deleteParent(String id) async {
+    try {
+      await _firestore.collection('parents').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete parent: $e');
+    }
+  }
+
+  /// Derive parent records from existing students. Creates one parent doc per
+  /// unique phone (father or mother), with `studentIds` collecting all children.
+  /// Skips phones that already have a parent document. Returns the number of
+  /// parent records created.
+  static Future<int> syncParentsFromStudents() async {
+    try {
+      final existing = await getParents();
+      final existingPhones = existing.map((p) => p.phone).toSet();
+
+      final students = await getStudents();
+      final Map<String, Map<String, dynamic>> byPhone = {};
+
+      void record(String? phone, String? name, String relationship, String studentId) {
+        if (phone == null || phone.trim().isEmpty) return;
+        final key = phone.trim();
+        if (existingPhones.contains(key)) return;
+        final entry = byPhone.putIfAbsent(key, () => {
+              'phone': key,
+              'name': name,
+              'relationship': relationship,
+              'studentIds': <String>[],
+            });
+        (entry['studentIds'] as List<String>).add(studentId);
+        entry['name'] ??= name;
+      }
+
+      for (final s in students) {
+        record(s.fatherPhone, s.fatherName, 'father', s.id!);
+        record(s.motherPhone, s.motherName, 'mother', s.id!);
+      }
+
+      int created = 0;
+      final batch = _firestore.batch();
+      for (final entry in byPhone.values) {
+        final docRef = _firestore.collection('parents').doc();
+        batch.set(docRef, {
+          'phone': entry['phone'],
+          if (entry['name'] != null) 'name': entry['name'],
+          'relationship': entry['relationship'],
+          'studentIds': entry['studentIds'],
+          'isActive': true,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        created++;
+      }
+      if (created > 0) {
+        await batch.commit();
+      }
+      return created;
+    } catch (e) {
+      throw Exception('Failed to sync parents from students: $e');
+    }
+  }
+
+  // SESSIONS (create / update / end)
+
+  static Future<String> createSession(Session session) async {
+    try {
+      final data = session.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('sessions').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to create session: $e');
+    }
+  }
+
+  static Future<void> updateSession(Session session) async {
+    try {
+      if (session.id == null) {
+        throw Exception('Session ID is required for update');
+      }
+      await _firestore.collection('sessions').doc(session.id).update(session.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update session: $e');
+    }
+  }
+
+  static Future<void> endSession(String sessionId) async {
+    try {
+      await _firestore.collection('sessions').doc(sessionId).update({
+        'isActive': false,
+        'endedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to end session: $e');
+    }
+  }
+
+  static Future<void> deleteSession(String sessionId) async {
+    try {
+      await _firestore.collection('sessions').doc(sessionId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete session: $e');
+    }
+  }
+
+  // SYSTEM CONFIG
+
+  static const String _systemConfigDocId = 'config';
+
+  static Future<SystemConfig> getSystemConfig() async {
+    try {
+      final doc = await _firestore.collection('system').doc(_systemConfigDocId).get();
+      if (!doc.exists) {
+        return const SystemConfig();
+      }
+      return SystemConfig.fromFirestore(doc.data() ?? {});
+    } catch (e) {
+      throw Exception('Failed to get system config: $e');
+    }
+  }
+
+  static Future<void> setSystemConfig(SystemConfig config) async {
+    try {
+      await _firestore
+          .collection('system')
+          .doc(_systemConfigDocId)
+          .set(config.toFirestore(), SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to save system config: $e');
+    }
+  }
+
+  // WORKERS
+
+  static Future<List<Worker>> getWorkers({String? schoolId}) async {
+    try {
+      Query<Map<String, dynamic>> q = _firestore.collection('workers');
+      if (schoolId != null) {
+        q = q.where('schoolId', isEqualTo: schoolId);
+      }
+      final snap = await q.get();
+      return snap.docs.map((d) => Worker.fromFirestore(d.data(), d.id)).toList();
+    } catch (e) {
+      throw Exception('Failed to get workers: $e');
+    }
+  }
+
+  static Future<String> addWorker(Worker worker) async {
+    try {
+      final data = worker.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('workers').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add worker: $e');
+    }
+  }
+
+  static Future<void> updateWorker(Worker worker) async {
+    try {
+      if (worker.id == null) {
+        throw Exception('Worker ID is required for update');
+      }
+      await _firestore.collection('workers').doc(worker.id).update(worker.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to update worker: $e');
+    }
+  }
+
+  static Future<void> deleteWorker(String id) async {
+    try {
+      await _firestore.collection('workers').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete worker: $e');
+    }
+  }
+}
