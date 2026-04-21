@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../services/firebase_service.dart';
 import '../../models/message.dart';
 import '../../utils/responsive_builder.dart';
@@ -24,9 +28,12 @@ class MessageInput extends StatefulWidget {
 class _MessageInputState extends State<MessageInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = false;
+  bool _isUploadingAttachment = false;
   String? _attachmentPath;
   String? _attachmentUrl;
+  Uint8List? _attachmentBytes;
   
   @override
   void initState() {
@@ -51,6 +58,12 @@ class _MessageInputState extends State<MessageInput> {
   }
 
   Future<void> _sendMessage() async {
+    if (_isUploadingAttachment) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait for the attachment to finish uploading')),
+      );
+      return;
+    }
     final message = _controller.text.trim();
     if (message.isEmpty && _attachmentUrl == null) return;
     
@@ -71,6 +84,7 @@ class _MessageInputState extends State<MessageInput> {
       setState(() {
         _attachmentPath = null;
         _attachmentUrl = null;
+        _attachmentBytes = null;
       });
       
       if (widget.onMessageSent != null) {
@@ -93,21 +107,68 @@ class _MessageInputState extends State<MessageInput> {
   }
 
   Future<void> _pickImage() async {
-    // Image picker functionality would be implemented here
-    // For now, this is a placeholder
-    // You would need to add image_picker package and implement proper image selection
-    
-    // Simulating image attachment for now
-    setState(() {
-      _attachmentPath = 'sample_image.jpg';
-      // In a real app, you would upload the image to Firebase Storage and get the URL
-    });
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 80,
+      );
+      if (picked == null) return;
+
+      setState(() {
+        _isUploadingAttachment = true;
+        _attachmentPath = picked.name;
+        _attachmentUrl = null;
+      });
+
+      Uint8List bytes;
+      if (kIsWeb) {
+        bytes = await picked.readAsBytes();
+      } else {
+        bytes = await File(picked.path).readAsBytes();
+      }
+
+      final ext = picked.name.contains('.')
+          ? picked.name.substring(picked.name.lastIndexOf('.') + 1).toLowerCase()
+          : 'jpg';
+      final storagePath =
+          'chat_attachments/${widget.studentId}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      final ref = FirebaseStorage.instance.ref(storagePath);
+      final metadata = SettableMetadata(
+        contentType: 'image/${ext == 'jpg' ? 'jpeg' : ext}',
+      );
+      await ref.putData(bytes, metadata);
+      final url = await ref.getDownloadURL();
+
+      if (!mounted) return;
+      setState(() {
+        _attachmentBytes = bytes;
+        _attachmentUrl = url;
+        _isUploadingAttachment = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isUploadingAttachment = false;
+        _attachmentPath = null;
+        _attachmentUrl = null;
+        _attachmentBytes = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to attach image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _removeAttachment() {
     setState(() {
       _attachmentPath = null;
       _attachmentUrl = null;
+      _attachmentBytes = null;
     });
   }
 
@@ -144,20 +205,48 @@ class _MessageInputState extends State<MessageInput> {
                   decoration: BoxDecoration(
                     color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(8),
+                    image: _attachmentBytes != null
+                        ? DecorationImage(
+                            image: MemoryImage(_attachmentBytes!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  child: Center(
-                    child: Icon(
-                      Icons.image, 
-                      size: context.isMobile ? 32 : 40, 
-                      color: Colors.grey
+                  child: _attachmentBytes == null
+                      ? Center(
+                          child: Icon(
+                            Icons.image,
+                            size: context.isMobile ? 32 : 40,
+                            color: Colors.grey,
+                          ),
+                        )
+                      : null,
+                ),
+                if (_isUploadingAttachment)
+                  Positioned.fill(
+                    child: Container(
+                      margin: EdgeInsets.only(bottom: context.spacingSm),
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
                 Positioned(
                   top: 4,
                   right: 4,
                   child: GestureDetector(
-                    onTap: _removeAttachment,
+                    onTap: _isUploadingAttachment ? null : _removeAttachment,
                     child: Container(
                       padding: EdgeInsets.all(context.isMobile ? 3 : 4),
                       decoration: const BoxDecoration(
