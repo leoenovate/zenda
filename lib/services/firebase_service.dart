@@ -12,12 +12,39 @@ import '../models/class_group.dart';
 import '../models/parent.dart' as app_parent;
 import '../models/system_config.dart';
 import '../models/worker.dart';
+import 'auth_service.dart';
 import 'dart:async';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _collection = 'students';
   static const String _messagesCollection = 'messages';
+
+  /// Apply a `schoolId` filter to [q] unless the caller is a system owner or
+  /// no session is established yet (so listing works during bootstrap).
+  ///
+  /// System owners see all data across schools. Everyone else only sees
+  /// records that belong to their own school. If a session exists but the
+  /// user has no schoolId (e.g. an unassigned admin), the query is left
+  /// unfiltered — this keeps the UI functional while the owner completes
+  /// provisioning.
+  static Query<Map<String, dynamic>> _scoped(
+    Query<Map<String, dynamic>> q, {
+    String? explicitSchoolId,
+  }) {
+    if (explicitSchoolId != null) {
+      return q.where('schoolId', isEqualTo: explicitSchoolId);
+    }
+    final session = AuthService.currentSession;
+    if (session == null || session.role == UserRole.systemOwner) {
+      return q;
+    }
+    final schoolId = session.schoolId;
+    if (schoolId == null || schoolId.isEmpty) {
+      return q;
+    }
+    return q.where('schoolId', isEqualTo: schoolId);
+  }
 
   // Add a new student
   static Future<String> addStudent(Map<String, dynamic> studentData) async {
@@ -45,7 +72,8 @@ class FirebaseService {
     
     Future<List<Student>> attemptGetStudents() async {
       try {
-        final QuerySnapshot snapshot = await _firestore.collection(_collection).get();
+        final QuerySnapshot snapshot =
+            await _scoped(_firestore.collection(_collection)).get();
         return snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           return Student(
@@ -118,6 +146,51 @@ class FirebaseService {
     } catch (e) {
       print('Error parsing attendance history: $e');
       return []; // Return empty list rather than crashing
+    }
+  }
+
+  /// Assign every student that currently has no `schoolId` to [schoolId].
+  /// Useful for backfilling legacy records after multi-school support was
+  /// introduced. Returns the number of students updated.
+  static Future<int> backfillStudentSchoolIds(String schoolId) async {
+    try {
+      final snap = await _firestore.collection(_collection).get();
+      final batch = _firestore.batch();
+      int updated = 0;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        if (data['schoolId'] == null || (data['schoolId'] as String).isEmpty) {
+          batch.update(doc.reference, {'schoolId': schoolId});
+          updated++;
+        }
+      }
+      if (updated > 0) {
+        await batch.commit();
+      }
+      return updated;
+    } catch (e) {
+      throw Exception('Failed to backfill student schoolIds: $e');
+    }
+  }
+
+  /// Bulk assign a specific set of students to [schoolId], overwriting any
+  /// existing value. Returns the number of students updated.
+  static Future<int> assignStudentsToSchool(
+    List<String> studentIds,
+    String schoolId,
+  ) async {
+    if (studentIds.isEmpty) return 0;
+    try {
+      final batch = _firestore.batch();
+      for (final id in studentIds) {
+        batch.update(_firestore.collection(_collection).doc(id), {
+          'schoolId': schoolId,
+        });
+      }
+      await batch.commit();
+      return studentIds.length;
+    } catch (e) {
+      throw Exception('Failed to assign students: $e');
     }
   }
 
@@ -480,7 +553,8 @@ class FirebaseService {
   // Get all devices
   static Future<List<Device>> getDevices() async {
     try {
-      final QuerySnapshot snapshot = await _firestore.collection('devices').get();
+      final QuerySnapshot snapshot =
+          await _scoped(_firestore.collection('devices')).get();
       return snapshot.docs.map((doc) {
         return Device.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -525,7 +599,8 @@ class FirebaseService {
   // Get all users/admins
   static Future<List<app_user.AppUser>> getUsers() async {
     try {
-      final QuerySnapshot snapshot = await _firestore.collection('users').get();
+      final QuerySnapshot snapshot =
+          await _scoped(_firestore.collection('users')).get();
       return snapshot.docs.map((doc) {
         return app_user.AppUser.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -686,10 +761,8 @@ class FirebaseService {
 
   static Future<List<Teacher>> getTeachers({String? schoolId}) async {
     try {
-      Query<Map<String, dynamic>> q = _firestore.collection('teachers');
-      if (schoolId != null) {
-        q = q.where('schoolId', isEqualTo: schoolId);
-      }
+      final q = _scoped(_firestore.collection('teachers'),
+          explicitSchoolId: schoolId);
       final snap = await q.get();
       return snap.docs.map((d) => Teacher.fromFirestore(d.data(), d.id)).toList();
     } catch (e) {
@@ -731,10 +804,8 @@ class FirebaseService {
 
   static Future<List<ClassGroup>> getClasses({String? schoolId}) async {
     try {
-      Query<Map<String, dynamic>> q = _firestore.collection('classes');
-      if (schoolId != null) {
-        q = q.where('schoolId', isEqualTo: schoolId);
-      }
+      final q = _scoped(_firestore.collection('classes'),
+          explicitSchoolId: schoolId);
       final snap = await q.get();
       return snap.docs.map((d) => ClassGroup.fromFirestore(d.data(), d.id)).toList();
     } catch (e) {
@@ -786,10 +857,8 @@ class FirebaseService {
 
   static Future<List<app_parent.Parent>> getParents({String? schoolId}) async {
     try {
-      Query<Map<String, dynamic>> q = _firestore.collection('parents');
-      if (schoolId != null) {
-        q = q.where('schoolId', isEqualTo: schoolId);
-      }
+      final q = _scoped(_firestore.collection('parents'),
+          explicitSchoolId: schoolId);
       final snap = await q.get();
       return snap.docs.map((d) => app_parent.Parent.fromFirestore(d.data(), d.id)).toList();
     } catch (e) {
@@ -955,10 +1024,8 @@ class FirebaseService {
 
   static Future<List<Worker>> getWorkers({String? schoolId}) async {
     try {
-      Query<Map<String, dynamic>> q = _firestore.collection('workers');
-      if (schoolId != null) {
-        q = q.where('schoolId', isEqualTo: schoolId);
-      }
+      final q = _scoped(_firestore.collection('workers'),
+          explicitSchoolId: schoolId);
       final snap = await q.get();
       return snap.docs.map((d) => Worker.fromFirestore(d.data(), d.id)).toList();
     } catch (e) {
