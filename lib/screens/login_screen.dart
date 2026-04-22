@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'home_screen.dart';
 import 'parent_dashboard_screen.dart';
 import 'system_owner_dashboard.dart';
-import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
-import '../models/student.dart';
-import '../models/attendance.dart';
 
-enum UserRole {
-  parent,
-  teacher,
-  schoolAdmin,
-  systemOwner,
-}
+export '../services/auth_service.dart' show UserRole;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,75 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   UserRole? _selectedRole;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // Demo credentials for non-parent roles (email-based login).
-  static const Map<UserRole, Map<String, String>> _demoCredentials = {
-    UserRole.systemOwner: {'email': 'owner@school.com', 'password': 'owner123'},
-    UserRole.schoolAdmin: {'email': 'admin@school.com', 'password': 'admin123'},
-    UserRole.teacher: {'email': 'teacher@school.com', 'password': 'teacher123'},
-  };
-
-  // Demo credentials for parent role (student-number-based login).
-  static const String _demoParentStudentNumber = 'STD001';
-  static const String _demoParentPassword = 'parent123';
-
-  bool _checkDemoCredentials(String email, String password, UserRole role) {
-    final expected = _demoCredentials[role];
-    if (expected == null) return false;
-
-    return email.toLowerCase().trim() == expected['email']?.toLowerCase() &&
-           password == expected['password'];
-  }
-
-  bool _isDemoParentCredentials(String studentNumber, String password) {
-    return studentNumber.trim().toUpperCase() == _demoParentStudentNumber &&
-        password == _demoParentPassword;
-  }
-
-  // Synthetic student used when the demo parent logs in but no real student
-  // with registration number STD001 exists in Firestore yet. Lets the parent
-  // UI be explored end-to-end without seeding data first.
-  Student _buildDemoStudent() {
-    final today = DateTime.now();
-    return Student(
-      id: 'demo-student-std001',
-      name: 'Demo Student',
-      period: 'Morning',
-      registrationNumber: _demoParentStudentNumber,
-      gender: 'Male',
-      birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),
-      fatherName: 'Demo Father',
-      fatherPhone: '0780000001',
-      motherName: 'Demo Mother',
-      motherPhone: '0780000002',
-      country: 'Rwanda',
-      province: 'Kigali',
-      district: 'Gasabo',
-      sector: 'Kimironko',
-      cell: 'Kibagabaga',
-      attendanceHistory: [
-        Attendance(
-          date: today.subtract(const Duration(days: 1)),
-          status: AttendanceStatus.present,
-        ),
-        Attendance(
-          date: today.subtract(const Duration(days: 2)),
-          status: AttendanceStatus.late,
-        ),
-        Attendance(
-          date: today.subtract(const Duration(days: 3)),
-          status: AttendanceStatus.present,
-        ),
-      ],
-    );
   }
 
   Future<void> _login() async {
@@ -124,144 +53,60 @@ class _LoginScreenState extends State<LoginScreen> {
       final emailOrStudentNumber = _emailController.text.trim();
       final password = _passwordController.text;
 
-      // Handle parent login with student number
+      AuthSession session;
       if (_selectedRole == UserRole.parent) {
-        final isDemoParent = _isDemoParentCredentials(emailOrStudentNumber, password);
-
-        // For parents, emailOrStudentNumber is actually a student number.
-        // Try to find the student by registration number.
-        List<Student> students = [];
-        try {
-          students = await FirebaseService.getStudentsByStudentNumber(emailOrStudentNumber);
-        } catch (e) {
-          // Only tolerate lookup failures for the demo parent so the UI can be
-          // explored even when Firestore is unreachable or empty.
-          if (!isDemoParent) rethrow;
-          print('LoginScreen: Demo parent Firestore lookup failed: $e');
-        }
-
-        if (students.isEmpty) {
-          if (isDemoParent) {
-            // Seed a synthetic student so the parent dashboard is reachable.
-            print('LoginScreen: No real student matched STD001, using demo student');
-            students = [_buildDemoStudent()];
-          } else {
-            throw Exception('No student found with this student number');
-          }
-        } else if (!isDemoParent) {
-          // A real student exists for this registration number. We don't have a
-          // parent account system yet, so require at least a non-empty password
-          // (form already enforces >= 6 chars) and treat it as a success.
-        }
-
-        print('LoginScreen: Saving parent login credentials (demo=$isDemoParent)...');
-        await AuthStorageService.saveDemoLogin(
-          role: UserRole.parent,
+        session = await AuthService.signInAsParent(
           studentNumber: emailOrStudentNumber,
-        );
-        print('LoginScreen: Parent login credentials saved');
-
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ParentDashboardScreen(
-              phoneNumber: students.first.fatherPhone ?? students.first.motherPhone ?? '',
-              students: students,
-            ),
-          ),
-        );
-      } else {
-        // Check for demo credentials first
-        final isDemoLogin = _checkDemoCredentials(emailOrStudentNumber, password, _selectedRole!);
-        
-        if (isDemoLogin) {
-          // Save demo login credentials for persistence
-          print('LoginScreen: Demo login detected, saving credentials for role: ${_selectedRole!.name}');
-          await AuthStorageService.saveDemoLogin(
-            role: _selectedRole!,
-            email: emailOrStudentNumber,
-          );
-          print('LoginScreen: Demo login credentials saved successfully');
-
-          // Allow demo login without Firebase authentication
-          if (!mounted) return;
-          
-          // Route based on role
-          if (_selectedRole == UserRole.systemOwner) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SystemOwnerDashboard(),
-              ),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const HomeScreen(),
-              ),
-            );
-          }
-          return;
-        }
-        
-        // For real accounts - use email/password with Firebase
-        final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-          email: emailOrStudentNumber,
           password: password,
         );
-
-        if (userCredential.user != null) {
-          // Save Firebase login (not demo)
-          await AuthStorageService.saveFirebaseLogin();
-
-          if (!mounted) return;
-          
-          // Route based on role
-          if (_selectedRole == UserRole.systemOwner) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SystemOwnerDashboard(),
-              ),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const HomeScreen(),
-              ),
-            );
-          }
-        }
+      } else {
+        session = await AuthService.signInWithEmail(
+          email: emailOrStudentNumber,
+          password: password,
+          expectedRole: _selectedRole,
+        );
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Login failed. Please try again.';
-      
-      if (e.code == 'user-not-found') {
-        errorMessage = 'No account found with these credentials.';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Incorrect password. Please try again.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email address or student number.';
-      } else if (e.code == 'user-disabled') {
-        errorMessage = 'This account has been disabled.';
-      }
+
+      await AuthStorageService.saveSession(
+        role: session.role,
+        email: session.email,
+        uid: session.uid,
+        schoolId: session.schoolId,
+        studentNumber: session.studentNumber,
+      );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
+
+      Widget target;
+      switch (session.role) {
+        case UserRole.parent:
+          target = ParentDashboardScreen(
+            phoneNumber: session.students.isNotEmpty
+                ? (session.students.first.fatherPhone ??
+                    session.students.first.motherPhone ??
+                    '')
+                : '',
+            students: session.students,
+          );
+          break;
+        case UserRole.systemOwner:
+          target = const SystemOwnerDashboard();
+          break;
+        case UserRole.schoolAdmin:
+        case UserRole.teacher:
+          target = const HomeScreen();
+          break;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => target),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('An error occurred: ${e.toString()}'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           backgroundColor: Colors.red,
         ),
       );

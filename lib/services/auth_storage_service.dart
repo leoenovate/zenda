@@ -1,126 +1,94 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../screens/login_screen.dart';
+import 'auth_service.dart';
 
+/// Thin wrapper around SharedPreferences used to remember the most recent
+/// sign-in so AuthWrapper can route the user to their dashboard on app open
+/// without waiting for a network round-trip.
+///
+/// NOTE: this is a UX cache only. The actual authoritative session comes
+/// from [AuthService] / Firebase Auth.
 class AuthStorageService {
-  static const String _keyIsDemoLogin = 'is_demo_login';
-  static const String _keyUserRole = 'user_role';
-  static const String _keyEmail = 'user_email';
-  static const String _keyStudentNumber = 'student_number';
+  static const String _keyRole = 'auth_role';
+  static const String _keyEmail = 'auth_email';
+  static const String _keyUid = 'auth_uid';
+  static const String _keySchoolId = 'auth_school_id';
+  static const String _keyStudentNumber = 'auth_student_number';
 
-  // Save demo login credentials
-  static Future<void> saveDemoLogin({
+  /// Save the latest session. All fields except role are optional.
+  static Future<void> saveSession({
     required UserRole role,
     String? email,
+    String? uid,
+    String? schoolId,
     String? studentNumber,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      print('AuthStorage: Saving demo login - Role: ${role.name}, Email: $email, StudentNumber: $studentNumber');
-      
-      final boolSaved = await prefs.setBool(_keyIsDemoLogin, true);
-      final roleSaved = await prefs.setString(_keyUserRole, role.name);
-      
-      print('AuthStorage: Saved isDemoLogin: $boolSaved, role: $roleSaved');
-      
+      await prefs.setString(_keyRole, role.name);
       if (email != null) {
-        final emailSaved = await prefs.setString(_keyEmail, email);
-        print('AuthStorage: Saved email: $emailSaved');
+        await prefs.setString(_keyEmail, email);
+      } else {
+        await prefs.remove(_keyEmail);
+      }
+      if (uid != null) {
+        await prefs.setString(_keyUid, uid);
+      } else {
+        await prefs.remove(_keyUid);
+      }
+      if (schoolId != null) {
+        await prefs.setString(_keySchoolId, schoolId);
+      } else {
+        await prefs.remove(_keySchoolId);
       }
       if (studentNumber != null) {
-        final studentSaved = await prefs.setString(_keyStudentNumber, studentNumber);
-        print('AuthStorage: Saved studentNumber: $studentSaved');
+        await prefs.setString(_keyStudentNumber, studentNumber);
+      } else {
+        await prefs.remove(_keyStudentNumber);
       }
-      
-      // Verify what was saved
-      final savedRole = prefs.getString(_keyUserRole);
-      final savedEmail = prefs.getString(_keyEmail);
-      final savedStudent = prefs.getString(_keyStudentNumber);
-      print('AuthStorage: Verification - Role: $savedRole, Email: $savedEmail, Student: $savedStudent');
     } catch (e) {
-      print('AuthStorage: Error saving demo login: $e');
+      print('AuthStorage: Error saving session: $e');
       rethrow;
     }
   }
 
-  // Save Firebase Auth login (not demo)
-  static Future<void> saveFirebaseLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyIsDemoLogin, false);
-  }
-
-  // Check if there's a stored demo login
-  static Future<Map<String, dynamic>?> getStoredDemoLogin() async {
+  /// Read back the cached session, or `null` if nothing is stored.
+  static Future<Map<String, dynamic>?> getStoredSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Debug: Check all stored values
-      final isDemoLogin = prefs.getBool(_keyIsDemoLogin);
-      final roleString = prefs.getString(_keyUserRole);
-      final email = prefs.getString(_keyEmail);
-      final studentNumber = prefs.getString(_keyStudentNumber);
-      
-      print('AuthStorage: Reading stored values - isDemoLogin: $isDemoLogin, role: $roleString, email: $email, studentNumber: $studentNumber');
-      
-      if (isDemoLogin == null || !isDemoLogin) {
-        print('AuthStorage: No demo login found (isDemoLogin is null or false)');
-        return null; // Not a demo login or no stored login
-      }
-
-      if (roleString == null) {
-        print('AuthStorage: No role found in storage');
-        return null;
-      }
+      final roleString = prefs.getString(_keyRole);
+      if (roleString == null) return null;
 
       UserRole? role;
       try {
         role = UserRole.values.firstWhere((r) => r.name == roleString);
-        print('AuthStorage: Found role: ${role.name}');
-      } catch (e) {
-        print('AuthStorage: Error parsing role: $e');
+      } catch (_) {
         return null;
       }
 
-      print('AuthStorage: Returning stored login - Role: ${role.name}, Email: $email, StudentNumber: $studentNumber');
       return {
         'role': role,
-        'email': email,
-        'studentNumber': studentNumber,
+        'email': prefs.getString(_keyEmail),
+        'uid': prefs.getString(_keyUid),
+        'schoolId': prefs.getString(_keySchoolId),
+        'studentNumber': prefs.getString(_keyStudentNumber),
       };
     } catch (e) {
-      print('AuthStorage: Error getting stored demo login: $e');
+      print('AuthStorage: Error reading stored session: $e');
       return null;
     }
   }
 
-  // Clear stored login credentials
+  static Future<bool> isLoggedIn() async {
+    final session = await getStoredSession();
+    return session != null;
+  }
+
   static Future<void> clearStoredLogin() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyIsDemoLogin);
-    await prefs.remove(_keyUserRole);
+    await prefs.remove(_keyRole);
     await prefs.remove(_keyEmail);
+    await prefs.remove(_keyUid);
+    await prefs.remove(_keySchoolId);
     await prefs.remove(_keyStudentNumber);
   }
-
-  // Check if user is logged in (demo or Firebase)
-  static Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyIsDemoLogin) != null;
-  }
-
-  // Debug method to print all stored values
-  static Future<void> debugPrintStoredValues() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final allKeys = prefs.getKeys();
-      print('AuthStorage: All stored keys: $allKeys');
-      
-      for (final key in allKeys) {
-        final value = prefs.get(key);
-        print('AuthStorage: $key = $value');
-      }
-    } catch (e) {
-      print('AuthStorage: Error printing stored values: $e');
-    }
-  }
 }
-

@@ -1,0 +1,377 @@
+import 'package:flutter/material.dart';
+import '../../models/school.dart';
+import '../../models/teacher.dart';
+import '../../services/firebase_service.dart';
+import '../../widgets/admin/admin_list_scaffold.dart';
+
+class TeachersScreen extends StatefulWidget {
+  final List<School> schools;
+  final VoidCallback? onDataChanged;
+
+  const TeachersScreen({
+    super.key,
+    required this.schools,
+    this.onDataChanged,
+  });
+
+  @override
+  State<TeachersScreen> createState() => _TeachersScreenState();
+}
+
+class _TeachersScreenState extends State<TeachersScreen> {
+  bool _isLoading = true;
+  List<Teacher> _teachers = [];
+  String _searchQuery = '';
+  String _schoolFilter = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      final teachers = await FirebaseService.getTeachers();
+      if (!mounted) return;
+      setState(() {
+        _teachers = teachers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading teachers: $e')),
+      );
+    }
+  }
+
+  List<Teacher> get _filtered {
+    return _teachers.where((t) {
+      if (_schoolFilter != 'all' && t.schoolId != _schoolFilter) return false;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final match = t.name.toLowerCase().contains(q) ||
+            (t.email ?? '').toLowerCase().contains(q) ||
+            (t.subject ?? '').toLowerCase().contains(q) ||
+            (t.employeeId ?? '').toLowerCase().contains(q);
+        if (!match) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
+        ),
+      );
+    }
+
+    final filtered = _filtered;
+    return AdminListScaffold(
+      title: 'Teachers',
+      subtitle: 'Manage teaching staff across schools',
+      searchHint: 'Search by name, email, subject, or ID...',
+      searchQuery: _searchQuery,
+      onSearchChanged: (v) => setState(() => _searchQuery = v),
+      schools: widget.schools,
+      schoolFilter: _schoolFilter,
+      onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
+      addButtonLabel: 'Add Teacher',
+      onAddPressed: () => _showFormDialog(),
+      listContent: filtered.isEmpty
+          ? const AdminEmptyState(icon: Icons.person_outline, message: 'No teachers found')
+          : AdminListCard(
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                itemBuilder: (_, i) => _buildRow(filtered[i]),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildRow(Teacher t) {
+    final schoolName = widget.schools
+        .firstWhere((s) => s.id == t.schoolId,
+            orElse: () => const School(name: 'Unknown school'))
+        .name;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.purple.withOpacity(0.15),
+            radius: 20,
+            child: Text(
+              t.name.isNotEmpty ? t.name[0].toUpperCase() : '?',
+              style: const TextStyle(
+                color: Colors.purple,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.name,
+                  style: const TextStyle(
+                    color: Color(0xFF2C2C2C),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    schoolName,
+                    if (t.subject != null) t.subject!,
+                    if (t.email != null) t.email!,
+                  ].join(' · '),
+                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (!t.isActive)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'INACTIVE',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            onPressed: () => _showFormDialog(teacher: t),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            onPressed: () => _confirmDelete(t),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFormDialog({Teacher? teacher}) {
+    final nameController = TextEditingController(text: teacher?.name ?? '');
+    final emailController = TextEditingController(text: teacher?.email ?? '');
+    final phoneController = TextEditingController(text: teacher?.phone ?? '');
+    final subjectController = TextEditingController(text: teacher?.subject ?? '');
+    final employeeIdController = TextEditingController(text: teacher?.employeeId ?? '');
+    String? schoolId = teacher?.schoolId;
+    bool isActive = teacher?.isActive ?? true;
+    bool isSaving = false;
+    final isEdit = teacher != null;
+
+    if (schoolId == null && widget.schools.isNotEmpty) {
+      schoolId = widget.schools.first.id;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setStateDialog) => AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(
+            isEdit ? 'Edit Teacher' : 'Add Teacher',
+            style: const TextStyle(color: Color(0xFF2C2C2C)),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    decoration: adminInputDecoration('Full Name', required: true),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String?>(
+                    value: schoolId,
+                    decoration: adminInputDecoration('School', required: true),
+                    dropdownColor: Colors.white,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    items: widget.schools
+                        .map((s) => DropdownMenuItem<String?>(
+                              value: s.id,
+                              child: Text(s.name),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setStateDialog(() => schoolId = v),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    decoration: adminInputDecoration('Email'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    decoration: adminInputDecoration('Phone'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: subjectController,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    decoration: adminInputDecoration('Subject'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: employeeIdController,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    decoration: adminInputDecoration('Employee ID'),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: isActive,
+                    activeColor: const Color(0xFF1A5F5F),
+                    title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                    onChanged: (v) => setStateDialog(() => isActive = v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty || schoolId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Name and school are required')),
+                        );
+                        return;
+                      }
+                      setStateDialog(() => isSaving = true);
+                      try {
+                        final updated = Teacher(
+                          id: teacher?.id,
+                          name: nameController.text.trim(),
+                          schoolId: schoolId!,
+                          email: emailController.text.trim().isEmpty
+                              ? null
+                              : emailController.text.trim(),
+                          phone: phoneController.text.trim().isEmpty
+                              ? null
+                              : phoneController.text.trim(),
+                          subject: subjectController.text.trim().isEmpty
+                              ? null
+                              : subjectController.text.trim(),
+                          employeeId: employeeIdController.text.trim().isEmpty
+                              ? null
+                              : employeeIdController.text.trim(),
+                          isActive: isActive,
+                          createdAt: teacher?.createdAt,
+                        );
+                        if (isEdit) {
+                          await FirebaseService.updateTeacher(updated);
+                        } else {
+                          await FirebaseService.addTeacher(updated);
+                        }
+                        if (!mounted) return;
+                        Navigator.pop(dialogCtx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isEdit ? 'Teacher updated' : 'Teacher added'),
+                          ),
+                        );
+                        await _load();
+                        widget.onDataChanged?.call();
+                      } catch (e) {
+                        setStateDialog(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A5F5F),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(Teacher t) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Delete Teacher', style: TextStyle(color: Color(0xFF2C2C2C))),
+        content: Text(
+          'Delete "${t.name}"? This action cannot be undone.',
+          style: const TextStyle(color: Color(0xFF666666)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await FirebaseService.deleteTeacher(t.id!);
+                if (!mounted) return;
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Teacher deleted')),
+                );
+                await _load();
+                widget.onDataChanged?.call();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}

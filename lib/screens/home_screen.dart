@@ -6,6 +6,7 @@ import '../models/attendance.dart';
 import '../models/message.dart';
 import 'package:intl/intl.dart';
 import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../widgets/student_form/add_student_dialog.dart';
 import '../widgets/student_form/student_form_stepper.dart';
@@ -620,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (confirmed != true) return;
 
     try {
-      await FirebaseAuth.instance.signOut();
+      await AuthService.signOut();
     } catch (_) {}
     await AuthStorageService.clearStoredLogin();
     if (!mounted) return;

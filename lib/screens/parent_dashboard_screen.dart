@@ -4,6 +4,7 @@ import '../models/student.dart';
 import '../models/attendance.dart';
 import '../models/message.dart';
 import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import 'chat_screen.dart';
 import '../utils/responsive_builder.dart';
@@ -53,7 +54,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
+    await AuthService.signOut();
     await AuthStorageService.clearStoredLogin();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'home_screen.dart';
+import 'system_owner_dashboard.dart';
+import '../services/auth_service.dart';
+import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -40,48 +43,33 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
-      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      final session = await AuthService.signInWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      if (userCredential.user != null) {
-        // Navigate to home screen
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Login failed. Please try again.';
-      
-      if (e.code == 'user-not-found') {
-        errorMessage = 'No admin account found with this email.';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Incorrect password. Please try again.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email address.';
-      } else if (e.code == 'user-disabled') {
-        errorMessage = 'This account has been disabled.';
-      }
+      await AuthStorageService.saveSession(
+        role: session.role,
+        email: session.email,
+        uid: session.uid,
+        schoolId: session.schoolId,
+      );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
+      final target = session.role == UserRole.systemOwner
+          ? const SystemOwnerDashboard()
+          : const HomeScreen();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => target),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('An error occurred: ${e.toString()}'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -123,13 +111,23 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        // Navigate to home screen
+        // Resolve the user's role from users/{uid} via AuthService.
+        final session = await AuthService.restoreSession();
+        if (session != null) {
+          await AuthStorageService.saveSession(
+            role: session.role,
+            email: session.email,
+            uid: session.uid,
+            schoolId: session.schoolId,
+          );
+        }
         if (!mounted) return;
+        final target = session?.role == UserRole.systemOwner
+            ? const SystemOwnerDashboard()
+            : const HomeScreen();
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => target),
         );
       }
     } on FirebaseAuthException catch (e) {

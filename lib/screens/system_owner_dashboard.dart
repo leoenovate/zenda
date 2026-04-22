@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/school.dart';
 import '../models/device.dart';
 import '../models/user.dart' as app_user;
 import '../models/student.dart';
 import '../models/session.dart';
 import '../services/firebase_service.dart';
+import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
+import 'admin/teachers_screen.dart';
+import 'admin/classes_screen.dart';
+import 'admin/parents_screen.dart';
+import 'admin/sessions_screen.dart';
+import 'admin/workers_screen.dart';
+import 'admin/system_config_screen.dart';
 
 class SystemOwnerDashboard extends StatefulWidget {
   const SystemOwnerDashboard({super.key});
@@ -67,7 +73,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
+    await AuthService.signOut();
     await AuthStorageService.clearStoredLogin();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
@@ -204,6 +210,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 _buildNavItem(Icons.dashboard, 'Dashboard', 0),
                 _buildNavItem(Icons.school, 'Schools', 1),
                 _buildNavItem(Icons.fingerprint, 'Devices', 2),
+                _buildNavItem(Icons.person, 'Teachers', 3),
+                _buildNavItem(Icons.class_, 'Classes', 4),
+                _buildNavItem(Icons.family_restroom, 'Parents', 5),
+                _buildNavItem(Icons.event_note, 'Sessions', 6),
+                _buildNavItem(Icons.engineering, 'Workers', 7),
+                _buildNavItem(Icons.settings, 'System', 8),
               ],
             ),
           ),
@@ -312,6 +324,60 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Navigator.pop(context);
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.person, color: Colors.white70),
+            title: const Text('Teachers', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 3,
+            onTap: () {
+              setState(() => _selectedIndex = 3);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.class_, color: Colors.white70),
+            title: const Text('Classes', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 4,
+            onTap: () {
+              setState(() => _selectedIndex = 4);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.family_restroom, color: Colors.white70),
+            title: const Text('Parents', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 5,
+            onTap: () {
+              setState(() => _selectedIndex = 5);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.event_note, color: Colors.white70),
+            title: const Text('Sessions', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 6,
+            onTap: () {
+              setState(() => _selectedIndex = 6);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.engineering, color: Colors.white70),
+            title: const Text('Workers', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 7,
+            onTap: () {
+              setState(() => _selectedIndex = 7);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings, color: Colors.white70),
+            title: const Text('System', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 8,
+            onTap: () {
+              setState(() => _selectedIndex = 8);
+              Navigator.pop(context);
+            },
+          ),
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.white70),
@@ -385,6 +451,18 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         return _buildSchoolsView();
       case 2:
         return _buildDevicesView();
+      case 3:
+        return TeachersScreen(schools: schools, onDataChanged: _loadData);
+      case 4:
+        return ClassesScreen(schools: schools, onDataChanged: _loadData);
+      case 5:
+        return ParentsScreen(schools: schools, onDataChanged: _loadData);
+      case 6:
+        return SessionsScreen(schools: schools, onDataChanged: _loadData);
+      case 7:
+        return WorkersScreen(schools: schools, onDataChanged: _loadData);
+      case 8:
+        return const SystemConfigScreen();
       default:
         return _buildDashboard();
     }

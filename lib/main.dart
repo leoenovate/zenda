@@ -5,6 +5,7 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/system_owner_dashboard.dart';
 import 'screens/parent_dashboard_screen.dart';
+import 'services/auth_service.dart';
 import 'services/auth_storage_service.dart';
 import 'services/firebase_service.dart';
 import 'models/student.dart';
@@ -152,11 +153,38 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuthStatus() async {
     try {
-      // Check if user is logged in
-      final isLoggedIn = await AuthStorageService.isLoggedIn();
-      
-      if (!isLoggedIn) {
-        // No user logged in, show login screen
+      // Prefer a live Firebase Auth session if one exists (admin/teacher).
+      final restored = await AuthService.restoreSession();
+      if (restored != null) {
+        Widget target;
+        switch (restored.role) {
+          case UserRole.systemOwner:
+            target = const SystemOwnerDashboard();
+            break;
+          case UserRole.schoolAdmin:
+          case UserRole.teacher:
+            target = const HomeScreen();
+            break;
+          case UserRole.parent:
+            // Parents don't sign in via Firebase Auth, fall through to the
+            // cached-session path below.
+            target = const LoginScreen();
+            break;
+        }
+        if (restored.role != UserRole.parent) {
+          if (mounted) {
+            setState(() {
+              _initialScreen = target;
+              _isLoading = false;
+            });
+          }
+          return;
+        }
+      }
+
+      // Fall back to the cached session (parents & demo logins).
+      final stored = await AuthStorageService.getStoredSession();
+      if (stored == null) {
         if (mounted) {
           setState(() {
             _initialScreen = const LoginScreen();
@@ -166,37 +194,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return;
       }
 
-      // Get stored login information
-      final storedLogin = await AuthStorageService.getStoredDemoLogin();
-      
-      if (storedLogin == null) {
-        // No valid stored login, show login screen
-        if (mounted) {
-          setState(() {
-            _initialScreen = const LoginScreen();
-            _isLoading = false;
-          });
-        }
-        return;
-      }
+      final role = stored['role'] as UserRole;
+      final studentNumber = stored['studentNumber'] as String?;
 
-      final role = storedLogin['role'] as UserRole;
-      final studentNumber = storedLogin['studentNumber'] as String?;
-
-      // Route based on role
       Widget? targetScreen;
-      
-      if (role == UserRole.systemOwner) {
-        targetScreen = const SystemOwnerDashboard();
-      } else if (role == UserRole.parent && studentNumber != null) {
-        // For parent, fetch students by student number. For the demo parent
-        // (STD001) fall back to a synthetic student so the session can resume
-        // even when Firestore has no matching record.
-        final isDemoParent =
-            studentNumber.trim().toUpperCase() == 'STD001';
+
+      if (role == UserRole.parent && studentNumber != null) {
+        final isDemoParent = studentNumber.trim().toUpperCase() == 'STD001';
         List<Student> students = [];
         try {
-          students = await FirebaseService.getStudentsByStudentNumber(studentNumber);
+          students =
+              await FirebaseService.getStudentsByStudentNumber(studentNumber);
         } catch (e) {
           print('Error fetching students for parent: $e');
           if (!isDemoParent) {
@@ -210,17 +218,36 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
 
           if (students.isNotEmpty) {
-            final phoneNumber = students.first.fatherPhone ?? students.first.motherPhone ?? '';
+            AuthService.setSession(AuthSession(
+              role: UserRole.parent,
+              studentNumber: studentNumber,
+              students: students,
+            ));
+            final phone =
+                students.first.fatherPhone ?? students.first.motherPhone ?? '';
             targetScreen = ParentDashboardScreen(
-              phoneNumber: phoneNumber,
+              phoneNumber: phone,
               students: students,
             );
           } else {
             targetScreen = const LoginScreen();
           }
         }
+      } else if (role == UserRole.systemOwner) {
+        AuthService.setSession(AuthSession(
+          role: role,
+          email: stored['email'] as String?,
+          uid: stored['uid'] as String?,
+          schoolId: stored['schoolId'] as String?,
+        ));
+        targetScreen = const SystemOwnerDashboard();
       } else {
-        // Teacher or SchoolAdmin - go to HomeScreen
+        AuthService.setSession(AuthSession(
+          role: role,
+          email: stored['email'] as String?,
+          uid: stored['uid'] as String?,
+          schoolId: stored['schoolId'] as String?,
+        ));
         targetScreen = const HomeScreen();
       }
 
