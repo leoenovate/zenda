@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../models/school.dart';
 import '../models/device.dart';
 import '../models/user.dart' as app_user;
@@ -8,7 +9,10 @@ import '../models/session.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/theme_controller.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 import 'admin/teachers_screen.dart';
 import 'admin/classes_screen.dart';
 import 'admin/parents_screen.dart';
@@ -83,39 +87,43 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final isTablet = context.isTablet;
-    
-    if (isMobile) {
-      return _buildMobileLayout();
-    }
-    
-    // Tablet and Desktop layout
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Row(
-        children: [
-          _buildSidebar(isTablet: isTablet),
-          Expanded(child: _buildMainContent()),
-        ],
-      ),
+    final controller = context.watch<ThemeController>();
+    // This dashboard was authored as a light-mode screen; we force a light
+    // theme but let the primary hue follow the user's teal/orange choice.
+    return Theme(
+      data: AppTheme.light(primary: controller.primary),
+      child: isMobile
+          ? _buildMobileLayout()
+          : Scaffold(
+              body: Row(
+                children: [
+                  _buildSidebar(isTablet: isTablet),
+                  Expanded(child: _buildMainContent()),
+                ],
+              ),
+            ),
     );
   }
 
   Widget _buildMobileLayout() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
       drawer: _buildMobileDrawer(),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        title: const Text('Zenda Admin', style: TextStyle(color: Color(0xFF2C2C2C))),
-        iconTheme: const IconThemeData(color: Color(0xFF2C2C2C)),
+        title: Text('Zenda Admin',
+            style: TextStyle(color: colorScheme.onSurface)),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
         actions: [
+          const ThemeSwitcher(onAppBar: false),
           IconButton(
-            icon: const Icon(Icons.notifications, color: Color(0xFF666666)), 
+            icon: Icon(Icons.notifications,
+                color: colorScheme.onSurfaceVariant),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF666666)), 
+            icon: Icon(Icons.logout, color: colorScheme.onSurfaceVariant),
             onPressed: _logout,
           ),
         ],

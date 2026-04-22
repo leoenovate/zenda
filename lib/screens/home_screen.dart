@@ -12,6 +12,7 @@ import '../widgets/student_form/student_form_stepper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../firebase_options.dart';
 import '../widgets/dashboard/attendance_dashboard.dart';
+import '../widgets/theme/theme_switcher.dart';
 import 'chat_list_screen.dart';
 import '../utils/responsive_builder.dart';
 
@@ -117,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           action: SnackBarAction(
             label: 'RETRY',
             onPressed: _loadStudents,
-            textColor: Colors.white,
           ),
         ),
       );
@@ -380,8 +380,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: student.period == 'Afternoon'
-                  ? const Color(0xFF1E88E5)
-                  : const Color(0xFFF5F5F5),
+                  ? Theme.of(context).colorScheme.secondary
+                  : Theme.of(context).colorScheme.outlineVariant,
               width: 2,
             ),
           ),
@@ -396,8 +396,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         ? Icons.wb_sunny
                         : Icons.brightness_5,
                     color: student.period == 'Afternoon'
-                        ? const Color(0xFF1E88E5)
-                        : const Color(0xFFF5F5F5),
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(context).colorScheme.primary,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -597,12 +597,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text('Logout', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(color: Colors.white70),
-        ),
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -610,7 +606,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error),
             child: const Text('Logout'),
           ),
         ],
@@ -642,8 +639,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E), // Dark background
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -674,12 +671,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue,
+                                      color: colorScheme.primary,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.school_rounded,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                       size: 24,
                                     ),
                                   ),
@@ -688,7 +685,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     child: Text(
                                       'School Attendance System',
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: colorScheme.onSurface,
                                         fontSize: context.isMobile ? 18 : 20,
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 0.5,
@@ -701,20 +698,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             ),
                             Row(
                               children: [
+                                const ThemeSwitcher(onAppBar: false),
                                 IconButton(
-                                  icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                                  icon: const Icon(Icons.chat_bubble_outline),
+                                  color: colorScheme.onSurface,
                                   onPressed: _isLoading ? null : _navigateToChat,
                                   tooltip: 'Chat with Parents',
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.analytics_outlined, color: Colors.white),
+                                  icon: const Icon(Icons.analytics_outlined),
+                                  color: colorScheme.onSurface,
                                   onPressed: () {
                                     Navigator.pushNamed(context, '/api-logs');
                                   },
                                   tooltip: 'API Logs',
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  icon: const Icon(Icons.logout),
+                                  color: colorScheme.onSurface,
                                   onPressed: _logout,
                                   tooltip: 'Logout',
                                 ),
@@ -746,20 +747,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A2A),
+                                  color: colorScheme.surfaceContainer,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: TextField(
                                   controller: _searchController,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: colorScheme.onSurface),
                                   decoration: InputDecoration(
-                                    hintText: context.screenWidth < 400 
-                                        ? 'Search students...' 
+                                    hintText: context.screenWidth < 400
+                                        ? 'Search students...'
                                         : 'Search by name or registration number',
-                                    hintStyle: const TextStyle(color: Colors.grey),
-                                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                                    hintStyle: TextStyle(
+                                        color: colorScheme.onSurfaceVariant),
+                                    prefixIcon: Icon(Icons.search,
+                                        color: colorScheme.onSurfaceVariant),
                                     border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        vertical: 16),
                                   ),
                                 ),
                               ),
@@ -770,16 +774,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
-                                  backgroundColor: const Color(0xFF2A2A2A),
+                                  backgroundColor: colorScheme.surface,
                                   shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(16)),
                                   ),
-                                  builder: (context) => _buildFilterBottomSheet(context),
+                                  builder: (context) =>
+                                      _buildFilterBottomSheet(context),
                                 );
                               },
-                              icon: const Icon(Icons.filter_list, color: Colors.white),
+                              icon: Icon(Icons.filter_list,
+                                  color: colorScheme.onSurface),
                               style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFF2A2A2A),
+                                backgroundColor: colorScheme.surfaceContainer,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -803,14 +810,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 Icon(
                                   Icons.search_off_rounded,
                                   size: context.isMobile ? 48 : 64,
-                                  color: Colors.grey,
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
                                 SizedBox(height: context.spacingMd),
-                                const Text(
+                                Text(
                                   'No students match your filters',
                                   style: TextStyle(
                                     fontSize: 18,
-                                    color: Colors.grey,
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 SizedBox(height: context.spacingMd),
@@ -818,14 +825,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                   onPressed: _resetFilters,
                                   icon: const Icon(Icons.refresh_rounded),
                                   label: const Text('Reset Filters'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
                                 ),
                               ],
                             ),
@@ -893,14 +892,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     },
                                     child: Container(
                                       margin: EdgeInsets.fromLTRB(
-                                        context.isMobile ? 8 : 16, 
-                                        0, 
-                                        context.isMobile ? 8 : 16, 
-                                        context.spacingSm
+                                        context.isMobile ? 8 : 16,
+                                        0,
+                                        context.isMobile ? 8 : 16,
+                                        context.spacingSm,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2A2A2A),
+                                        color: colorScheme.surface,
                                         borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: colorScheme.outlineVariant,
+                                        ),
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(16),
@@ -925,17 +927,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: ScaleTransition(
           scale: _listAnimation,
           child: FloatingActionButton(
-            backgroundColor: Colors.blue,
             onPressed: _addStudent,
-            child: const Icon(Icons.add, color: Colors.white),
+            child: const Icon(Icons.add),
           ),
         ),
       ),
     );
   }
   
-  // New method to build student list item with adaptive layout
   Widget _buildStudentListItem(Student student) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final periodAccent = student.period == 'Afternoon'
+        ? colorScheme.secondary
+        : colorScheme.onSurfaceVariant;
     return Stack(
       children: [
         if (student.period == 'Afternoon')
@@ -945,18 +949,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             bottom: 0,
             child: Container(
               width: 4,
-              color: Colors.blue,
+              color: colorScheme.secondary,
             ),
           ),
         ListTile(
-          contentPadding: EdgeInsets.fromLTRB(20, 12, context.isMobile ? 8 : 12, 12),
+          contentPadding: EdgeInsets.fromLTRB(
+              20, 12, context.isMobile ? 8 : 12, 12),
           leading: CircleAvatar(
-            backgroundColor: Colors.grey.shade800,
+            backgroundColor: colorScheme.surfaceContainerHigh,
             radius: context.isMobile ? 20 : 24,
             child: Text(
               student.name[0].toUpperCase(),
               style: TextStyle(
-                color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                color: periodAccent,
                 fontSize: context.isMobile ? 16 : 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -965,7 +970,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           title: Text(
             student.name.toUpperCase(),
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.bold,
               fontSize: context.isMobile ? 14 : 16,
               letterSpacing: 0.3,
@@ -976,22 +981,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             children: [
               Icon(
                 Icons.brightness_5_rounded,
-                color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                color: periodAccent,
                 size: 14,
               ),
               const SizedBox(width: 4),
               Text(
                 student.period,
                 style: TextStyle(
-                  color: student.period == 'Afternoon' ? Colors.blue : Colors.grey,
+                  color: periodAccent,
                   fontSize: 12,
                 ),
               ),
               const SizedBox(width: 16),
               if (student.gender != null && context.screenWidth > 320)
                 Icon(
-                  student.gender == 'M' ? Icons.male_rounded : Icons.female_rounded,
-                  color: Colors.grey,
+                  student.gender == 'M'
+                      ? Icons.male_rounded
+                      : Icons.female_rounded,
+                  color: colorScheme.onSurfaceVariant,
                   size: 14,
                 ),
             ],
@@ -1003,36 +1010,36 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   children: [
                     _buildActionButton(
                       icon: Icons.visibility_rounded,
-                      color: const Color(0xFF2D3B55),
+                      color: colorScheme.primary.withValues(alpha: 0.15),
+                      iconColor: colorScheme.primary,
                       onTap: () => _viewAttendance(student),
                     ),
                     const SizedBox(width: 8),
                     _buildActionButton(
                       icon: Icons.edit_rounded,
-                      color: const Color(0xFF2D3B55),
+                      color: colorScheme.primary.withValues(alpha: 0.15),
+                      iconColor: colorScheme.primary,
                       onTap: () => _editStudent(students.indexOf(student)),
                     ),
                     const SizedBox(width: 8),
                     _buildActionButton(
                       icon: Icons.delete_rounded,
-                      color: const Color(0xFF3D2D32),
-                      iconColor: Colors.redAccent,
+                      color: colorScheme.error.withValues(alpha: 0.15),
+                      iconColor: colorScheme.error,
                       onTap: () => _deleteStudent(students.indexOf(student)),
                     ),
                   ],
                 ),
-          onTap: context.isMobile
-              ? () => _showStudentActions(student)
-              : null,
+          onTap: context.isMobile ? () => _showStudentActions(student) : null,
         ),
       ],
     );
   }
-  
-  // Create compact action button for mobile view
+
   Widget _buildCompactActions(Student student) {
+    final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
-      icon: const Icon(Icons.more_vert, color: Colors.white),
+      icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
       onPressed: () => _showStudentActions(student),
     );
   }
@@ -1066,8 +1073,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_rounded, color: Colors.redAccent),
-              title: const Text('Delete Student', style: TextStyle(color: Colors.redAccent)),
+              leading: Icon(Icons.delete_rounded,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text('Delete Student',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error)),
               onTap: () {
                 Navigator.pop(context);
                 _deleteStudent(students.indexOf(student));
@@ -1085,6 +1095,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     Color? iconColor,
     required VoidCallback onTap,
   }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Container(
       decoration: BoxDecoration(
         color: color,
@@ -1099,7 +1110,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             padding: const EdgeInsets.all(8),
             child: Icon(
               icon,
-              color: iconColor ?? Colors.white,
+              color: iconColor ?? onSurface,
               size: 20,
             ),
           ),
@@ -1358,7 +1369,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           });
                           Navigator.pop(context);
                         },
-                        child: const Text('Apply', style: TextStyle(color: Colors.white)),
+                        child: const Text('Apply'),
                       ),
                     ),
                   ],

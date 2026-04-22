@@ -8,18 +8,21 @@ import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import 'chat_screen.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
+
 class ParentDashboardScreen extends StatefulWidget {
   final String phoneNumber;
   final List<Student> students;
 
   const ParentDashboardScreen({
-    Key? key,
+    super.key,
     required this.phoneNumber,
     required this.students,
-  }) : super(key: key);
+  });
 
   @override
-  State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
+  State<ParentDashboardScreen> createState() =>
+      _ParentDashboardScreenState();
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
@@ -34,10 +37,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Future<void> _loadStudentsData() async {
     try {
-      final List<Student> updatedStudents = await FirebaseService.getStudentsByParentPhone(
+      final List<Student> updatedStudents =
+          await FirebaseService.getStudentsByParentPhone(
         widget.phoneNumber,
       );
-      
+
       setState(() {
         if (updatedStudents.isNotEmpty) {
           _selectedStudent = updatedStudents.first;
@@ -60,29 +64,30 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF1A1A1A),
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (widget.students.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A1A),
         appBar: AppBar(
           title: const Text('Parent Portal'),
-          backgroundColor: Colors.transparent,
+          actions: const [ThemeSwitcher()],
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.info_outline, size: 64, color: Colors.grey),
+              Icon(Icons.info_outline,
+                  size: 64, color: colorScheme.onSurfaceVariant),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'No students found',
-                style: TextStyle(color: Colors.white, fontSize: 18),
+                style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
               ),
               const SizedBox(height: 8),
               TextButton(
@@ -96,26 +101,25 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
 
     final student = _selectedStudent ?? widget.students.first;
-    final attendanceData = student.attendanceHistory.isEmpty
-        ? []
-        : student.attendanceHistory;
+    final attendanceData =
+        student.attendanceHistory.isEmpty ? <Attendance>[] : student.attendanceHistory;
 
-    // Calculate statistics
     final present = attendanceData
         .where((a) => a.status == AttendanceStatus.present)
         .length;
-    final late = attendanceData.where((a) => a.status == AttendanceStatus.late).length;
-    final absent =
-        attendanceData.where((a) => a.status == AttendanceStatus.absent).length;
+    final late =
+        attendanceData.where((a) => a.status == AttendanceStatus.late).length;
+    final absent = attendanceData
+        .where((a) => a.status == AttendanceStatus.absent)
+        .length;
     final total = attendanceData.length;
     final presentPercentage = total > 0 ? (present / total * 100) : 0.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
         title: const Text('Parent Portal'),
-        backgroundColor: Colors.transparent,
         actions: [
+          const ThemeSwitcher(),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline),
             onPressed: () {
@@ -126,7 +130,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     builder: (context) => ChatScreen(
                       student: student,
                       userType: MessageSender.parent,
-                      userName: student.fatherName ?? student.motherName ?? 'Parent',
+                      userName: student.fatherName ??
+                          student.motherName ??
+                          'Parent',
                     ),
                   ),
                 );
@@ -144,24 +150,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Student selector
             if (widget.students.length > 1)
               Container(
                 padding: EdgeInsets.all(context.spacingMd),
-                color: const Color(0xFF2A2A2A),
+                color: colorScheme.surfaceContainer,
                 child: DropdownButtonFormField<Student>(
                   value: _selectedStudent ?? widget.students.first,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Select Child',
-                    labelStyle: const TextStyle(color: Colors.white),
-                    filled: true,
-                    fillColor: const Color(0xFF1A1A1A),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
-                  dropdownColor: const Color(0xFF2A2A2A),
-                  style: const TextStyle(color: Colors.white),
                   items: widget.students.map((s) {
                     return DropdownMenuItem<Student>(
                       value: s,
@@ -175,14 +172,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   },
                 ),
               ),
-
             Expanded(
               child: ListView(
                 padding: EdgeInsets.all(context.spacingMd),
                 children: [
-                  // Student info card
                   Card(
-                    color: const Color(0xFF2A2A2A),
                     child: Padding(
                       padding: EdgeInsets.all(context.spacingMd),
                       child: Column(
@@ -192,13 +186,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             children: [
                               CircleAvatar(
                                 backgroundColor: student.period == 'Morning'
-                                    ? Colors.amber.shade800
-                                    : Colors.blue,
+                                    ? colorScheme.primary
+                                    : colorScheme.secondary,
                                 radius: 30,
                                 child: Text(
                                   student.name[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: student.period == 'Morning'
+                                        ? colorScheme.onPrimary
+                                        : colorScheme.onSecondary,
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -207,12 +203,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               SizedBox(width: context.spacingMd),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       student.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -223,28 +220,32 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         Icon(
                                           Icons.class_,
                                           size: 16,
-                                          color: Colors.grey.shade400,
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                         SizedBox(width: context.spacingXs),
                                         Text(
                                           student.period,
                                           style: TextStyle(
-                                            color: Colors.grey.shade400,
+                                            color:
+                                                colorScheme.onSurfaceVariant,
                                             fontSize: 14,
                                           ),
                                         ),
-                                        if (student.registrationNumber != null) ...[
+                                        if (student.registrationNumber !=
+                                            null) ...[
                                           SizedBox(width: context.spacingMd),
                                           Icon(
                                             Icons.badge,
                                             size: 16,
-                                            color: Colors.grey.shade400,
+                                            color:
+                                                colorScheme.onSurfaceVariant,
                                           ),
                                           SizedBox(width: context.spacingXs),
                                           Text(
                                             student.registrationNumber!,
                                             style: TextStyle(
-                                              color: Colors.grey.shade400,
+                                              color: colorScheme
+                                                  .onSurfaceVariant,
                                               fontSize: 14,
                                             ),
                                           ),
@@ -260,21 +261,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ),
                   ),
-
                   SizedBox(height: context.spacingMd),
-
-                  // Statistics card
                   Card(
-                    color: const Color(0xFF2A2A2A),
                     child: Padding(
                       padding: EdgeInsets.all(context.spacingMd),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Attendance Statistics',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colorScheme.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -284,32 +281,20 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             children: [
                               Expanded(
                                 child: _buildStatCard(
-                                  'Present',
-                                  present,
-                                  total,
-                                  Colors.green,
-                                  context,
-                                ),
+                                    'Present', present, total, Colors.green,
+                                    context),
                               ),
                               SizedBox(width: context.spacingSm),
                               Expanded(
                                 child: _buildStatCard(
-                                  'Late',
-                                  late,
-                                  total,
-                                  Colors.orange,
-                                  context,
-                                ),
+                                    'Late', late, total, Colors.orange,
+                                    context),
                               ),
                               SizedBox(width: context.spacingSm),
                               Expanded(
                                 child: _buildStatCard(
-                                  'Absent',
-                                  absent,
-                                  total,
-                                  Colors.red,
-                                  context,
-                                ),
+                                    'Absent', absent, total, Colors.red,
+                                    context),
                               ),
                             ],
                           ),
@@ -317,15 +302,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           Container(
                             padding: EdgeInsets.all(context.spacingSm),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: Colors.green.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Overall Attendance Rate',
-                                  style: TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                      color: colorScheme.onSurface),
                                 ),
                                 Text(
                                   '${presentPercentage.toStringAsFixed(1)}%',
@@ -342,21 +329,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ),
                   ),
-
                   SizedBox(height: context.spacingMd),
-
-                  // Recent attendance card
                   Card(
-                    color: const Color(0xFF2A2A2A),
                     child: Padding(
                       padding: EdgeInsets.all(context.spacingMd),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Recent Attendance',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colorScheme.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -364,20 +347,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           SizedBox(height: context.spacingMd),
                           attendanceData.isEmpty
                               ? Padding(
-                                  padding: EdgeInsets.all(context.spacingMd),
+                                  padding:
+                                      EdgeInsets.all(context.spacingMd),
                                   child: Center(
                                     child: Column(
                                       children: [
                                         Icon(
                                           Icons.calendar_today,
                                           size: 48,
-                                          color: Colors.grey.shade600,
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                         SizedBox(height: context.spacingSm),
                                         Text(
                                           'No attendance records yet',
                                           style: TextStyle(
-                                            color: Colors.grey.shade400,
+                                            color:
+                                                colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                       ],
@@ -386,7 +371,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 )
                               : ListView.builder(
                                   shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
                                   itemCount: attendanceData.length > 7
                                       ? 7
                                       : attendanceData.length,
@@ -418,13 +404,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     Color color,
     BuildContext context,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     final percentage = total > 0 ? (count / total * 100) : 0.0;
     return Container(
       padding: EdgeInsets.all(context.spacingSm),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -440,7 +427,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey.shade300,
+              color: colorScheme.onSurfaceVariant,
               fontSize: 12,
             ),
           ),
@@ -459,6 +446,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildAttendanceItem(Attendance attendance, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     Color statusColor;
     IconData statusIcon;
     String statusText;
@@ -480,7 +468,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         statusText = 'Absent';
         break;
       default:
-        statusColor = Colors.grey;
+        statusColor = colorScheme.onSurfaceVariant;
         statusIcon = Icons.help_outline;
         statusText = 'Unknown';
     }
@@ -489,16 +477,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       margin: EdgeInsets.only(bottom: context.spacingSm),
       padding: EdgeInsets.all(context.spacingSm),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.2),
+              color: statusColor.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(statusIcon, color: statusColor, size: 20),
@@ -510,8 +498,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               children: [
                 Text(
                   DateFormat('EEEE, MMMM d, yyyy').format(attendance.date),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -531,4 +519,3 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 }
-

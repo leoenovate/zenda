@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Chat attachments uploaded from message_input.dart. Any authenticated
+    // user can upload their own attachment, and any authenticated user can
+    // read (so the other chat participant can display the image).
+    match /chat_attachments/{studentId}/{fileName} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

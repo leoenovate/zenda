@@ -4,6 +4,7 @@ import 'parent_dashboard_screen.dart';
 import '../services/firebase_service.dart';
 import '../models/student.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 
 class ParentLoginScreen extends StatefulWidget {
   const ParentLoginScreen({super.key});
@@ -38,34 +39,31 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
     });
 
     try {
-      // Format phone number (add country code if not present)
       String phoneNumber = _phoneController.text.trim();
       if (!phoneNumber.startsWith('+')) {
-        // Assume Rwanda country code if not provided
         phoneNumber = '+250$phoneNumber';
       }
 
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification completed
           await _signInWithCredential(credential);
         },
         verificationFailed: (FirebaseAuthException e) {
           setState(() {
             _isLoading = false;
           });
-          
+
           String errorMessage = 'Verification failed. Please try again.';
           if (e.code == 'invalid-phone-number') {
             errorMessage = 'Invalid phone number. Please check and try again.';
           }
-          
+
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         },
@@ -85,12 +83,12 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
       setState(() {
         _isLoading = false;
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -99,9 +97,9 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
   Future<void> _verifyCode() async {
     if (_verificationId == null || _codeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the verification code'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please enter the verification code'),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
       return;
@@ -122,29 +120,29 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
       setState(() {
         _isLoading = false;
       });
-      
+
       String errorMessage = 'Invalid verification code. Please try again.';
       if (e.code == 'invalid-verification-code') {
         errorMessage = 'The verification code is incorrect.';
       }
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -152,21 +150,23 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
 
   Future<void> _signInWithCredential(PhoneAuthCredential credential) async {
     try {
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
-      
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+
       if (userCredential.user != null) {
-        // Get students associated with this phone number
-        final List<Student> students = await FirebaseService.getStudentsByParentPhone(
+        final List<Student> students =
+            await FirebaseService.getStudentsByParentPhone(
           _phoneController.text.trim(),
         );
 
         if (!mounted) return;
-        
+
         if (students.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No students found associated with this phone number.'),
-              backgroundColor: Colors.orange,
+            SnackBar(
+              content: const Text(
+                  'No students found associated with this phone number.'),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
             ),
           );
           setState(() {
@@ -178,7 +178,6 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
           return;
         }
 
-        // Navigate to parent dashboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -193,12 +192,12 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
       setState(() {
         _isLoading = false;
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error signing in: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -206,15 +205,15 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        foregroundColor: colorScheme.onSurface,
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
+        actions: const [ThemeSwitcher(onAppBar: false)],
       ),
       body: SafeArea(
         child: Center(
@@ -230,35 +229,29 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.blue,
+                        color: colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.family_restroom,
                         size: 48,
-                        color: Colors.white,
+                        color: colorScheme.onPrimary,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingXl),
-                    
-                    // Title
                     Text(
                       'Parent Portal',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 28 : 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingSm),
-                    
                     Text(
                       _isVerifyingCode
                           ? 'Enter the verification code sent to your phone'
@@ -266,40 +259,21 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 14 : 16,
-                        color: Colors.grey.shade400,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingXl),
-                    
                     if (!_isVerifyingCode) ...[
-                      // Phone number field
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Phone Number',
                           hintText: '0781234567',
-                          labelStyle: TextStyle(color: Colors.grey.shade400),
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
-                          prefixIcon: const Icon(Icons.phone, color: Colors.blue),
+                          prefixIcon: const Icon(Icons.phone),
                           prefixText: '+250 ',
-                          prefixStyle: const TextStyle(color: Colors.white),
-                          filled: true,
-                          fillColor: const Color(0xFF2A2A2A),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade700),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.blue, width: 2),
-                          ),
+                          prefixStyle:
+                              TextStyle(color: colorScheme.onSurface),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -311,30 +285,22 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                           return null;
                         },
                       ),
-                      
                       SizedBox(height: context.spacingLg),
-                      
-                      // Send code button
                       ElevatedButton(
                         onPressed: _isLoading ? null : _sendVerificationCode,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(
                             vertical: context.isMobile ? 16 : 18,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 4,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onPrimary),
                                 ),
                               )
                             : Text(
@@ -346,60 +312,36 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                               ),
                       ),
                     ] else ...[
-                      // Verification code field
                       TextFormField(
                         controller: _codeController,
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: colorScheme.onSurface,
                           fontSize: context.isMobile ? 24 : 28,
                           letterSpacing: 8,
                         ),
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Verification Code',
-                          labelStyle: TextStyle(color: Colors.grey.shade400),
-                          filled: true,
-                          fillColor: const Color(0xFF2A2A2A),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade700),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.blue, width: 2),
-                          ),
                         ),
                         maxLength: 6,
                       ),
-                      
                       SizedBox(height: context.spacingLg),
-                      
-                      // Verify button
                       ElevatedButton(
                         onPressed: _isLoading ? null : _verifyCode,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(
                             vertical: context.isMobile ? 16 : 18,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 4,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onPrimary),
                                 ),
                               )
                             : Text(
@@ -410,10 +352,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                                 ),
                               ),
                       ),
-                      
                       SizedBox(height: context.spacingMd),
-                      
-                      // Back button
                       TextButton(
                         onPressed: () {
                           setState(() {
@@ -425,16 +364,13 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                         child: const Text('Change Phone Number'),
                       ),
                     ],
-                    
                     SizedBox(height: context.spacingMd),
-                    
-                    // Info text
                     Text(
                       'Note: Use the phone number registered with the school',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 12 : 14,
-                        color: Colors.grey.shade500,
+                        color: colorScheme.outline,
                       ),
                     ),
                   ],
@@ -447,10 +383,3 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
     );
   }
 }
-
-
-
-
-
-
-

@@ -6,6 +6,7 @@ import 'system_owner_dashboard.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -68,7 +69,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -87,31 +88,27 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
-      // Trigger the Google Sign-In flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
-        // User cancelled the sign-in
         setState(() {
           _isGoogleLoading = false;
         });
         return;
       }
 
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
-      // Create a new credential
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Sign in to Firebase with the Google credential
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        // Resolve the user's role from users/{uid} via AuthService.
         final session = await AuthService.restoreSession();
         if (session != null) {
           await AuthStorageService.saveSession(
@@ -132,9 +129,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'Google Sign-In failed. Please try again.';
-      
+
       if (e.code == 'account-exists-with-different-credential') {
-        errorMessage = 'An account already exists with a different sign-in method.';
+        errorMessage =
+            'An account already exists with a different sign-in method.';
       } else if (e.code == 'invalid-credential') {
         errorMessage = 'Invalid credential. Please try again.';
       } else if (e.code == 'operation-not-allowed') {
@@ -145,23 +143,23 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      
-      // Check if it's a MissingPluginException
+
       String errorMessage = 'An error occurred: ${e.toString()}';
       if (e.toString().contains('MissingPluginException')) {
-        errorMessage = 'Google Sign-In plugin not initialized. Please restart the app.';
+        errorMessage =
+            'Google Sign-In plugin not initialized. Please restart the app.';
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -176,15 +174,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        foregroundColor: colorScheme.onSurface,
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
+        actions: const [ThemeSwitcher(onAppBar: false)],
       ),
       body: SafeArea(
         child: Center(
@@ -200,69 +198,44 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.blue,
+                        color: colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.admin_panel_settings,
                         size: 48,
-                        color: Colors.white,
+                        color: colorScheme.onPrimary,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingXl),
-                    
-                    // Title
                     Text(
                       'Admin Login',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 28 : 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingSm),
-                    
                     Text(
                       'Sign in to manage student attendance',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 14 : 16,
-                        color: Colors.grey.shade400,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingXl),
-                    
-                    // Email field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Email',
-                        labelStyle: TextStyle(color: Colors.grey.shade400),
-                        prefixIcon: const Icon(Icons.email, color: Colors.blue),
-                        filled: true,
-                        fillColor: const Color(0xFF2A2A2A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade700),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue, width: 2),
-                        ),
+                        prefixIcon: Icon(Icons.email),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -274,42 +247,24 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         return null;
                       },
                     ),
-                    
                     SizedBox(height: context.spacingMd),
-                    
-                    // Password field
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        labelStyle: TextStyle(color: Colors.grey.shade400),
-                        prefixIcon: const Icon(Icons.lock, color: Colors.blue),
+                        prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                            color: Colors.grey.shade400,
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
                           onPressed: () {
                             setState(() {
                               _obscurePassword = !_obscurePassword;
                             });
                           },
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFF2A2A2A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade700),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue, width: 2),
                         ),
                       ),
                       validator: (value) {
@@ -322,29 +277,30 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         return null;
                       },
                     ),
-                    
                     SizedBox(height: context.spacingLg),
-                    
-                    // Google Sign-In button
                     OutlinedButton.icon(
-                      onPressed: (_isLoading || _isGoogleLoading) ? null : _signInWithGoogle,
+                      onPressed: (_isLoading || _isGoogleLoading)
+                          ? null
+                          : _signInWithGoogle,
                       icon: _isGoogleLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Container(
+                          : SizedBox(
                               width: 20,
                               height: 20,
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'G',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontFamily: 'Roboto',
+                              child: Center(
+                                child: Text(
+                                  'G',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurface,
+                                    fontFamily: 'Roboto',
+                                  ),
                                 ),
                               ),
                             ),
@@ -356,60 +312,49 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(color: Colors.grey.shade700),
                         padding: EdgeInsets.symmetric(
                           vertical: context.isMobile ? 14 : 16,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
                     ),
-                    
                     SizedBox(height: context.spacingMd),
-                    
-                    // Divider
                     Row(
                       children: [
-                        Expanded(child: Divider(color: Colors.grey.shade700)),
+                        Expanded(
+                            child: Divider(color: colorScheme.outlineVariant)),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             'OR',
                             style: TextStyle(
-                              color: Colors.grey.shade400,
+                              color: colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
                         ),
-                        Expanded(child: Divider(color: Colors.grey.shade700)),
+                        Expanded(
+                            child: Divider(color: colorScheme.outlineVariant)),
                       ],
                     ),
-                    
                     SizedBox(height: context.spacingMd),
-                    
-                    // Login button
                     ElevatedButton(
-                      onPressed: (_isLoading || _isGoogleLoading) ? null : _login,
+                      onPressed: (_isLoading || _isGoogleLoading)
+                          ? null
+                          : _login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(
                           vertical: context.isMobile ? 16 : 18,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
                       ),
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 20,
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.onPrimary),
                               ),
                             )
                           : Text(
@@ -420,16 +365,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                               ),
                             ),
                     ),
-                    
                     SizedBox(height: context.spacingMd),
-                    
-                    // Info text
                     Text(
                       'Note: Contact your administrator if you need an account',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: context.isMobile ? 12 : 14,
-                        color: Colors.grey.shade500,
+                        color: colorScheme.outline,
                       ),
                     ),
                   ],
@@ -442,4 +384,3 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     );
   }
 }
-

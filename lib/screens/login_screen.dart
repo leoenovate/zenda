@@ -5,6 +5,7 @@ import 'system_owner_dashboard.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 
 export '../services/auth_service.dart' show UserRole;
 
@@ -33,9 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (_selectedRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a role'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: const Text('Please select a role'),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
       return;
@@ -107,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } finally {
@@ -122,32 +123,38 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
-    
+
     return Scaffold(
-      body: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
+      body: Stack(
+        children: [
+          isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: SafeArea(
+              child: const ThemeSwitcher(onAppBar: false),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildMobileLayout() {
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Login form section (mobile) - moved to top
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white, // White background
-            ),
+            color: colorScheme.surface,
             child: _buildLoginForm(),
           ),
-          // Branding section (mobile) - moved to bottom
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(32),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A5F5F), // Dark teal
-            ),
+            color: colorScheme.primary,
             child: Column(
               children: [
                 _buildBrandingContent(),
@@ -162,16 +169,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildDesktopLayout() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        // Left side - 40% width
         Expanded(
           flex: 4,
           child: Container(
             padding: const EdgeInsets.all(48),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A5F5F), // Dark teal
-            ),
+            color: colorScheme.primary,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -182,14 +187,11 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        // Right side - 60% width
         Expanded(
           flex: 6,
           child: Container(
             padding: const EdgeInsets.all(48),
-            decoration: const BoxDecoration(
-              color: Colors.white, // White background
-            ),
+            color: colorScheme.surface,
             child: Center(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
@@ -205,50 +207,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildBrandingContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final onBrand = colorScheme.onPrimary;
     return Column(
       children: [
-        // Graduation cap icon in circle
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF2A8A8A), // Light teal circle
+            color: colorScheme.primaryContainer,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.school_rounded,
             size: 64,
-            color: Colors.white,
+            color: onBrand,
           ),
         ),
         const SizedBox(height: 24),
-        // Brand name
-        const Text(
+        Text(
           'Zenda',
           style: TextStyle(
             fontSize: 48,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: onBrand,
             letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 8),
-        // Subtitle
-        const Text(
+        Text(
           'School Attendance System',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: onBrand,
           ),
         ),
         const SizedBox(height: 24),
-        // Description
         Text(
           'Streamline attendance management, parent communication, and student data with our modern, intuitive platform.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: context.isMobile ? 14 : 16,
-            color: Colors.white,
+            color: onBrand,
             height: 1.5,
           ),
         ),
@@ -262,43 +262,35 @@ class _LoginScreenState extends State<LoginScreen> {
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
-        _buildFeatureButton(
-          icon: Icons.check_circle,
-          label: 'Real-time Updates',
-        ),
-        _buildFeatureButton(
-          icon: Icons.shield,
-          label: 'Secure & Reliable',
-        ),
-        _buildFeatureButton(
-          icon: Icons.desktop_windows,
-          label: 'Multi-Platform',
-        ),
+        _buildFeatureButton(icon: Icons.check_circle, label: 'Real-time Updates'),
+        _buildFeatureButton(icon: Icons.shield, label: 'Secure & Reliable'),
+        _buildFeatureButton(icon: Icons.desktop_windows, label: 'Multi-Platform'),
       ],
     );
   }
 
   Widget _buildFeatureButton({required IconData icon, required String label}) {
+    final onBrand = Theme.of(context).colorScheme.onPrimary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.white.withOpacity(0.3),
+          color: onBrand.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.white),
+          Icon(icon, size: 16, color: onBrand),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Colors.white,
+              color: onBrand,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -308,96 +300,68 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginForm() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Welcome text
-          const Text(
+          Text(
             'Welcome Back',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2C2C2C), // Dark gray
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Please sign in to continue',
             style: TextStyle(
               fontSize: 16,
-              color: Color(0xFF666666), // Medium gray
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 32),
-          // Login card
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white, // White card
+              color: colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: colorScheme.shadow.withValues(alpha: 0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
+              border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Role selection
-                const Text(
+                Text(
                   'Select Role',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2C2C2C), // Dark gray
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 16),
                 _buildRoleSelection(),
                 const SizedBox(height: 24),
-                // Email/Student Number field
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.text,
-                  style: const TextStyle(color: Color(0xFF2C2C2C)),
                   decoration: InputDecoration(
                     labelText: _selectedRole == UserRole.parent
                         ? 'Student Number'
                         : 'Email or Student Number',
-                    labelStyle: const TextStyle(color: Color(0xFF666666)),
                     hintText: _selectedRole == UserRole.parent
                         ? 'STD001'
                         : 'email@school.com',
-                    hintStyle: const TextStyle(color: Color(0xFF999999)),
-                    prefixIcon: const Icon(Icons.person, color: Color(0xFF666666)),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0), // Light gray border
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0), // Light gray border
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF1A5F5F), // Dark teal
-                        width: 2,
-                      ),
-                    ),
+                    prefixIcon: const Icon(Icons.person),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -407,50 +371,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                // Password field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  style: const TextStyle(color: Color(0xFF2C2C2C)),
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    labelStyle: const TextStyle(color: Color(0xFF666666)),
                     hintText: 'Enter your password',
-                    hintStyle: const TextStyle(color: Color(0xFF999999)),
-                    prefixIcon: const Icon(Icons.lock, color: Color(0xFF666666)),
+                    prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                        color: const Color(0xFF666666),
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
                           _obscurePassword = !_obscurePassword;
                         });
                       },
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0), // Light gray border
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0), // Light gray border
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF1A5F5F), // Dark teal
-                        width: 2,
-                      ),
                     ),
                   ),
                   validator: (value) {
@@ -464,30 +402,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                // Sign In button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A5F5F), // Dark teal
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              colorScheme.onPrimary,
+                            ),
                           ),
                         )
-                      : Row(
+                      : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Text(
                               'Sign In',
                               style: TextStyle(
@@ -501,39 +434,42 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                 ),
                 const SizedBox(height: 24),
-                // Demo Credentials
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F5), // Light gray background
+                    color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        children: const [
+                        children: [
                           Icon(
                             Icons.info_outline,
-                            color: Color(0xFF666666),
+                            color: colorScheme.onSurfaceVariant,
                             size: 20,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'Demo Credentials',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF2C2C2C),
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildDemoCredential('Owner', 'owner@school.com', 'owner123', UserRole.systemOwner),
-                      _buildDemoCredential('Admin', 'admin@school.com', 'admin123', UserRole.schoolAdmin),
-                      _buildDemoCredential('Teacher', 'teacher@school.com', 'teacher123', UserRole.teacher),
-                      _buildDemoCredential('Parent', 'STD001', 'parent123', UserRole.parent),
+                      _buildDemoCredential('Owner', 'owner@school.com',
+                          'owner123', UserRole.systemOwner),
+                      _buildDemoCredential('Admin', 'admin@school.com',
+                          'admin123', UserRole.schoolAdmin),
+                      _buildDemoCredential('Teacher', 'teacher@school.com',
+                          'teacher123', UserRole.teacher),
+                      _buildDemoCredential(
+                          'Parent', 'STD001', 'parent123', UserRole.parent),
                     ],
                   ),
                 ),
@@ -541,13 +477,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          // Copyright
-          const Text(
-            '©2025 Zenda. All rights reserved.',
+          Text(
+            '\u00a92025 Zenda. All rights reserved.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF999999),
+              color: colorScheme.outline,
             ),
           ),
         ],
@@ -606,7 +541,14 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
     required String label,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isSelected = _selectedRole == role;
+    final bg = isSelected
+        ? colorScheme.primary.withValues(alpha: 0.1)
+        : colorScheme.surfaceContainer;
+    final border = isSelected ? colorScheme.primary : colorScheme.outlineVariant;
+    final fg = isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant;
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -617,30 +559,22 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF1A5F5F).withOpacity(0.1)
-              : const Color(0xFFF5F5F5), // Light gray
+          color: bg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF1A5F5F) // Dark teal
-                : const Color(0xFFE0E0E0), // Light gray border
+            color: border,
             width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF1A5F5F) : const Color(0xFF666666),
-              size: 24,
-            ),
+            Icon(icon, color: fg, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? const Color(0xFF1A5F5F) : const Color(0xFF666666),
+                color: fg,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -650,7 +584,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDemoCredential(String role, String username, String password, UserRole userRole) {
+  Widget _buildDemoCredential(
+      String role, String username, String password, UserRole userRole) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
@@ -665,30 +601,31 @@ class _LoginScreenState extends State<LoginScreen> {
             });
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             child: Row(
               children: [
                 Text(
                   '$role: ',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF666666),
+                    color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 Expanded(
                   child: Text(
                     '$username / $password',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF666666),
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.touch_app_outlined,
                   size: 14,
-                  color: Color(0xFF999999),
+                  color: colorScheme.outline,
                 ),
               ],
             ),
