@@ -185,16 +185,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: student.period == 'Morning'
-                                    ? colorScheme.primary
-                                    : colorScheme.secondary,
+                                backgroundColor: colorScheme.primary,
                                 radius: 30,
                                 child: Text(
                                   student.name[0].toUpperCase(),
                                   style: TextStyle(
-                                    color: student.period == 'Morning'
-                                        ? colorScheme.onPrimary
-                                        : colorScheme.onSecondary,
+                                    color: colorScheme.onPrimary,
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -224,7 +220,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         ),
                                         SizedBox(width: context.spacingXs),
                                         Text(
-                                          student.period,
+                                          student.sessionIds.isEmpty
+                                              ? 'No session'
+                                              : '${student.sessionIds.length} session${student.sessionIds.length == 1 ? '' : 's'}',
                                           style: TextStyle(
                                             color:
                                                 colorScheme.onSurfaceVariant,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
@@ -61,11 +61,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final filtered = _filtered;
@@ -91,7 +87,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
             ),
@@ -126,8 +122,8 @@ class _WorkersScreenState extends State<WorkersScreen> {
               children: [
                 Text(
                   w.name,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -140,13 +136,13 @@ class _WorkersScreenState extends State<WorkersScreen> {
                     if (w.employeeId != null) 'ID: ${w.employeeId}',
                     if (w.fingerprintData != null) 'Fingerprint on file',
                   ].join(' · '),
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => _showFormDialog(worker: w),
           ),
           IconButton(
@@ -181,7 +177,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
           backgroundColor: Colors.white,
           title: Text(
             isEdit ? 'Edit Worker' : 'Add Worker',
-            style: const TextStyle(color: Color(0xFF2C2C2C)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
           content: SizedBox(
             width: 420,
@@ -191,7 +187,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                 children: [
                   TextField(
                     controller: nameController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Full Name', required: true),
                   ),
                   const SizedBox(height: 16),
@@ -199,7 +195,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                     value: schoolId,
                     decoration: adminInputDecoration('School', required: true),
                     dropdownColor: Colors.white,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     items: widget.schools
                         .map((s) => DropdownMenuItem<String?>(
                               value: s.id,
@@ -211,35 +207,35 @@ class _WorkersScreenState extends State<WorkersScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: roleController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Role (e.g. "Cook")'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: employeeIdController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Employee ID'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Phone'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Email'),
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: isActive,
-                    activeColor: const Color(0xFF1A5F5F),
-                    title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                     onChanged: (v) => setStateDialog(() => isActive = v),
                   ),
                 ],
@@ -249,7 +245,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
               onPressed: isSaving
@@ -306,7 +302,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5F5F),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
               ),
               child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
@@ -322,15 +318,15 @@ class _WorkersScreenState extends State<WorkersScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Worker', style: TextStyle(color: Color(0xFF2C2C2C))),
+        title: Text('Delete Worker', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete "${w.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {

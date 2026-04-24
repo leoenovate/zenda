@@ -3,7 +3,7 @@ import 'package:zenda/models/attendance.dart';
 class Student {
   final String? id;
   final String name;
-  final String period;
+  final List<String> sessionIds;
   final String? registrationNumber;
   final String? gender;
   final String? birthdate;
@@ -23,7 +23,7 @@ class Student {
   const Student({
     this.id,
     required this.name,
-    required this.period,
+    this.sessionIds = const [],
     this.registrationNumber,
     this.gender,
     this.birthdate,
@@ -40,14 +40,4 @@ class Student {
     this.fingerprintData,
     this.fingerprintTimestamp,
   });
-
-  // Helper method to validate period
-  static bool isValidPeriod(String period) {
-    return ['Morning', 'Afternoon'].contains(period);
-  }
-
-  // Helper method to get short form of period
-  static String getShortPeriod(String period) {
-    return period;
-  }
-} 
+}

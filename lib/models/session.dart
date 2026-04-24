@@ -5,9 +5,9 @@ class Session {
   final String schoolId;
   final DateTime date;
   final bool isActive;
-  final String? period; // "Morning" | "Afternoon"
   final String? startTime;
   final String? endTime;
+  final String? lateTime;
   final String? className;
   final String? classId;
   final String? teacherId;
@@ -18,19 +18,18 @@ class Session {
     required this.schoolId,
     required this.date,
     this.isActive = false,
-    this.period,
     this.startTime,
     this.endTime,
+    this.lateTime,
     this.className,
     this.classId,
     this.teacherId,
     this.teacherName,
   });
 
-  // Helper function to parse date from Firestore
   static DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
-    
+
     if (dateValue is Timestamp) {
       return dateValue.toDate();
     } else if (dateValue is String) {
@@ -43,7 +42,7 @@ class Session {
     } else if (dateValue is DateTime) {
       return dateValue;
     }
-    
+
     return null;
   }
 
@@ -58,9 +57,9 @@ class Session {
       schoolId: data['schoolId'] ?? '',
       date: dateValue,
       isActive: data['isActive'] ?? false,
-      period: data['period'],
       startTime: data['startTime'],
       endTime: data['endTime'],
+      lateTime: data['lateTime'],
       className: data['className'],
       classId: data['classId'],
       teacherId: data['teacherId'],
@@ -73,9 +72,9 @@ class Session {
       'schoolId': schoolId,
       'date': Timestamp.fromDate(date),
       'isActive': isActive,
-      if (period != null) 'period': period,
       if (startTime != null) 'startTime': startTime,
       if (endTime != null) 'endTime': endTime,
+      if (lateTime != null) 'lateTime': lateTime,
       if (className != null) 'className': className,
       if (classId != null) 'classId': classId,
       if (teacherId != null) 'teacherId': teacherId,
@@ -83,6 +82,3 @@ class Session {
     };
   }
 }
-
-
-

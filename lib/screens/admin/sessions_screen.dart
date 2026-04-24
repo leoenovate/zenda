@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/session.dart';
@@ -74,8 +74,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final match = (s.className ?? '').toLowerCase().contains(q) ||
-            (s.teacherName ?? '').toLowerCase().contains(q) ||
-            (s.period ?? '').toLowerCase().contains(q);
+            (s.teacherName ?? '').toLowerCase().contains(q);
         if (!match) return false;
       }
       return true;
@@ -85,18 +84,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Sessions',
       subtitle: 'Daily class sessions and attendance windows',
-      searchHint: 'Search by class, teacher, or period...',
+      searchHint: 'Search by class or teacher...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
@@ -115,7 +110,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
             ),
@@ -149,9 +144,9 @@ class _SessionsScreenState extends State<SessionsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_formatDate(s.date)}${s.period != null ? ' · ${s.period}' : ''}',
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  '${_formatDate(s.date)}${s.className != null ? ' · ${s.className}' : ''}',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -165,7 +160,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     if (s.startTime != null && s.endTime != null)
                       '${s.startTime} - ${s.endTime}',
                   ].join(' · '),
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
@@ -192,7 +187,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
               onPressed: () => _endSession(s),
             ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => _showFormDialog(session: s),
           ),
           IconButton(
@@ -213,8 +208,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
     );
     final startController = TextEditingController(text: session?.startTime ?? '');
     final endController = TextEditingController(text: session?.endTime ?? '');
+    final lateTimeController = TextEditingController(text: session?.lateTime ?? '');
     final classNameController = TextEditingController(text: session?.className ?? '');
-    String period = session?.period ?? 'Morning';
     String? schoolId = session?.schoolId;
     String? teacherId = session?.teacherId;
     bool isActive = session?.isActive ?? true;
@@ -236,7 +231,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
             backgroundColor: Colors.white,
             title: Text(
               isEdit ? 'Edit Session' : 'New Session',
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
             content: SizedBox(
               width: 420,
@@ -248,7 +243,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                       value: schoolId,
                       decoration: adminInputDecoration('School', required: true),
                       dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: widget.schools
                           .map((s) => DropdownMenuItem<String?>(
                                 value: s.id,
@@ -264,9 +259,9 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     TextField(
                       controller: dateController,
                       readOnly: true,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       decoration: adminInputDecoration('Date', required: true).copyWith(
-                        suffixIcon: const Icon(Icons.calendar_today, color: Color(0xFF666666)),
+                        suffixIcon: Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -282,24 +277,12 @@ class _SessionsScreenState extends State<SessionsScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: period,
-                      decoration: adminInputDecoration('Period'),
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      items: const [
-                        DropdownMenuItem(value: 'Morning', child: Text('Morning')),
-                        DropdownMenuItem(value: 'Afternoon', child: Text('Afternoon')),
-                      ],
-                      onChanged: (v) => setStateDialog(() => period = v ?? 'Morning'),
-                    ),
-                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
                           child: TextField(
                             controller: startController,
-                            style: const TextStyle(color: Color(0xFF2C2C2C)),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                             decoration: adminInputDecoration('Start (HH:mm)'),
                           ),
                         ),
@@ -307,7 +290,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                         Expanded(
                           child: TextField(
                             controller: endController,
-                            style: const TextStyle(color: Color(0xFF2C2C2C)),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                             decoration: adminInputDecoration('End (HH:mm)'),
                           ),
                         ),
@@ -315,8 +298,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextField(
+                      controller: lateTimeController,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      decoration: adminInputDecoration('Late threshold (HH:mm)'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
                       controller: classNameController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       decoration: adminInputDecoration('Class name'),
                     ),
                     const SizedBox(height: 16),
@@ -326,7 +315,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                           : null,
                       decoration: adminInputDecoration('Teacher'),
                       dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: [
                         const DropdownMenuItem<String?>(
                             value: null, child: Text('Unassigned')),
@@ -341,8 +330,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: isActive,
-                      activeColor: const Color(0xFF1A5F5F),
-                      title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                       onChanged: (v) => setStateDialog(() => isActive = v),
                     ),
                   ],
@@ -352,7 +341,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
             actions: [
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+                child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
               ElevatedButton(
                 onPressed: isSaving
@@ -377,13 +366,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
                             schoolId: schoolId!,
                             date: pickedDate,
                             isActive: isActive,
-                            period: period,
                             startTime: startController.text.trim().isEmpty
                                 ? null
                                 : startController.text.trim(),
                             endTime: endController.text.trim().isEmpty
                                 ? null
                                 : endController.text.trim(),
+                            lateTime: lateTimeController.text.trim().isEmpty
+                                ? null
+                                : lateTimeController.text.trim(),
                             className: classNameController.text.trim().isEmpty
                                 ? null
                                 : classNameController.text.trim(),
@@ -414,7 +405,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create')),
@@ -431,15 +422,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('End Session', style: TextStyle(color: Color(0xFF2C2C2C))),
-        content: const Text(
+        title: Text('End Session', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        content: Text(
           'Mark this session as ended? Attendance recording will stop.',
-          style: TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -474,15 +465,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Session', style: TextStyle(color: Color(0xFF2C2C2C))),
-        content: const Text(
+        title: Text('Delete Session', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        content: Text(
           'Delete this session? This action cannot be undone.',
-          style: TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {

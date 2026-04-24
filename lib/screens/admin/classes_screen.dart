@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/class_group.dart';
 import '../../models/teacher.dart';
@@ -67,11 +67,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final filtered = _filtered;
@@ -94,7 +90,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
             ),
@@ -134,8 +130,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
               children: [
                 Text(
                   c.name,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -148,13 +144,13 @@ class _ClassesScreenState extends State<ClassesScreen> {
                     if (teacherName.isNotEmpty) 'Teacher: $teacherName',
                     '${c.studentIds.length} students',
                   ].join(' · '),
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => _showFormDialog(group: c),
           ),
           IconButton(
@@ -191,7 +187,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
             backgroundColor: Colors.white,
             title: Text(
               isEdit ? 'Edit Class' : 'Add Class',
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
             content: SizedBox(
               width: 420,
@@ -201,7 +197,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                   children: [
                     TextField(
                       controller: nameController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       decoration: adminInputDecoration('Class Name', required: true),
                     ),
                     const SizedBox(height: 16),
@@ -209,7 +205,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                       value: schoolId,
                       decoration: adminInputDecoration('School', required: true),
                       dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: widget.schools
                           .map((s) => DropdownMenuItem<String?>(
                                 value: s.id,
@@ -224,13 +220,13 @@ class _ClassesScreenState extends State<ClassesScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: gradeController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       decoration: adminInputDecoration('Grade (e.g. "P4")'),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: levelController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       decoration: adminInputDecoration('Level (e.g. "Primary")'),
                     ),
                     const SizedBox(height: 16),
@@ -240,7 +236,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                           : null,
                       decoration: adminInputDecoration('Class Teacher'),
                       dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: [
                         const DropdownMenuItem<String?>(
                             value: null, child: Text('Unassigned')),
@@ -255,8 +251,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: isActive,
-                      activeColor: const Color(0xFF1A5F5F),
-                      title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                       onChanged: (v) => setStateDialog(() => isActive = v),
                     ),
                   ],
@@ -266,7 +262,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
             actions: [
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+                child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
               ElevatedButton(
                 onPressed: isSaving
@@ -325,7 +321,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
@@ -342,15 +338,15 @@ class _ClassesScreenState extends State<ClassesScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Class', style: TextStyle(color: Color(0xFF2C2C2C))),
+        title: Text('Delete Class', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete class "${c.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {

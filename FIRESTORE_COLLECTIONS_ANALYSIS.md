@@ -36,7 +36,7 @@ Stores student information including personal details, parent contacts, address,
   
   // Basic Information
   name: string (required)
-  period: string (required) // "Morning" | "Afternoon"
+  sessionIds: string[] // references documents in `sessions`
   registrationNumber?: string
   gender?: string
   birthdate?: string // ISO 8601 format
@@ -243,11 +243,13 @@ Temporary collection used for real-time fingerprint scanning. The fingerprint sc
   schoolId: string (required) // Multi-school support
   date: Timestamp | string (required) // Session date
   isActive: boolean // Whether session is currently active
-  // Additional fields likely:
-  // - startTime, endTime
-  // - period (Morning/Afternoon)
-  // - classId or className
-  // - teacherId
+  startTime?: string // "HH:mm"
+  endTime?: string // "HH:mm"
+  lateTime?: string // "HH:mm" - threshold after which attendance counts as late
+  className?: string
+  classId?: string
+  teacherId?: string
+  teacherName?: string
 }
 ```
 
@@ -428,7 +430,6 @@ Temporary collection used for real-time fingerprint scanning. The fingerprint sc
     // Feature flags
   }
   settings?: {
-    attendancePeriods?: string[] // ["Morning", "Afternoon"]
     defaultCountry?: string
     // Global settings
   }

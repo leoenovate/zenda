@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/parent.dart' as app_parent;
 import '../../services/firebase_service.dart';
@@ -81,11 +81,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final filtered = _filtered;
@@ -111,8 +107,8 @@ class _ParentsScreenState extends State<ParentsScreen> {
             : const Icon(Icons.sync, size: 18),
         label: Text(_isSyncing ? 'Syncing...' : 'Sync from students'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF1A5F5F),
-          side: const BorderSide(color: Color(0xFF1A5F5F)),
+          foregroundColor: Theme.of(context).colorScheme.primary,
+          side: BorderSide(color: Theme.of(context).colorScheme.primary),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
       ),
@@ -127,7 +123,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
             ),
@@ -157,8 +153,8 @@ class _ParentsScreenState extends State<ParentsScreen> {
               children: [
                 Text(
                   p.name ?? '(no name)',
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -171,7 +167,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                     if (p.email != null) p.email!,
                     '${p.studentIds.length} children',
                   ].join(' · '),
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
@@ -193,7 +189,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => _showFormDialog(parent: p),
           ),
           IconButton(
@@ -223,7 +219,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
           backgroundColor: Colors.white,
           title: Text(
             isEdit ? 'Edit Parent' : 'Add Parent',
-            style: const TextStyle(color: Color(0xFF2C2C2C)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
           content: SizedBox(
             width: 420,
@@ -233,21 +229,21 @@ class _ParentsScreenState extends State<ParentsScreen> {
                 children: [
                   TextField(
                     controller: nameController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Full Name'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Phone', required: true),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Email'),
                   ),
                   const SizedBox(height: 16),
@@ -255,7 +251,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                     value: relationship,
                     decoration: adminInputDecoration('Relationship'),
                     dropdownColor: Colors.white,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     items: const [
                       DropdownMenuItem(value: 'father', child: Text('Father')),
                       DropdownMenuItem(value: 'mother', child: Text('Mother')),
@@ -268,7 +264,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                     value: schoolId,
                     decoration: adminInputDecoration('School'),
                     dropdownColor: Colors.white,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     items: [
                       const DropdownMenuItem<String?>(
                           value: null, child: Text('Unassigned')),
@@ -281,8 +277,8 @@ class _ParentsScreenState extends State<ParentsScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: isActive,
-                    activeColor: const Color(0xFF1A5F5F),
-                    title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                     onChanged: (v) => setStateDialog(() => isActive = v),
                   ),
                 ],
@@ -292,7 +288,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
               onPressed: isSaving
@@ -344,7 +340,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5F5F),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
               ),
               child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
@@ -360,15 +356,15 @@ class _ParentsScreenState extends State<ParentsScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Parent', style: TextStyle(color: Color(0xFF2C2C2C))),
+        title: Text('Delete Parent', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete parent record for ${p.name ?? p.phone}?',
-          style: const TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {

@@ -371,7 +371,7 @@ Student _buildDemoStudent(String studentNumber) {
   return Student(
     id: 'demo-student-$studentNumber',
     name: 'Demo Student',
-    period: 'Morning',
+    sessionIds: const [],
     registrationNumber: studentNumber,
     gender: 'Male',
     birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),

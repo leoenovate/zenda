@@ -79,7 +79,7 @@ class FirebaseService {
           return Student(
             id: doc.id,
             name: data['name'] ?? '',
-            period: data['period'] ?? 'Morning',
+            sessionIds: _parseSessionIds(data),
             registrationNumber: data['registrationNumber'],
             gender: data['gender'],
             birthdate: data['birthdate'],
@@ -113,6 +113,16 @@ class FirebaseService {
     return attemptGetStudents();
   }
   
+  // Helper to parse sessionIds list from a Firestore student document.
+  // Accepts the new `sessionIds` array. Returns an empty list when missing.
+  static List<String> _parseSessionIds(Map<String, dynamic> data) {
+    final raw = data['sessionIds'];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    return const [];
+  }
+
   // Helper to parse attendance history with better error handling
   static List<Attendance> _parseAttendanceHistory(Map<String, dynamic> data) {
     try {
@@ -372,7 +382,7 @@ class FirebaseService {
         return Student(
           id: doc.id,
           name: data['name'] ?? '',
-          period: data['period'] ?? 'Morning',
+          sessionIds: _parseSessionIds(data),
           registrationNumber: data['registrationNumber'],
           gender: data['gender'],
           birthdate: data['birthdate'],
@@ -423,7 +433,7 @@ class FirebaseService {
           students.add(Student(
             id: doc.id,
             name: data['name'] ?? '',
-            period: data['period'] ?? 'Morning',
+            sessionIds: _parseSessionIds(data),
             registrationNumber: data['registrationNumber'],
             gender: data['gender'],
             birthdate: data['birthdate'],
@@ -451,7 +461,7 @@ class FirebaseService {
           students.add(Student(
             id: doc.id,
             name: data['name'] ?? '',
-            period: data['period'] ?? 'Morning',
+            sessionIds: _parseSessionIds(data),
             registrationNumber: data['registrationNumber'],
             gender: data['gender'],
             birthdate: data['birthdate'],
@@ -699,6 +709,22 @@ class FirebaseService {
       await _firestore.collection('users').doc(userId).delete();
     } catch (e) {
       throw Exception('Failed to delete admin: $e');
+    }
+  }
+
+  // Get sessions scoped to the current user / given school.
+  static Future<List<Session>> getSessions({String? schoolId}) async {
+    try {
+      final q = _scoped(_firestore.collection('sessions'),
+          explicitSchoolId: schoolId);
+      final snap = await q.get();
+      final sessions = snap.docs
+          .map((d) => Session.fromFirestore(d.data(), d.id))
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      return sessions;
+    } catch (e) {
+      throw Exception('Failed to get sessions: $e');
     }
   }
 
@@ -991,6 +1017,140 @@ class FirebaseService {
     } catch (e) {
       throw Exception('Failed to delete session: $e');
     }
+  }
+
+  /// One-off migration: for every school that still carries legacy
+  /// `morningStart/afternoonStart` fields (either top-level or under
+  /// `attendanceSettings`/`weeklySchedule`), seed matching `Session` documents
+  /// and then clear those legacy fields. Students with a legacy `period`
+  /// string get their `sessionIds` populated with the matching seeded session
+  /// and have `period` removed. Idempotent: skips schools/students that have
+  /// already been migrated. Returns a summary map.
+  static Future<Map<String, int>> migrateSchoolPeriodsToSessions() async {
+    int schoolsMigrated = 0;
+    int sessionsCreated = 0;
+    int studentsMigrated = 0;
+
+    final schoolsSnap = await _firestore.collection('schools').get();
+    final Map<String, Map<String, String>> schoolPeriodToSessionId = {};
+
+    for (final schoolDoc in schoolsSnap.docs) {
+      final data = schoolDoc.data();
+
+      String? morningStart, morningEnd, morningLateTime;
+      String? afternoonStart, afternoonEnd, afternoonLateTime;
+
+      final attendanceSettings = data['attendanceSettings'];
+      if (attendanceSettings is Map) {
+        morningStart = attendanceSettings['morningStart'] as String?;
+        morningEnd = attendanceSettings['morningEnd'] as String?;
+        morningLateTime = attendanceSettings['morningLateTime'] as String?;
+        afternoonStart = attendanceSettings['afternoonStart'] as String?;
+        afternoonEnd = attendanceSettings['afternoonEnd'] as String?;
+        afternoonLateTime = attendanceSettings['afternoonLateTime'] as String?;
+      }
+
+      final weeklySchedule = data['weeklySchedule'];
+      if (weeklySchedule is Map) {
+        final morning = weeklySchedule['morning'];
+        if (morning is Map) {
+          morningStart ??= morning['start'] as String?;
+          morningEnd ??= morning['end'] as String?;
+          morningLateTime ??= morning['lateTime'] as String?;
+        }
+        final afternoon = weeklySchedule['afternoon'];
+        if (afternoon is Map) {
+          afternoonStart ??= afternoon['start'] as String?;
+          afternoonEnd ??= afternoon['end'] as String?;
+          afternoonLateTime ??= afternoon['lateTime'] as String?;
+        }
+      }
+
+      morningStart ??= data['morningStart'] as String?;
+      morningEnd ??= data['morningEnd'] as String?;
+      morningLateTime ??= data['morningLateTime'] as String?;
+      afternoonStart ??= data['afternoonStart'] as String?;
+      afternoonEnd ??= data['afternoonEnd'] as String?;
+      afternoonLateTime ??= data['afternoonLateTime'] as String?;
+
+      final hasMorning = morningStart != null || morningEnd != null;
+      final hasAfternoon = afternoonStart != null || afternoonEnd != null;
+      if (!hasMorning && !hasAfternoon) continue;
+
+      final today = DateTime.now();
+      final schoolId = schoolDoc.id;
+      final perSchool = <String, String>{};
+
+      if (hasMorning) {
+        final session = Session(
+          schoolId: schoolId,
+          date: DateTime(today.year, today.month, today.day),
+          isActive: true,
+          startTime: morningStart,
+          endTime: morningEnd,
+          lateTime: morningLateTime,
+          className: 'Morning (default)',
+        );
+        final id = await createSession(session);
+        perSchool['Morning'] = id;
+        sessionsCreated++;
+      }
+      if (hasAfternoon) {
+        final session = Session(
+          schoolId: schoolId,
+          date: DateTime(today.year, today.month, today.day),
+          isActive: true,
+          startTime: afternoonStart,
+          endTime: afternoonEnd,
+          lateTime: afternoonLateTime,
+          className: 'Afternoon (default)',
+        );
+        final id = await createSession(session);
+        perSchool['Afternoon'] = id;
+        sessionsCreated++;
+      }
+
+      schoolPeriodToSessionId[schoolId] = perSchool;
+
+      await schoolDoc.reference.update({
+        'attendanceSettings': FieldValue.delete(),
+        'weeklySchedule': FieldValue.delete(),
+        'morningStart': FieldValue.delete(),
+        'morningEnd': FieldValue.delete(),
+        'morningLateTime': FieldValue.delete(),
+        'afternoonStart': FieldValue.delete(),
+        'afternoonEnd': FieldValue.delete(),
+        'afternoonLateTime': FieldValue.delete(),
+      });
+      schoolsMigrated++;
+    }
+
+    // Backfill students' sessionIds from their legacy period string.
+    final studentsSnap = await _firestore.collection(_collection).get();
+    for (final studentDoc in studentsSnap.docs) {
+      final data = studentDoc.data();
+      final legacyPeriod = data['period'] as String?;
+      if (legacyPeriod == null) continue;
+      final schoolId = data['schoolId'] as String?;
+      final mapping = schoolId == null ? null : schoolPeriodToSessionId[schoolId];
+      final existing = (data['sessionIds'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+      final sessionId = mapping?[legacyPeriod];
+      final List<String> nextIds = [...existing];
+      if (sessionId != null && !nextIds.contains(sessionId)) {
+        nextIds.add(sessionId);
+      }
+      await studentDoc.reference.update({
+        'sessionIds': nextIds,
+        'period': FieldValue.delete(),
+      });
+      studentsMigrated++;
+    }
+
+    return {
+      'schools': schoolsMigrated,
+      'sessions': sessionsCreated,
+      'students': studentsMigrated,
+    };
   }
 
   // SYSTEM CONFIG

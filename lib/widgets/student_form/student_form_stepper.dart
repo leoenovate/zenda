@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/parents_info_step.dart';
 import 'steps/address_info_step.dart';
@@ -30,7 +30,7 @@ class _StudentFormStepperState extends State<StudentFormStepper> {
       'registrationNumber': '',
       'gender': 'M',
       'birthdate': '',
-      'period': 'Morning',
+      'sessionIds': <String>[],
       'fatherName': '',
       'fatherPhone': '',
       'motherName': '',

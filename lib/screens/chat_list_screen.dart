@@ -1,10 +1,11 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/student.dart';
 import '../models/message.dart';
 import '../services/firebase_service.dart';
 import 'chat_screen.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 
 class ChatListScreen extends StatefulWidget {
   final List<Student> students;
@@ -102,6 +103,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
       appBar: AppBar(
         title: const Text('Messages'),
         actions: [
+          const ThemeSwitcher(),
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: () => _showHelpDialog(context),
@@ -202,9 +204,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                     children: [
                                       // Avatar
                                       CircleAvatar(
-                                        backgroundColor: student.period == 'Morning'
-                                            ? Colors.amber.shade800
-                                            : Colors.blue,
+                                        backgroundColor: Theme.of(context).colorScheme.primary,
                                         radius: context.isMobile ? 20 : 24,
                                         child: Text(
                                           student.name[0].toUpperCase(),
@@ -234,7 +234,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                             Text(
                                               student.fatherName != null
                                                   ? 'Parent: ${student.fatherName}'
-                                                  : 'Class: ${student.period}',
+                                                  : (student.sessionIds.isEmpty
+                                                      ? 'No session'
+                                                      : '${student.sessionIds.length} session${student.sessionIds.length == 1 ? '' : 's'}'),
                                               style: TextStyle(
                                                 fontSize: context.isMobile ? 12 : 14,
                                                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),

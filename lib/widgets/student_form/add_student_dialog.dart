@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/student.dart';
 import 'student_form_stepper.dart';
 import '../../services/firebase_service.dart';
@@ -41,7 +41,9 @@ class AddStudentDialog extends StatelessWidget {
       final student = Student(
         id: studentId,
         name: studentData['name'],
-        period: studentData['period'],
+        sessionIds: List<String>.from(
+          (studentData['sessionIds'] as List?) ?? const <String>[],
+        ),
         registrationNumber: studentData['registrationNumber'],
         gender: studentData['gender'],
         birthdate: studentData['birthdate'],

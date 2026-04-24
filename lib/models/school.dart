@@ -14,14 +14,6 @@ class School {
   final String? website;
   final bool isActive;
   final DateTime? createdAt;
-  
-  // Attendance settings
-  final String? morningStart;
-  final String? morningEnd;
-  final String? morningLateTime;
-  final String? afternoonStart;
-  final String? afternoonEnd;
-  final String? afternoonLateTime;
 
   const School({
     this.id,
@@ -37,18 +29,11 @@ class School {
     this.website,
     this.isActive = true,
     this.createdAt,
-    this.morningStart,
-    this.morningEnd,
-    this.morningLateTime,
-    this.afternoonStart,
-    this.afternoonEnd,
-    this.afternoonLateTime,
   });
 
-  // Helper function to parse date from Firestore (handles both Timestamp and ISO string)
   static DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
-    
+
     if (dateValue is Timestamp) {
       return dateValue.toDate();
     } else if (dateValue is String) {
@@ -61,7 +46,7 @@ class School {
     } else if (dateValue is DateTime) {
       return dateValue;
     }
-    
+
     return null;
   }
 
@@ -77,63 +62,36 @@ class School {
       name = data['name'];
       tagline = data['tagline'];
     }
-    
+
     // Handle nested contact structure - extract all fields
     String? address;
     String? city;
     String? country;
     String? phone;
     String? email;
-    
+
     if (data['contact'] is Map) {
       final contactMap = data['contact'] as Map<String, dynamic>;
-      // Extract from contact object first
       address = contactMap['address'];
       city = contactMap['city'];
       country = contactMap['country'];
       phone = contactMap['phone'];
       email = contactMap['email'];
     }
-    
-    // Fallback to top-level fields if not in contact object
+
     address = address ?? (data['address'] is String ? data['address'] : null);
     city = city ?? (data['city'] is String ? data['city'] : null);
     country = country ?? (data['country'] is String ? data['country'] : null);
     phone = phone ?? (data['phone'] is String ? data['phone'] : null);
     email = email ?? (data['email'] is String ? data['email'] : null);
-    
-    // Handle nested address structure (alternative format)
+
     if (data['address'] is Map && address == null) {
       final addrMap = data['address'] as Map<String, dynamic>;
       address = addrMap['address'] ?? addrMap['sector'] ?? addrMap['cell'];
       city = city ?? addrMap['city'] ?? addrMap['district'] ?? addrMap['province'];
       country = country ?? addrMap['country'];
     }
-    
-    // Handle attendance settings - check multiple possible locations
-    Map<String, dynamic>? attendanceSettings;
-    if (data['attendanceSettings'] is Map) {
-      attendanceSettings = data['attendanceSettings'] as Map<String, dynamic>;
-    } else if (data['weeklySchedule'] is Map) {
-      // Check weeklySchedule for attendance times
-      final weeklySchedule = data['weeklySchedule'] as Map<String, dynamic>;
-        if (weeklySchedule['morning'] is Map || weeklySchedule['afternoon'] is Map) {
-          attendanceSettings = <String, dynamic>{};
-          if (weeklySchedule['morning'] is Map) {
-            final morning = weeklySchedule['morning'] as Map<String, dynamic>;
-            attendanceSettings['morningStart'] = morning['start'];
-            attendanceSettings['morningEnd'] = morning['end'];
-            attendanceSettings['morningLateTime'] = morning['lateTime'];
-          }
-          if (weeklySchedule['afternoon'] is Map) {
-            final afternoon = weeklySchedule['afternoon'] as Map<String, dynamic>;
-            attendanceSettings['afternoonStart'] = afternoon['start'];
-            attendanceSettings['afternoonEnd'] = afternoon['end'];
-            attendanceSettings['afternoonLateTime'] = afternoon['lateTime'];
-          }
-        }
-    }
-    
+
     return School(
       id: id,
       name: name ?? '',
@@ -148,12 +106,6 @@ class School {
       website: data['website'],
       isActive: data['isActive'] ?? true,
       createdAt: _parseDate(data['createdAt']),
-      morningStart: attendanceSettings?['morningStart'] ?? data['morningStart'],
-      morningEnd: attendanceSettings?['morningEnd'] ?? data['morningEnd'],
-      morningLateTime: attendanceSettings?['morningLateTime'] ?? data['morningLateTime'],
-      afternoonStart: attendanceSettings?['afternoonStart'] ?? data['afternoonStart'],
-      afternoonEnd: attendanceSettings?['afternoonEnd'] ?? data['afternoonEnd'],
-      afternoonLateTime: attendanceSettings?['afternoonLateTime'] ?? data['afternoonLateTime'],
     );
   }
 
@@ -171,17 +123,6 @@ class School {
       if (website != null) 'website': website,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
-      if (morningStart != null || morningEnd != null || morningLateTime != null ||
-          afternoonStart != null || afternoonEnd != null || afternoonLateTime != null)
-        'attendanceSettings': {
-          if (morningStart != null) 'morningStart': morningStart,
-          if (morningEnd != null) 'morningEnd': morningEnd,
-          if (morningLateTime != null) 'morningLateTime': morningLateTime,
-          if (afternoonStart != null) 'afternoonStart': afternoonStart,
-          if (afternoonEnd != null) 'afternoonEnd': afternoonEnd,
-          if (afternoonLateTime != null) 'afternoonLateTime': afternoonLateTime,
-        },
     };
   }
 }
-

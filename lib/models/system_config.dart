@@ -6,7 +6,6 @@ class SystemConfig {
   final bool fingerprintEnabled;
   final bool messagingEnabled;
   final bool multiSchoolEnabled;
-  final List<String> attendancePeriods;
   final String? defaultCountry;
   final String? supportEmail;
   final DateTime? updatedAt;
@@ -17,7 +16,6 @@ class SystemConfig {
     this.fingerprintEnabled = true,
     this.messagingEnabled = true,
     this.multiSchoolEnabled = true,
-    this.attendancePeriods = const ['Morning', 'Afternoon'],
     this.defaultCountry,
     this.supportEmail,
     this.updatedAt,
@@ -46,10 +44,6 @@ class SystemConfig {
       fingerprintEnabled: features['fingerprintEnabled'] ?? true,
       messagingEnabled: features['messagingEnabled'] ?? true,
       multiSchoolEnabled: features['multiSchoolEnabled'] ?? true,
-      attendancePeriods: (settings['attendancePeriods'] as List<dynamic>? ??
-              const ['Morning', 'Afternoon'])
-          .map((e) => e.toString())
-          .toList(),
       defaultCountry: settings['defaultCountry'],
       supportEmail: settings['supportEmail'],
       updatedAt: _parseDate(data['updatedAt']),
@@ -66,7 +60,6 @@ class SystemConfig {
         'multiSchoolEnabled': multiSchoolEnabled,
       },
       'settings': {
-        'attendancePeriods': attendancePeriods,
         if (defaultCountry != null) 'defaultCountry': defaultCountry,
         if (supportEmail != null) 'supportEmail': supportEmail,
       },
@@ -80,7 +73,6 @@ class SystemConfig {
     bool? fingerprintEnabled,
     bool? messagingEnabled,
     bool? multiSchoolEnabled,
-    List<String>? attendancePeriods,
     String? defaultCountry,
     String? supportEmail,
   }) {
@@ -90,7 +82,6 @@ class SystemConfig {
       fingerprintEnabled: fingerprintEnabled ?? this.fingerprintEnabled,
       messagingEnabled: messagingEnabled ?? this.messagingEnabled,
       multiSchoolEnabled: multiSchoolEnabled ?? this.multiSchoolEnabled,
-      attendancePeriods: attendancePeriods ?? this.attendancePeriods,
       defaultCountry: defaultCountry ?? this.defaultCountry,
       supportEmail: supportEmail ?? this.supportEmail,
       updatedAt: updatedAt,

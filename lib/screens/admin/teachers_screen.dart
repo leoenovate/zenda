@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/teacher.dart';
 import '../../services/firebase_service.dart';
@@ -66,11 +66,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final filtered = _filtered;
@@ -93,7 +89,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
                 itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
             ),
@@ -128,8 +124,8 @@ class _TeachersScreenState extends State<TeachersScreen> {
               children: [
                 Text(
                   t.name,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -141,7 +137,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     if (t.subject != null) t.subject!,
                     if (t.email != null) t.email!,
                   ].join(' · '),
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
@@ -163,7 +159,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
             onPressed: () => _showFormDialog(teacher: t),
           ),
           IconButton(
@@ -198,7 +194,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
           backgroundColor: Colors.white,
           title: Text(
             isEdit ? 'Edit Teacher' : 'Add Teacher',
-            style: const TextStyle(color: Color(0xFF2C2C2C)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
           content: SizedBox(
             width: 420,
@@ -208,7 +204,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                 children: [
                   TextField(
                     controller: nameController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Full Name', required: true),
                   ),
                   const SizedBox(height: 16),
@@ -216,7 +212,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     value: schoolId,
                     decoration: adminInputDecoration('School', required: true),
                     dropdownColor: Colors.white,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     items: widget.schools
                         .map((s) => DropdownMenuItem<String?>(
                               value: s.id,
@@ -229,34 +225,34 @@ class _TeachersScreenState extends State<TeachersScreen> {
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Email'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Phone'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: subjectController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Subject'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: employeeIdController,
-                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Employee ID'),
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: isActive,
-                    activeColor: const Color(0xFF1A5F5F),
-                    title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                     onChanged: (v) => setStateDialog(() => isActive = v),
                   ),
                 ],
@@ -266,7 +262,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             ElevatedButton(
               onPressed: isSaving
@@ -321,7 +317,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5F5F),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
               ),
               child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
@@ -337,15 +333,15 @@ class _TeachersScreenState extends State<TeachersScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: const Text('Delete Teacher', style: TextStyle(color: Color(0xFF2C2C2C))),
+        title: Text('Delete Teacher', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete "${t.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF666666)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             onPressed: () async {

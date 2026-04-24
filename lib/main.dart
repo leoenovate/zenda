@@ -22,7 +22,7 @@ Student _buildDemoStudent() {
   return Student(
     id: 'demo-student-std001',
     name: 'Demo Student',
-    period: 'Morning',
+    sessionIds: const [],
     registrationNumber: 'STD001',
     gender: 'Male',
     birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),

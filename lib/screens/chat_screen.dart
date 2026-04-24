@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../models/student.dart';
 import '../models/message.dart';
 import '../services/firebase_service.dart';
 import '../widgets/chat/message_bubble.dart';
 import '../widgets/chat/message_input.dart';
+import '../widgets/theme/theme_switcher.dart';
 import 'package:intl/intl.dart';
 import '../utils/responsive_builder.dart';
 
@@ -80,9 +81,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Row(
           children: [
             CircleAvatar(
-              backgroundColor: widget.student.period == 'Morning'
-                  ? Colors.amber.shade800
-                  : Colors.blue,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               radius: context.isMobile ? 14 : 16,
               child: Text(
                 widget.student.name[0].toUpperCase(),
@@ -107,10 +106,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.student.period,
+                    widget.student.sessionIds.isEmpty
+                        ? 'No session'
+                        : '${widget.student.sessionIds.length} session${widget.student.sessionIds.length == 1 ? '' : 's'}',
                     style: TextStyle(
                       fontSize: context.isMobile ? 10 : 12,
-                      color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -119,6 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          const ThemeSwitcher(),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () {
@@ -313,9 +315,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: widget.student.period == 'Morning'
-                          ? Colors.amber.shade800
-                          : Colors.blue,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       radius: 20,
                       child: Text(
                         widget.student.name[0].toUpperCase(),
@@ -353,7 +353,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     SizedBox(
                       width: isLandscape ? 180 : double.infinity,
-                      child: _buildInfoItem('Class', widget.student.period),
+                      child: _buildInfoItem(
+                        'Sessions',
+                        widget.student.sessionIds.isEmpty
+                            ? 'None'
+                            : '${widget.student.sessionIds.length}',
+                      ),
                     ),
                     SizedBox(
                       width: isLandscape ? 180 : double.infinity,

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/theme/theme_switcher.dart';
 
 class ApiLog {
   final String id;
@@ -54,17 +55,16 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
         title: const Text('API Logs'),
-        backgroundColor: Colors.transparent,
+        actions: const [ThemeSwitcher()],
       ),
       body: Column(
         children: [
           // Filters
           Container(
             padding: EdgeInsets.all(context.spacingMd),
-            color: const Color(0xFF2A2A2A),
+            color: Theme.of(context).colorScheme.surfaceContainer,
             child: Row(
               children: [
                 Expanded(
@@ -74,12 +74,12 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
                       labelText: 'Status',
                       labelStyle: const TextStyle(color: Colors.white),
                       filled: true,
-                      fillColor: const Color(0xFF1A1A1A),
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerLowest,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    dropdownColor: const Color(0xFF2A2A2A),
+                    dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
                     style: const TextStyle(color: Colors.white),
                     items: const [
                       DropdownMenuItem(value: 'all', child: Text('All')),
@@ -101,12 +101,12 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
                       labelText: 'Type',
                       labelStyle: const TextStyle(color: Colors.white),
                       filled: true,
-                      fillColor: const Color(0xFF1A1A1A),
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerLowest,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    dropdownColor: const Color(0xFF2A2A2A),
+                    dropdownColor: Theme.of(context).colorScheme.surfaceContainer,
                     style: const TextStyle(color: Colors.white),
                     items: const [
                       DropdownMenuItem(value: 'all', child: Text('All')),
@@ -213,7 +213,7 @@ class _ApiLogsScreenState extends State<ApiLogsScreen> {
 
   Widget _buildLogItem(ApiLog log, BuildContext context) {
     return Card(
-      color: const Color(0xFF2A2A2A),
+      color: Theme.of(context).colorScheme.surfaceContainer,
       margin: EdgeInsets.only(bottom: context.spacingSm),
       child: Padding(
         padding: EdgeInsets.all(context.spacingMd),

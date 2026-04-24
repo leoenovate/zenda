@@ -3,10 +3,6 @@ import '../../models/school.dart';
 import '../../utils/responsive_builder.dart';
 
 /// Shared scaffolding for a system-owner admin list screen.
-///
-/// Gives every CRUD screen the same look: title + subtitle header, an
-/// optional Add button, a search field, an optional school filter dropdown,
-/// and a rounded card container for the list content.
 class AdminListScaffold extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -19,7 +15,7 @@ class AdminListScaffold extends StatelessWidget {
   final ValueChanged<String> onSchoolFilterChanged;
   final bool showSchoolFilter;
 
-  final List<_FilterOption> extraFilters;
+  final List<FilterOption> extraFilters;
 
   final String? addButtonLabel;
   final VoidCallback? onAddPressed;
@@ -47,6 +43,7 @@ class AdminListScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final padding = context.isMobile
         ? const EdgeInsets.all(16)
         : const EdgeInsets.all(24);
@@ -64,8 +61,8 @@ class AdminListScaffold extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Color(0xFF2C2C2C),
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -73,7 +70,10 @@ class AdminListScaffold extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -85,11 +85,6 @@ class AdminListScaffold extends StatelessWidget {
                   onPressed: onAddPressed,
                   icon: const Icon(Icons.add, size: 18),
                   label: Text(addButtonLabel ?? 'Add'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A5F5F),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  ),
                 ),
               ],
             ],
@@ -101,26 +96,21 @@ class AdminListScaffold extends StatelessWidget {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: searchHint,
-                    hintStyle: const TextStyle(color: Color(0xFF999999)),
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: const OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
+                    prefixIcon: const Icon(Icons.search),
                   ),
-                  style: const TextStyle(color: Color(0xFF2C2C2C)),
                   onChanged: onSearchChanged,
                 ),
               ),
               if (showSchoolFilter) ...[
                 const SizedBox(width: 12),
                 _buildDropdown(
+                  context: context,
                   value: schoolFilter,
                   items: [
-                    const DropdownMenuItem(value: 'all', child: Text('All schools')),
-                    ...schools.map((s) =>
-                        DropdownMenuItem(value: s.id ?? 'all', child: Text(s.name))),
+                    const DropdownMenuItem(
+                        value: 'all', child: Text('All schools')),
+                    ...schools.map((s) => DropdownMenuItem(
+                        value: s.id ?? 'all', child: Text(s.name))),
                   ],
                   onChanged: (v) => onSchoolFilterChanged(v ?? 'all'),
                 ),
@@ -128,6 +118,7 @@ class AdminListScaffold extends StatelessWidget {
               for (final f in extraFilters) ...[
                 const SizedBox(width: 12),
                 _buildDropdown(
+                  context: context,
                   value: f.value,
                   items: f.items,
                   onChanged: f.onChanged,
@@ -143,53 +134,56 @@ class AdminListScaffold extends StatelessWidget {
   }
 
   static Widget _buildDropdown({
+    required BuildContext context,
     required String value,
     required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-        borderRadius: BorderRadius.circular(4),
+        color: colorScheme.surfaceContainer,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButton<String>(
         value: value,
         items: items,
         onChanged: onChanged,
         underline: const SizedBox.shrink(),
-        dropdownColor: Colors.white,
-        style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
+        dropdownColor: colorScheme.surface,
+        style: TextStyle(color: colorScheme.onSurface, fontSize: 14),
       ),
     );
   }
 }
 
-class _FilterOption {
+class FilterOption {
   final String value;
   final List<DropdownMenuItem<String>> items;
   final ValueChanged<String?> onChanged;
 
-  const _FilterOption({
+  const FilterOption({
     required this.value,
     required this.items,
     required this.onChanged,
   });
 }
 
-/// Helpers to build the standard rounded white card that wraps a list.
+/// Standard rounded card that wraps an admin list.
 class AdminListCard extends StatelessWidget {
   final Widget child;
   const AdminListCard({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: child,
     );
@@ -199,25 +193,28 @@ class AdminListCard extends StatelessWidget {
 class AdminEmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
-  const AdminEmptyState({super.key, required this.icon, required this.message});
+  const AdminEmptyState(
+      {super.key, required this.icon, required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 60),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 48, color: const Color(0xFF999999)),
+          Icon(icon, size: 48, color: colorScheme.outline),
           const SizedBox(height: 12),
           Text(
             message,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 15),
+            style: TextStyle(
+                color: colorScheme.onSurfaceVariant, fontSize: 15),
           ),
         ],
       ),
@@ -225,16 +222,10 @@ class AdminEmptyState extends StatelessWidget {
   }
 }
 
-/// Standard form-field decoration used across admin dialogs.
+/// Standard form-field decoration used across admin dialogs. Style comes
+/// from `Theme.of(context).inputDecorationTheme`, so only labelText is set.
 InputDecoration adminInputDecoration(String label, {bool required = false}) {
   return InputDecoration(
     labelText: required ? '$label *' : label,
-    labelStyle: const TextStyle(color: Color(0xFF666666)),
-    enabledBorder: const OutlineInputBorder(
-      borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-    ),
-    focusedBorder: const OutlineInputBorder(
-      borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-    ),
   );
 }

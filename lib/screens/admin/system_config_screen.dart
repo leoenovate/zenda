@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/system_config.dart';
 import '../../services/firebase_service.dart';
@@ -22,7 +22,6 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
   final _versionController = TextEditingController();
   final _defaultCountryController = TextEditingController();
   final _supportEmailController = TextEditingController();
-  final _periodsController = TextEditingController();
 
   @override
   void initState() {
@@ -35,7 +34,6 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
     _versionController.dispose();
     _defaultCountryController.dispose();
     _supportEmailController.dispose();
-    _periodsController.dispose();
     super.dispose();
   }
 
@@ -57,7 +55,6 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
         _versionController.text = config.version;
         _defaultCountryController.text = config.defaultCountry ?? '';
         _supportEmailController.text = config.supportEmail ?? '';
-        _periodsController.text = config.attendancePeriods.join(', ');
         _isLoading = false;
       });
     } catch (e) {
@@ -100,16 +97,10 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
-      final periods = _periodsController.text
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
       final updated = _config.copyWith(
         version: _versionController.text.trim().isEmpty
             ? _config.version
             : _versionController.text.trim(),
-        attendancePeriods: periods.isEmpty ? _config.attendancePeriods : periods,
         defaultCountry: _defaultCountryController.text.trim().isEmpty
             ? null
             : _defaultCountryController.text.trim(),
@@ -138,11 +129,7 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     final padding = context.isMobile
@@ -154,18 +141,18 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'System Configuration',
             style: TextStyle(
-              color: Color(0xFF2C2C2C),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Global feature flags and platform settings',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
           ),
           const SizedBox(height: 24),
           _buildSection(
@@ -174,13 +161,13 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
               SwitchListTile(
                 value: _config.maintenanceMode,
                 activeColor: Colors.orange,
-                title: const Text(
+                title: Text(
                   'Maintenance mode',
-                  style: TextStyle(color: Color(0xFF2C2C2C)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'When enabled, non-owner users see a maintenance banner.',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(maintenanceMode: v);
@@ -194,30 +181,30 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
             [
               SwitchListTile(
                 value: _config.fingerprintEnabled,
-                activeColor: const Color(0xFF1A5F5F),
-                title: const Text('Fingerprint scanning',
-                    style: TextStyle(color: Color(0xFF2C2C2C))),
+                activeColor: Theme.of(context).colorScheme.primary,
+                title: Text('Fingerprint scanning',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(fingerprintEnabled: v);
                 }),
               ),
               SwitchListTile(
                 value: _config.messagingEnabled,
-                activeColor: const Color(0xFF1A5F5F),
-                title: const Text('Parent messaging',
-                    style: TextStyle(color: Color(0xFF2C2C2C))),
+                activeColor: Theme.of(context).colorScheme.primary,
+                title: Text('Parent messaging',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(messagingEnabled: v);
                 }),
               ),
               SwitchListTile(
                 value: _config.multiSchoolEnabled,
-                activeColor: const Color(0xFF1A5F5F),
-                title: const Text('Multi-school mode',
-                    style: TextStyle(color: Color(0xFF2C2C2C))),
-                subtitle: const Text(
+                activeColor: Theme.of(context).colorScheme.primary,
+                title: Text('Multi-school mode',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(
                   'Scopes every query by schoolId for non-owner users.',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(multiSchoolEnabled: v);
@@ -231,11 +218,6 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
             [
               _buildTextField('Version', _versionController),
               const SizedBox(height: 12),
-              _buildTextField(
-                'Attendance periods (comma-separated)',
-                _periodsController,
-              ),
-              const SizedBox(height: 12),
               _buildTextField('Default country', _defaultCountryController),
               const SizedBox(height: 12),
               _buildTextField('Support email', _supportEmailController,
@@ -246,11 +228,11 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
           _buildSection(
             'Data migration',
             [
-              const Text(
+              Text(
                 'Assign every student that currently has no schoolId to the '
                 'school selected below. Run this once after enabling '
                 'multi-school mode.',
-                style: TextStyle(color: Color(0xFF666666), fontSize: 13),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 12),
               Row(
@@ -260,17 +242,9 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
                       value: _backfillSchoolId,
                       decoration: const InputDecoration(
                         labelText: 'Target school',
-                        labelStyle: TextStyle(color: Color(0xFF666666)),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                        ),
                       ),
                       dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: _schools
                           .map((s) => DropdownMenuItem<String?>(
                                 value: s.id,
@@ -297,7 +271,7 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
                         : const Icon(Icons.upgrade, size: 18),
                     label: Text(_isBackfilling ? 'Running...' : 'Run backfill'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A5F5F),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 14),
@@ -324,7 +298,7 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
                   : const Icon(Icons.save, size: 18),
               label: Text(_isSaving ? 'Saving...' : 'Save changes'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A5F5F),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               ),
@@ -343,15 +317,15 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Color(0xFF2C2C2C)),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF666666)),
-        enabledBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
       ),
     );
@@ -363,15 +337,15 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF2C2C2C),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),

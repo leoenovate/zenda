@@ -16,6 +16,7 @@ import '../widgets/theme/theme_switcher.dart';
 import 'admin/teachers_screen.dart';
 import 'admin/classes_screen.dart';
 import 'admin/parents_screen.dart';
+import 'reports_screen.dart';
 import 'admin/sessions_screen.dart';
 import 'admin/workers_screen.dart';
 import 'admin/system_config_screen.dart';
@@ -31,13 +32,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   int _selectedIndex = 0;
   bool _sidebarCollapsed = false;
   bool _isLoading = true;
-  
+
   List<School> schools = [];
   List<Device> devices = [];
   List<app_user.AppUser> users = [];
   List<Student> students = [];
   List<Map<String, dynamic>> recentActivity = [];
-  
+
   // Schools view state
   String _searchQuery = '';
 
@@ -69,9 +70,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }
     }
   }
@@ -92,16 +93,17 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     // theme but let the primary hue follow the user's teal/orange choice.
     return Theme(
       data: AppTheme.light(primary: controller.primary),
-      child: isMobile
-          ? _buildMobileLayout()
-          : Scaffold(
-              body: Row(
-                children: [
-                  _buildSidebar(isTablet: isTablet),
-                  Expanded(child: _buildMainContent()),
-                ],
+      child:
+          isMobile
+              ? _buildMobileLayout()
+              : Scaffold(
+                body: Row(
+                  children: [
+                    _buildSidebar(isTablet: isTablet),
+                    Expanded(child: _buildMainContent()),
+                  ],
+                ),
               ),
-            ),
     );
   }
 
@@ -112,14 +114,18 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         elevation: 0,
-        title: Text('Zenda Admin',
-            style: TextStyle(color: colorScheme.onSurface)),
+        title: Text(
+          'Zenda Admin',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
         iconTheme: IconThemeData(color: colorScheme.onSurface),
         actions: [
           const ThemeSwitcher(onAppBar: false),
           IconButton(
-            icon: Icon(Icons.notifications,
-                color: colorScheme.onSurfaceVariant),
+            icon: Icon(
+              Icons.notifications,
+              color: colorScheme.onSurfaceVariant,
+            ),
             onPressed: () {},
           ),
           IconButton(
@@ -134,14 +140,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildSidebar({bool isTablet = false}) {
     // Auto-collapse sidebar on tablet, allow manual toggle on desktop
-    final sidebarWidth = isTablet 
-        ? (_sidebarCollapsed ? 70.0 : 200.0)
-        : (_sidebarCollapsed ? 70.0 : 240.0);
-    
+    final sidebarWidth =
+        isTablet
+            ? (_sidebarCollapsed ? 70.0 : 200.0)
+            : (_sidebarCollapsed ? 70.0 : 240.0);
+
     return Container(
       width: sidebarWidth,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A5F5F),
+        color: Theme.of(context).colorScheme.primary,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -197,7 +204,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   ),
                 IconButton(
                   icon: Icon(
-                    _sidebarCollapsed ? Icons.chevron_right : Icons.chevron_left,
+                    _sidebarCollapsed
+                        ? Icons.chevron_right
+                        : Icons.chevron_left,
                     color: Colors.white70,
                     size: 20,
                   ),
@@ -223,7 +232,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 _buildNavItem(Icons.family_restroom, 'Parents', 5),
                 _buildNavItem(Icons.event_note, 'Sessions', 6),
                 _buildNavItem(Icons.engineering, 'Workers', 7),
-                _buildNavItem(Icons.settings, 'System', 8),
+                _buildNavItem(Icons.insights_rounded, 'Reports', 8),
+                _buildNavItem(Icons.settings, 'System', 9),
               ],
             ),
           ),
@@ -231,7 +241,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1)),
+              border: Border(
+                top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              ),
             ),
             child: Row(
               children: [
@@ -240,7 +252,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   radius: 16,
                   child: const Text(
                     'S',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 if (!_sidebarCollapsed) ...[
@@ -251,7 +267,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                       children: const [
                         Text(
                           'System Owner',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                         Text(
                           'Full Access',
@@ -260,8 +280,13 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                       ],
                     ),
                   ),
+                  const ThemeSwitcher(),
                   IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white70, size: 18),
+                    icon: const Icon(
+                      Icons.logout,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                     onPressed: _logout,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -277,7 +302,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildMobileDrawer() {
     return Drawer(
-      backgroundColor: const Color(0xFF1A5F5F),
+      backgroundColor: Theme.of(context).colorScheme.primary,
       child: Column(
         children: [
           Container(
@@ -290,7 +315,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.school,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Text(
@@ -307,7 +336,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Divider(color: Colors.white.withOpacity(0.3)),
           ListTile(
             leading: const Icon(Icons.dashboard, color: Colors.white70),
-            title: const Text('Dashboard', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Dashboard',
+              style: TextStyle(color: Colors.white),
+            ),
             selected: _selectedIndex == 0,
             onTap: () {
               setState(() => _selectedIndex = 0);
@@ -334,7 +366,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           ),
           ListTile(
             leading: const Icon(Icons.person, color: Colors.white70),
-            title: const Text('Teachers', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Teachers',
+              style: TextStyle(color: Colors.white),
+            ),
             selected: _selectedIndex == 3,
             onTap: () {
               setState(() => _selectedIndex = 3);
@@ -361,7 +396,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           ),
           ListTile(
             leading: const Icon(Icons.event_note, color: Colors.white70),
-            title: const Text('Sessions', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Sessions',
+              style: TextStyle(color: Colors.white),
+            ),
             selected: _selectedIndex == 6,
             onTap: () {
               setState(() => _selectedIndex = 6);
@@ -378,11 +416,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.settings, color: Colors.white70),
-            title: const Text('System', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.insights_rounded, color: Colors.white70),
+            title: const Text('Reports', style: TextStyle(color: Colors.white)),
             selected: _selectedIndex == 8,
             onTap: () {
               setState(() => _selectedIndex = 8);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings, color: Colors.white70),
+            title: const Text('System', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 9,
+            onTap: () {
+              setState(() => _selectedIndex = 9);
               Navigator.pop(context);
             },
           ),
@@ -404,9 +451,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       decoration: BoxDecoration(
         color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isSelected
-            ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
-            : null,
+        border:
+            isSelected
+                ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -429,7 +477,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                       label,
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
                       ),
                     ),
@@ -445,9 +494,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildMainContent() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A5F5F)),
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Theme.of(context).colorScheme.primary,
+          ),
         ),
       );
     }
@@ -470,6 +521,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       case 7:
         return WorkersScreen(schools: schools, onDataChanged: _loadData);
       case 8:
+        return const ReportsView();
+      case 9:
         return const SystemConfigScreen();
       default:
         return _buildDashboard();
@@ -480,11 +533,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final activeDevices = devices.where((d) => d.status == 'active').length;
     final offlineDevices = devices.where((d) => d.status == 'offline').length;
     final adminUsers = users.where((u) => u.role == 'admin').length;
-    
+
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(16)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(16)
+            : context.isTablet
             ? const EdgeInsets.all(20)
             : const EdgeInsets.all(24);
 
@@ -496,7 +550,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           // Top bar with welcome banner - Responsive
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: context.isMobile ? 12 : context.isTablet ? 14 : 16,
+              horizontal:
+                  context.isMobile
+                      ? 12
+                      : context.isTablet
+                      ? 14
+                      : 16,
               vertical: context.isMobile ? 12 : 14,
             ),
             decoration: BoxDecoration(
@@ -504,14 +563,14 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF1A5F5F),
-                  const Color(0xFF2A8A8A),
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primaryContainer,
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1A5F5F).withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -525,7 +584,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -536,7 +599,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         'Welcome back, System Owner!',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: context.isMobile ? 14 : context.isTablet ? 15 : 16,
+                          fontSize:
+                              context.isMobile
+                                  ? 14
+                                  : context.isTablet
+                                  ? 15
+                                  : 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
                         ),
@@ -559,7 +627,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.dark_mode, color: Colors.white, size: 18),
+                    icon: const Icon(
+                      Icons.dark_mode,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     onPressed: () {},
                     tooltip: 'Toggle theme',
                     padding: const EdgeInsets.all(8),
@@ -575,7 +647,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   child: Stack(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.notifications, color: Colors.white, size: 18),
+                        icon: const Icon(
+                          Icons.notifications,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                         onPressed: () {},
                         tooltip: 'Notifications',
                         padding: const EdgeInsets.all(8),
@@ -607,7 +683,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               int crossAxisCount;
               double aspectRatio;
               double spacing;
-              
+
               if (context.isMobile) {
                 crossAxisCount = 2;
                 aspectRatio = 1.2;
@@ -621,7 +697,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 aspectRatio = 1.0;
                 spacing = 12;
               }
-              
+
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 shrinkWrap: true,
@@ -630,12 +706,42 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 mainAxisSpacing: spacing,
                 childAspectRatio: aspectRatio,
                 children: [
-                  _buildSummaryCard(Icons.business, 'Schools', '${schools.length}', Colors.blue),
-                  _buildSummaryCard(Icons.school, 'Students', '${students.length}', Colors.green),
-                  _buildSummaryCard(Icons.person, 'Admins', '$adminUsers', Colors.purple),
-                  _buildSummaryCard(Icons.fingerprint, 'Devices', '${devices.length}', Colors.orange),
-                  _buildSummaryCard(Icons.check_circle, 'Active', '$activeDevices', Colors.green),
-                  _buildSummaryCard(Icons.link_off, 'Offline', '$offlineDevices', Colors.red),
+                  _buildSummaryCard(
+                    Icons.business,
+                    'Schools',
+                    '${schools.length}',
+                    Colors.blue,
+                  ),
+                  _buildSummaryCard(
+                    Icons.school,
+                    'Students',
+                    '${students.length}',
+                    Colors.green,
+                  ),
+                  _buildSummaryCard(
+                    Icons.person,
+                    'Admins',
+                    '$adminUsers',
+                    Colors.purple,
+                  ),
+                  _buildSummaryCard(
+                    Icons.fingerprint,
+                    'Devices',
+                    '${devices.length}',
+                    Colors.orange,
+                  ),
+                  _buildSummaryCard(
+                    Icons.check_circle,
+                    'Active',
+                    '$activeDevices',
+                    Colors.green,
+                  ),
+                  _buildSummaryCard(
+                    Icons.link_off,
+                    'Offline',
+                    '$offlineDevices',
+                    Colors.red,
+                  ),
                 ],
               );
             },
@@ -721,26 +827,37 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
-  Widget _buildSummaryCard(IconData icon, String label, String value, Color color) {
+  Widget _buildSummaryCard(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(12)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(12)
+            : context.isTablet
             ? const EdgeInsets.all(14)
             : const EdgeInsets.all(16);
-    
+
     // Responsive font sizes
-    final valueFontSize = context.isMobile ? 20.0 : context.isTablet ? 22.0 : 24.0;
+    final valueFontSize =
+        context.isMobile
+            ? 20.0
+            : context.isTablet
+            ? 22.0
+            : 24.0;
     final labelFontSize = context.isMobile ? 11.0 : 12.0;
     final iconSize = context.isMobile ? 18.0 : 20.0;
-    
+
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -770,7 +887,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Icon(
                 Icons.show_chart,
-                color: const Color(0xFF999999),
+                color: Theme.of(context).colorScheme.outline,
                 size: 16,
               ),
             ],
@@ -783,7 +900,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Text(
                 value,
                 style: TextStyle(
-                  color: const Color(0xFF2C2C2C),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: valueFontSize,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
@@ -794,7 +911,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Text(
                 label,
                 style: TextStyle(
-                  color: const Color(0xFF666666),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: labelFontSize,
                   fontWeight: FontWeight.w500,
                   height: 1.2,
@@ -814,7 +931,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -831,82 +948,107 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.business, color: Color(0xFF1A5F5F), size: 20),
+              Icon(
+                Icons.business,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Schools Summary',
-                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 24),
           SizedBox(
             height: 180,
-            child: students.isEmpty && users.isEmpty && devices.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.pie_chart_outline, color: const Color(0xFF999999), size: 48),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No data available',
-                          style: const TextStyle(color: Color(0xFF999999), fontSize: 12),
-                        ),
-                      ],
+            child:
+                students.isEmpty && users.isEmpty && devices.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.pie_chart_outline,
+                            color: Theme.of(context).colorScheme.outline,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No data available',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    : PieChart(
+                      PieChartData(
+                        sections: [
+                          if (students.isNotEmpty)
+                            PieChartSectionData(
+                              value: students.length.toDouble(),
+                              color: Colors.blue,
+                              title: '${students.length}',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (users.where((u) => u.role == 'admin').isNotEmpty)
+                            PieChartSectionData(
+                              value:
+                                  users
+                                      .where((u) => u.role == 'admin')
+                                      .length
+                                      .toDouble(),
+                              color: Colors.purple,
+                              title:
+                                  '${users.where((u) => u.role == 'admin').length}',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (devices.isNotEmpty)
+                            PieChartSectionData(
+                              value: devices.length.toDouble(),
+                              color: Colors.orange,
+                              title: '${devices.length}',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                        ],
+                        centerSpaceRadius: 50,
+                        sectionsSpace: 2,
+                      ),
                     ),
-                  )
-                : PieChart(
-                    PieChartData(
-                      sections: [
-                        if (students.isNotEmpty)
-                          PieChartSectionData(
-                            value: students.length.toDouble(),
-                            color: Colors.blue,
-                            title: '${students.length}',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (users.where((u) => u.role == 'admin').isNotEmpty)
-                          PieChartSectionData(
-                            value: users.where((u) => u.role == 'admin').length.toDouble(),
-                            color: Colors.purple,
-                            title: '${users.where((u) => u.role == 'admin').length}',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (devices.isNotEmpty)
-                          PieChartSectionData(
-                            value: devices.length.toDouble(),
-                            color: Colors.orange,
-                            title: '${devices.length}',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                      ],
-                      centerSpaceRadius: 50,
-                      sectionsSpace: 2,
-                    ),
-                  ),
           ),
           SizedBox(height: context.isMobile ? 12 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildLegendItem(Colors.blue, 'Students', students.length),
-              _buildLegendItem(Colors.purple, 'Admins', users.where((u) => u.role == 'admin').length),
+              _buildLegendItem(
+                Colors.purple,
+                'Admins',
+                users.where((u) => u.role == 'admin').length,
+              ),
               _buildLegendItem(Colors.orange, 'Devices', devices.length),
             ],
           ),
@@ -914,7 +1056,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Center(
             child: Text(
               '${schools.length} Total Schools',
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -925,14 +1071,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   Widget _buildDeviceStatusCard() {
     final activeDevices = devices.where((d) => d.status == 'active').length;
     final offlineDevices = devices.where((d) => d.status == 'offline').length;
-    final maintenanceDevices = devices.where((d) => d.status == 'maintenance').length;
+    final maintenanceDevices =
+        devices.where((d) => d.status == 'maintenance').length;
     final total = devices.length;
     final onlinePercent = total > 0 ? (activeDevices / total * 100) : 0;
 
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(12)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(12)
+            : context.isTablet
             ? const EdgeInsets.all(14)
             : const EdgeInsets.all(16);
 
@@ -942,7 +1090,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -959,81 +1107,101 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.fingerprint, color: Color(0xFF1A5F5F), size: 20),
+              Icon(
+                Icons.fingerprint,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Device Status',
-                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 24),
           SizedBox(
             height: 180,
-            child: devices.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.pie_chart_outline, color: const Color(0xFF999999), size: 48),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No devices',
-                          style: const TextStyle(color: Color(0xFF999999), fontSize: 12),
-                        ),
-                      ],
+            child:
+                devices.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.pie_chart_outline,
+                            color: Theme.of(context).colorScheme.outline,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No devices',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    : PieChart(
+                      PieChartData(
+                        sections: [
+                          if (activeDevices > 0)
+                            PieChartSectionData(
+                              value: activeDevices.toDouble(),
+                              color: Colors.green,
+                              title: '$activeDevices',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (offlineDevices > 0)
+                            PieChartSectionData(
+                              value: offlineDevices.toDouble(),
+                              color: Colors.red,
+                              title: '$offlineDevices',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          if (maintenanceDevices > 0)
+                            PieChartSectionData(
+                              value: maintenanceDevices.toDouble(),
+                              color: Colors.orange,
+                              title: '$maintenanceDevices',
+                              radius: 60,
+                              titleStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                        ],
+                        centerSpaceRadius: 40,
+                        sectionsSpace: 2,
+                      ),
                     ),
-                  )
-                : PieChart(
-                    PieChartData(
-                      sections: [
-                        if (activeDevices > 0)
-                          PieChartSectionData(
-                            value: activeDevices.toDouble(),
-                            color: Colors.green,
-                            title: '$activeDevices',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (offlineDevices > 0)
-                          PieChartSectionData(
-                            value: offlineDevices.toDouble(),
-                            color: Colors.red,
-                            title: '$offlineDevices',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (maintenanceDevices > 0)
-                          PieChartSectionData(
-                            value: maintenanceDevices.toDouble(),
-                            color: Colors.orange,
-                            title: '$maintenanceDevices',
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                      ],
-                      centerSpaceRadius: 40,
-                      sectionsSpace: 2,
-                    ),
-                  ),
           ),
           const SizedBox(height: 12),
           Center(
             child: Text(
               '${onlinePercent.toStringAsFixed(0)}% Online',
-              style: const TextStyle(color: Colors.green, fontSize: 14, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.green,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           SizedBox(height: context.isMobile ? 8 : 12),
@@ -1044,7 +1212,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               const SizedBox(height: 4),
               _buildStatusLegend(Colors.red, 'Offline', offlineDevices),
               const SizedBox(height: 4),
-              _buildStatusLegend(Colors.orange, 'Maintenance', maintenanceDevices),
+              _buildStatusLegend(
+                Colors.orange,
+                'Maintenance',
+                maintenanceDevices,
+              ),
             ],
           ),
         ],
@@ -1054,19 +1226,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildQuickActionsCard() {
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(12)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(12)
+            : context.isTablet
             ? const EdgeInsets.all(14)
             : const EdgeInsets.all(16);
-    
+
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -1083,28 +1256,116 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.bolt, color: Color(0xFF1A5F5F), size: 20),
+              Icon(
+                Icons.bolt,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Quick Actions',
-                style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildQuickActionButton(Icons.people, 'Manage Users', Colors.blue, () {}),
+          _buildQuickActionButton(
+            Icons.people,
+            'Manage Users',
+            Colors.blue,
+            () {},
+          ),
           const SizedBox(height: 8),
-          _buildQuickActionButton(Icons.settings, 'System Settings', Colors.green, () {}),
+          _buildQuickActionButton(
+            Icons.settings,
+            'System Settings',
+            Colors.green,
+            () {},
+          ),
           const SizedBox(height: 8),
-          _buildQuickActionButton(Icons.bar_chart, 'View Reports', Colors.orange, () {}),
+          _buildQuickActionButton(
+            Icons.bar_chart,
+            'View Reports',
+            Colors.orange,
+            () {},
+          ),
           const SizedBox(height: 8),
-          _buildQuickActionButton(Icons.cloud_upload, 'Backup Data', Colors.purple, () {}),
+          _buildQuickActionButton(
+            Icons.cloud_upload,
+            'Backup Data',
+            Colors.purple,
+            () {},
+          ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            Icons.swap_horiz,
+            'Migrate period data',
+            Colors.teal,
+            _runPeriodsMigration,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+  Future<void> _runPeriodsMigration() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Migrate period data'),
+            content: const Text(
+              'Seed default Sessions from each school\'s legacy morning/afternoon '
+              'times and move students\' period values onto sessionIds. Safe to run '
+              'more than once.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Run'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Running migration...')),
+    );
+    try {
+      final summary = await FirebaseService.migrateSchoolPeriodsToSessions();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Migrated ${summary['schools']} schools, '
+            'created ${summary['sessions']} sessions, '
+            'updated ${summary['students']} students.',
+          ),
+        ),
+      );
+      await _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Migration failed: $e')));
+    }
+  }
+
+  Widget _buildQuickActionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1113,10 +1374,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: const Color(0xFFE0E0E0),
+              color: Theme.of(context).colorScheme.outlineVariant,
               width: 1,
             ),
           ),
@@ -1134,8 +1395,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1143,7 +1404,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                color: const Color(0xFF999999),
+                color: Theme.of(context).colorScheme.outline,
                 size: 12,
               ),
             ],
@@ -1155,19 +1416,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildRecentActivityCard() {
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(12)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(12)
+            : context.isTablet
             ? const EdgeInsets.all(14)
             : const EdgeInsets.all(16);
-    
+
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -1187,22 +1449,37 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.access_time, color: Color(0xFF1A5F5F), size: 20),
+                  Icon(
+                    Icons.access_time,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Recent Activity',
-                    style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               TextButton(
                 onPressed: () {},
-                child: const Text('View All', style: TextStyle(color: Color(0xFF1A5F5F))),
+                child: Text(
+                  'View All',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...recentActivity.map((activity) => _buildActivityItem(activity)).toList(),
+          ...recentActivity
+              .map((activity) => _buildActivityItem(activity))
+              .toList(),
         ],
       ),
     );
@@ -1219,10 +1496,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
       ),
@@ -1260,8 +1537,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -1269,8 +1546,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 1),
                 Text(
                   'ID: $id',
-                  style: const TextStyle(
-                    color: Color(0xFF666666),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 10,
                   ),
                 ),
@@ -1311,19 +1588,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final offlineDevices = devices.where((d) => d.status == 'offline').length;
 
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(12)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(12)
+            : context.isTablet
             ? const EdgeInsets.all(14)
             : const EdgeInsets.all(16);
-    
+
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -1343,17 +1621,30 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.laptop, color: Color(0xFF1A5F5F), size: 20),
+                  Icon(
+                    Icons.laptop,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Devices Overview',
-                    style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               TextButton(
                 onPressed: () {},
-                child: const Text('Manage', style: TextStyle(color: Color(0xFF1A5F5F))),
+                child: Text(
+                  'Manage',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1361,30 +1652,53 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Row(
             children: [
               Expanded(
-                child: _buildDeviceSummaryCard(Colors.blue, Icons.laptop, '${devices.length}', 'Total'),
+                child: _buildDeviceSummaryCard(
+                  Colors.blue,
+                  Icons.laptop,
+                  '${devices.length}',
+                  'Total',
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _buildDeviceSummaryCard(Colors.green, Icons.check_circle, '$activeDevices', 'Active'),
+                child: _buildDeviceSummaryCard(
+                  Colors.green,
+                  Icons.check_circle,
+                  '$activeDevices',
+                  'Active',
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _buildDeviceSummaryCard(Colors.red, Icons.link_off, '$offlineDevices', 'Offline'),
+                child: _buildDeviceSummaryCard(
+                  Colors.red,
+                  Icons.link_off,
+                  '$offlineDevices',
+                  'Offline',
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...devices.take(2).map((device) => _buildDeviceListItem(device)).toList(),
+          ...devices
+              .take(2)
+              .map((device) => _buildDeviceListItem(device))
+              .toList(),
         ],
       ),
     );
   }
 
-  Widget _buildDeviceSummaryCard(Color color, IconData icon, String value, String label) {
+  Widget _buildDeviceSummaryCard(
+    Color color,
+    IconData icon,
+    String value,
+    String label,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -1395,12 +1709,21 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold, height: 1.0),
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              height: 1.0,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 11, height: 1.2),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              height: 1.2,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1414,10 +1737,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
       ),
@@ -1429,7 +1752,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               color: Colors.orange.withOpacity(0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.fingerprint, color: Colors.orange, size: 16),
+            child: const Icon(
+              Icons.fingerprint,
+              color: Colors.orange,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1438,8 +1765,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               children: [
                 Text(
                   device.deviceId,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -1448,8 +1775,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 1),
                   Text(
                     device.deviceName!,
-                    style: const TextStyle(
-                      color: Color(0xFF666666),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 10,
                     ),
                   ),
@@ -1465,7 +1792,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isActive ? Colors.green : Colors.red).withOpacity(0.5),
+                  color: (isActive ? Colors.green : Colors.red).withOpacity(
+                    0.5,
+                  ),
                   blurRadius: 4,
                   spreadRadius: 1,
                 ),
@@ -1477,15 +1806,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: isActive
-                    ? [
-                        Colors.green.withOpacity(0.2),
-                        Colors.green.withOpacity(0.15),
-                      ]
-                    : [
-                        Colors.red.withOpacity(0.2),
-                        Colors.red.withOpacity(0.15),
-                      ],
+                colors:
+                    isActive
+                        ? [
+                          Colors.green.withOpacity(0.2),
+                          Colors.green.withOpacity(0.15),
+                        ]
+                        : [
+                          Colors.red.withOpacity(0.2),
+                          Colors.red.withOpacity(0.15),
+                        ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
@@ -1510,9 +1840,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   Widget _buildLegendItem(Color color, String label, int count) {
     return Row(
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 4),
-        Text('$label ($count)', style: const TextStyle(color: Color(0xFF666666), fontSize: 10)),
+        Text(
+          '$label ($count)',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 10,
+          ),
+        ),
       ],
     );
   }
@@ -1522,9 +1862,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 8),
-          Text('$label ($count)', style: const TextStyle(color: Color(0xFF666666), fontSize: 12)),
+          Text(
+            '$label ($count)',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -1532,32 +1882,36 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   Widget _buildSchoolsView() {
     // Filter schools based on search query
-    final filteredSchools = _searchQuery.isEmpty
-        ? schools
-        : schools.where((school) {
-            final query = _searchQuery.toLowerCase();
-            return school.name.toLowerCase().contains(query) ||
-                (school.address?.toLowerCase().contains(query) ?? false) ||
-                (school.email?.toLowerCase().contains(query) ?? false) ||
-                (school.phone?.contains(query) ?? false);
-          }).toList();
+    final filteredSchools =
+        _searchQuery.isEmpty
+            ? schools
+            : schools.where((school) {
+              final query = _searchQuery.toLowerCase();
+              return school.name.toLowerCase().contains(query) ||
+                  (school.address?.toLowerCase().contains(query) ?? false) ||
+                  (school.email?.toLowerCase().contains(query) ?? false) ||
+                  (school.phone?.contains(query) ?? false);
+            }).toList();
 
     // Calculate device counts per school
     final Map<String, int> deviceCounts = {};
     final Map<String, int> activeDeviceCounts = {};
     for (var device in devices) {
       if (device.schoolId != null) {
-        deviceCounts[device.schoolId!] = (deviceCounts[device.schoolId!] ?? 0) + 1;
+        deviceCounts[device.schoolId!] =
+            (deviceCounts[device.schoolId!] ?? 0) + 1;
         if (device.status == 'active') {
-          activeDeviceCounts[device.schoolId!] = (activeDeviceCounts[device.schoolId!] ?? 0) + 1;
+          activeDeviceCounts[device.schoolId!] =
+              (activeDeviceCounts[device.schoolId!] ?? 0) + 1;
         }
       }
     }
 
     // Responsive padding
-    final padding = context.isMobile 
-        ? const EdgeInsets.all(16)
-        : context.isTablet 
+    final padding =
+        context.isMobile
+            ? const EdgeInsets.all(16)
+            : context.isTablet
             ? const EdgeInsets.all(20)
             : const EdgeInsets.all(24);
 
@@ -1575,28 +1929,31 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   Text(
                     'Schools Management',
                     style: TextStyle(
-                      color: const Color(0xFF2C2C2C),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: context.isMobile ? 24 : 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh, color: Color(0xFF666666)),
+                    icon: Icon(
+                      Icons.refresh,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     onPressed: () => _loadData(),
                     tooltip: 'Refresh',
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              
+
               // Manage Schools Card
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A5F5F),
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFF1A5F5F),
+                    color: Theme.of(context).colorScheme.primary,
                     width: 1,
                   ),
                 ),
@@ -1640,9 +1997,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     ),
                     if (!context.isMobile) ...[
                       const SizedBox(width: 20),
-                      _buildStatCard(Icons.business, '${schools.length}', 'Schools', Colors.green),
+                      _buildStatCard(
+                        Icons.business,
+                        '${schools.length}',
+                        'Schools',
+                        Colors.green,
+                      ),
                       const SizedBox(width: 12),
-                      _buildStatCard(Icons.fingerprint, '${devices.length}', 'Devices', Colors.blue),
+                      _buildStatCard(
+                        Icons.fingerprint,
+                        '${devices.length}',
+                        'Devices',
+                        Colors.blue,
+                      ),
                     ],
                   ],
                 ),
@@ -1651,44 +2018,76 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildStatCard(Icons.business, '${schools.length}', 'Schools', Colors.green)),
+                    Expanded(
+                      child: _buildStatCard(
+                        Icons.business,
+                        '${schools.length}',
+                        'Schools',
+                        Colors.green,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildStatCard(Icons.fingerprint, '${devices.length}', 'Devices', Colors.blue)),
+                    Expanded(
+                      child: _buildStatCard(
+                        Icons.fingerprint,
+                        '${devices.length}',
+                        'Devices',
+                        Colors.blue,
+                      ),
+                    ),
                   ],
                 ),
               ],
               const SizedBox(height: 24),
-              
+
               // Search Bar
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFFE0E0E0),
+                    color: Theme.of(context).colorScheme.outlineVariant,
                     width: 1,
                   ),
                 ),
                 child: TextField(
                   onChanged: (value) => setState(() => _searchQuery = value),
-                  style: const TextStyle(color: Color(0xFF2C2C2C)),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search schools by name, city, or country...',
-                    hintStyle: const TextStyle(color: Color(0xFF999999)),
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                     border: InputBorder.none,
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: Color(0xFF666666)),
-                            onPressed: () => setState(() => _searchQuery = ''),
-                          )
-                        : null,
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed:
+                                  () => setState(() => _searchQuery = ''),
+                            )
+                            : null,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Schools List
               if (filteredSchools.isEmpty)
                 Center(
@@ -1699,15 +2098,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         Icon(
                           Icons.school_outlined,
                           size: 64,
-                          color: const Color(0xFF999999),
+                          color: Theme.of(context).colorScheme.outline,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           _searchQuery.isEmpty
                               ? 'No schools found'
                               : 'No schools match your search',
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 16,
                           ),
                         ),
@@ -1718,27 +2118,31 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               else
                 ...filteredSchools.map((school) {
                   final schoolDevices = deviceCounts[school.id ?? ''] ?? 0;
-                  final activeDevices = activeDeviceCounts[school.id ?? ''] ?? 0;
-                  
+                  final activeDevices =
+                      activeDeviceCounts[school.id ?? ''] ?? 0;
+
                   return _buildSchoolCard(school, schoolDevices, activeDevices);
                 }).toList(),
-              
+
               const SizedBox(height: 100), // Space for FAB
             ],
           ),
         ),
-        
+
         // Floating Action Button
         Positioned(
           bottom: context.isMobile ? 20 : 30,
           right: context.isMobile ? 20 : 30,
           child: FloatingActionButton.extended(
             onPressed: () => _showAddSchoolDialog(),
-            backgroundColor: const Color(0xFF1A5F5F),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'Add School',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -1746,14 +2150,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
-  Widget _buildStatCard(IconData icon, String value, String label, Color color) {
+  Widget _buildStatCard(
+    IconData icon,
+    String value,
+    String label,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
       ),
@@ -1776,8 +2185,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFF666666),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
                 ),
               ),
@@ -1788,14 +2197,24 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
-  Widget _buildSchoolCard(School school, int deviceCount, int activeDeviceCount) {
+  Widget _buildSchoolCard(
+    School school,
+    int deviceCount,
+    int activeDeviceCount,
+  ) {
     final initial = school.name.isNotEmpty ? school.name[0].toUpperCase() : '?';
-    final colors = [Colors.teal, Colors.blue, Colors.green, Colors.orange, Colors.purple];
+    final colors = [
+      Colors.teal,
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
     final color = colors[school.id.hashCode % colors.length];
-    
+
     // Parse address for location display
     String location = school.address ?? 'No location';
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -1803,7 +2222,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE0E0E0),
+          color: Theme.of(context).colorScheme.outlineVariant,
           width: 1,
         ),
         boxShadow: [
@@ -1837,7 +2256,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             ),
           ),
           const SizedBox(width: 16),
-          
+
           // School Info
           Expanded(
             child: Column(
@@ -1845,8 +2264,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               children: [
                 Text(
                   school.name,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1855,8 +2274,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 4),
                   Text(
                     school.code!,
-                    style: const TextStyle(
-                      color: Color(0xFF666666),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                     ),
@@ -1865,13 +2284,17 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.location_on, size: 16, color: Color(0xFF666666)),
+                    Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         location,
-                        style: const TextStyle(
-                          color: Color(0xFF666666),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                         ),
                       ),
@@ -1882,13 +2305,18 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.email, size: 16, color: Color(0xFF666666)),
+                      Icon(
+                        Icons.email,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           school.email!,
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -1899,14 +2327,18 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.fingerprint, size: 16, color: Color(0xFF666666)),
+                    Icon(
+                      Icons.fingerprint,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       deviceCount == 0
                           ? '0 devices'
-                          : '$deviceCount device${deviceCount > 1 ? 's' : ''} • $activeDeviceCount active',
-                      style: const TextStyle(
-                        color: Color(0xFF666666),
+                          : '$deviceCount device${deviceCount > 1 ? 's' : ''} â€¢ $activeDeviceCount active',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
                       ),
                     ),
@@ -1915,13 +2347,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ],
             ),
           ),
-          
+
           // Actions
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Color(0xFF666666)),
+                icon: Icon(
+                  Icons.more_vert,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 color: Colors.white,
                 onSelected: (value) {
                   if (value == 'edit') {
@@ -1930,35 +2365,48 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     _showDeleteSchoolDialog(school);
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, color: Color(0xFF666666), size: 18),
-                        SizedBox(width: 8),
-                        Text('Edit', style: TextStyle(color: Color(0xFF2C2C2C))),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red, size: 18),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Edit',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red, size: 18),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
               if (school.phone != null) ...[
                 const SizedBox(height: 8),
                 Text(
                   school.phone!,
-                  style: const TextStyle(
-                    color: Color(0xFF666666),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
                 ),
@@ -1967,21 +2415,29 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 const SizedBox(height: 4),
                 Text(
                   'Updated: ${_formatDate(school.createdAt!)}',
-                  style: const TextStyle(
-                    color: Color(0xFF999999),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.outline,
                     fontSize: 11,
                   ),
                 ),
               ],
               const SizedBox(height: 12),
               ElevatedButton.icon(
-                onPressed: () => _showSchoolDetails(school, deviceCount, activeDeviceCount),
+                onPressed:
+                    () => _showSchoolDetails(
+                      school,
+                      deviceCount,
+                      activeDeviceCount,
+                    ),
                 icon: const Icon(Icons.visibility, size: 16),
                 label: const Text('View'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
               ),
             ],
@@ -2006,208 +2462,302 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   void _showSchoolDialog({School? school}) {
     final nameController = TextEditingController(text: school?.name ?? '');
     final codeController = TextEditingController(text: school?.code ?? '');
-    final addressController = TextEditingController(text: school?.address ?? '');
+    final addressController = TextEditingController(
+      text: school?.address ?? '',
+    );
     final phoneController = TextEditingController(text: school?.phone ?? '');
     final emailController = TextEditingController(text: school?.email ?? '');
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(
-          school == null ? 'Add School' : 'Edit School',
-          style: const TextStyle(color: Color(0xFF2C2C2C)),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Color(0xFF2C2C2C)),
-                decoration: InputDecoration(
-                  labelText: 'School Name *',
-                  labelStyle: const TextStyle(color: Color(0xFF666666)),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              school == null ? 'Add School' : 'Edit School',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'School Name *',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
                   ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: codeController,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'School Code',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: addressController,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Address',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: phoneController,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Phone',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white70),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: codeController,
-                style: const TextStyle(color: Color(0xFF2C2C2C)),
-                decoration: InputDecoration(
-                  labelText: 'School Code',
-                  labelStyle: const TextStyle(color: Color(0xFF666666)),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                  ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('School name is required')),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final newSchool = School(
+                      id: school?.id,
+                      name: nameController.text.trim(),
+                      code:
+                          codeController.text.trim().isEmpty
+                              ? null
+                              : codeController.text.trim(),
+                      address:
+                          addressController.text.trim().isEmpty
+                              ? null
+                              : addressController.text.trim(),
+                      phone:
+                          phoneController.text.trim().isEmpty
+                              ? null
+                              : phoneController.text.trim(),
+                      email:
+                          emailController.text.trim().isEmpty
+                              ? null
+                              : emailController.text.trim(),
+                      isActive: school?.isActive ?? true,
+                      createdAt: school?.createdAt ?? DateTime.now(),
+                    );
+
+                    if (school == null) {
+                      // Add new school
+                      await FirebaseService.addSchool(newSchool);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('School added successfully'),
+                        ),
+                      );
+                    } else {
+                      // Update existing school
+                      await FirebaseService.updateSchool(newSchool);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('School updated successfully'),
+                        ),
+                      );
+                    }
+
+                    Navigator.pop(context);
+                    _loadData();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: addressController,
-                style: const TextStyle(color: Color(0xFF2C2C2C)),
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                  labelStyle: const TextStyle(color: Color(0xFF666666)),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: phoneController,
-                style: const TextStyle(color: Color(0xFF2C2C2C)),
-                decoration: InputDecoration(
-                  labelText: 'Phone',
-                  labelStyle: const TextStyle(color: Color(0xFF666666)),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                style: const TextStyle(color: Color(0xFF2C2C2C)),
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  labelStyle: const TextStyle(color: Color(0xFF666666)),
-                  enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                  ),
-                  focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                  ),
-                ),
+                child: Text(school == null ? 'Add' : 'Update'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('School name is required')),
-                );
-                return;
-              }
-
-              try {
-                final newSchool = School(
-                  id: school?.id,
-                  name: nameController.text.trim(),
-                  code: codeController.text.trim().isEmpty ? null : codeController.text.trim(),
-                  address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
-                  phone: phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
-                  email: emailController.text.trim().isEmpty ? null : emailController.text.trim(),
-                  isActive: school?.isActive ?? true,
-                  createdAt: school?.createdAt ?? DateTime.now(),
-                );
-
-                if (school == null) {
-                  // Add new school
-                  await FirebaseService.addSchool(newSchool);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('School added successfully')),
-                  );
-                } else {
-                  // Update existing school
-                  await FirebaseService.updateSchool(newSchool);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('School updated successfully')),
-                  );
-                }
-
-                Navigator.pop(context);
-                _loadData();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A5F5F),
-              foregroundColor: Colors.white,
-            ),
-            child: Text(school == null ? 'Add' : 'Update'),
-          ),
-        ],
-      ),
     );
   }
 
   void _showDeleteSchoolDialog(School school) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Delete School', style: TextStyle(color: Color(0xFF2C2C2C))),
-        content: Text(
-          'Are you sure you want to delete "${school.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF666666)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.deleteSchool(school.id!);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('School deleted successfully')),
-                );
-                Navigator.pop(context);
-                _loadData();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              'Delete School',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: const Text('Delete'),
+            content: Text(
+              'Are you sure you want to delete "${school.name}"? This action cannot be undone.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.deleteSchool(school.id!);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('School deleted successfully'),
+                      ),
+                    );
+                    Navigator.pop(context);
+                    _loadData();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  void _showSchoolDetails(School school, int deviceCount, int activeDeviceCount) async {
-    final schoolDevices = devices.where((d) => d.schoolId == school.id).toList();
+  void _showSchoolDetails(
+    School school,
+    int deviceCount,
+    int activeDeviceCount,
+  ) async {
+    final schoolDevices =
+        devices.where((d) => d.schoolId == school.id).toList();
     final offlineDeviceCount = deviceCount - activeDeviceCount;
-    final schoolAdmins = users.where((u) => u.schoolId == school.id && u.role == 'admin').toList();
-    
+    final schoolAdmins =
+        users
+            .where((u) => u.schoolId == school.id && u.role == 'admin')
+            .toList();
+
     final initial = school.name.isNotEmpty ? school.name[0].toUpperCase() : '?';
-    final colors = [Colors.teal, Colors.blue, Colors.green, Colors.orange, Colors.purple];
+    final colors = [
+      Colors.teal,
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
     final color = colors[school.id.hashCode % colors.length];
-    
+
     // Fetch sessions for this school
     List<Session> schoolSessions = [];
     if (school.id != null) {
@@ -2218,31 +2768,35 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         // Continue without sessions if fetch fails
       }
     }
-    
+
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => _SchoolDetailsPanel(
-          school: school,
-          schoolDevices: schoolDevices,
-          schoolAdmins: schoolAdmins,
-          schoolSessions: schoolSessions,
-          deviceCount: deviceCount,
-          activeDeviceCount: activeDeviceCount,
-          offlineDeviceCount: offlineDeviceCount,
-          initial: initial,
-          color: color,
-          onAddAdmin: () => _showAddAdminDialog(school.id!),
-          onEditAdmin: (admin) => _showEditAdminDialog(admin),
-          onResetPassword: (admin) => _showResetPasswordDialog(admin),
-          onDeactivateAdmin: (admin) => _showDeactivateAdminDialog(admin),
-        ),
+        pageBuilder:
+            (context, animation, secondaryAnimation) => _SchoolDetailsPanel(
+              school: school,
+              schoolDevices: schoolDevices,
+              schoolAdmins: schoolAdmins,
+              schoolSessions: schoolSessions,
+              deviceCount: deviceCount,
+              activeDeviceCount: activeDeviceCount,
+              offlineDeviceCount: offlineDeviceCount,
+              initial: initial,
+              color: color,
+              onAddAdmin: () => _showAddAdminDialog(school.id!),
+              onEditAdmin: (admin) => _showEditAdminDialog(admin),
+              onResetPassword: (admin) => _showResetPasswordDialog(admin),
+              onDeactivateAdmin: (admin) => _showDeactivateAdminDialog(admin),
+            ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.ease;
 
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
 
           return SlideTransition(
             position: animation.drive(tween),
@@ -2277,207 +2831,278 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          InputDecoration field(String label, {bool required = false}) => InputDecoration(
-                labelText: required ? '$label *' : label,
-                labelStyle: const TextStyle(color: Color(0xFF666666)),
-                enabledBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                ),
-              );
-
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            title: Text(
-              isEdit ? 'Edit Administrator' : 'Add Administrator',
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Full Name', required: true),
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              InputDecoration field(String label, {bool required = false}) =>
+                  InputDecoration(
+                    labelText: required ? '$label *' : label,
+                    labelStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: emailController,
-                      enabled: !isEdit,
-                      keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Email', required: true),
-                    ),
-                    if (!isEdit) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: true,
-                        style: const TextStyle(color: Color(0xFF2C2C2C)),
-                        decoration: field('Temporary Password', required: true),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
                       ),
-                    ],
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Phone'),
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: role,
-                      decoration: field('Role', required: true),
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      items: const [
-                        DropdownMenuItem(value: 'admin', child: Text('School Admin')),
-                        DropdownMenuItem(value: 'teacher', child: Text('Teacher')),
-                        DropdownMenuItem(value: 'staff', child: Text('Staff')),
-                      ],
-                      onChanged: (v) => setStateDialog(() => role = v ?? 'admin'),
-                    ),
-                    if (isEdit) ...[
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: isActive,
-                        activeColor: const Color(0xFF1A5F5F),
-                        title: const Text('Active', style: TextStyle(color: Color(0xFF2C2C2C))),
-                        onChanged: (v) => setStateDialog(() => isActive = v),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
                       ),
-                    ],
-                  ],
+                    ),
+                  );
+
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                title: Text(
+                  isEdit ? 'Edit Administrator' : 'Add Administrator',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        final name = nameController.text.trim();
-                        final email = emailController.text.trim();
-                        final phone = phoneController.text.trim();
-                        final password = passwordController.text;
-
-                        if (name.isEmpty || email.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Name and email are required')),
-                          );
-                          return;
-                        }
-                        if (!isEdit && password.length < 6) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Password must be at least 6 characters')),
-                          );
-                          return;
-                        }
-
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          if (isEdit) {
-                            final updated = app_user.AppUser(
-                              id: admin.id,
-                              email: admin.email,
-                              name: name,
-                              role: role,
-                              schoolId: schoolId ?? admin.schoolId,
-                              phone: phone.isEmpty ? null : phone,
-                              isActive: isActive,
-                              createdAt: admin.createdAt,
-                              lastLogin: admin.lastLogin,
-                            );
-                            await FirebaseService.updateAdmin(updated);
-                          } else {
-                            await FirebaseService.addAdmin(
-                              email: email,
-                              password: password,
-                              role: role,
-                              name: name,
-                              schoolId: schoolId,
-                              phone: phone.isEmpty ? null : phone,
-                            );
-                          }
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isEdit
-                                  ? 'Administrator updated'
-                                  : 'Administrator created'),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nameController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Full Name', required: true),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: emailController,
+                          enabled: !isEdit,
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Email', required: true),
+                        ),
+                        if (!isEdit) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
-                          );
-                          _loadData();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
-                  foregroundColor: Colors.white,
+                            decoration: field(
+                              'Temporary Password',
+                              required: true,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: phoneController,
+                          keyboardType: TextInputType.phone,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Phone'),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: role,
+                          decoration: field('Role', required: true),
+                          dropdownColor: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'admin',
+                              child: Text('School Admin'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'teacher',
+                              child: Text('Teacher'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'staff',
+                              child: Text('Staff'),
+                            ),
+                          ],
+                          onChanged:
+                              (v) => setStateDialog(() => role = v ?? 'admin'),
+                        ),
+                        if (isEdit) ...[
+                          const SizedBox(height: 12),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: isActive,
+                            activeColor: Theme.of(context).colorScheme.primary,
+                            title: Text(
+                              'Active',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            onChanged:
+                                (v) => setStateDialog(() => isActive = v),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create')),
-              ),
-            ],
-          );
-        },
-      ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              final name = nameController.text.trim();
+                              final email = emailController.text.trim();
+                              final phone = phoneController.text.trim();
+                              final password = passwordController.text;
+
+                              if (name.isEmpty || email.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Name and email are required',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (!isEdit && password.length < 6) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Password must be at least 6 characters',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                if (isEdit) {
+                                  final updated = app_user.AppUser(
+                                    id: admin.id,
+                                    email: admin.email,
+                                    name: name,
+                                    role: role,
+                                    schoolId: schoolId ?? admin.schoolId,
+                                    phone: phone.isEmpty ? null : phone,
+                                    isActive: isActive,
+                                    createdAt: admin.createdAt,
+                                    lastLogin: admin.lastLogin,
+                                  );
+                                  await FirebaseService.updateAdmin(updated);
+                                } else {
+                                  await FirebaseService.addAdmin(
+                                    email: email,
+                                    password: password,
+                                    role: role,
+                                    name: name,
+                                    schoolId: schoolId,
+                                    phone: phone.isEmpty ? null : phone,
+                                  );
+                                }
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isEdit
+                                          ? 'Administrator updated'
+                                          : 'Administrator created',
+                                    ),
+                                  ),
+                                );
+                                _loadData();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
   void _showResetPasswordDialog(app_user.AppUser admin) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Reset Password', style: TextStyle(color: Color(0xFF2C2C2C))),
-        content: Text(
-          'Send a password reset email to ${admin.email}?',
-          style: const TextStyle(color: Color(0xFF666666)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.resetAdminPassword(admin.email);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Reset email sent to ${admin.email}')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A5F5F),
-              foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              'Reset Password',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: const Text('Send'),
+            content: Text(
+              'Send a password reset email to ${admin.email}?',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.resetAdminPassword(admin.email);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Reset email sent to ${admin.email}'),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Send'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -2485,51 +3110,69 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final willDeactivate = admin.isActive;
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(
-          willDeactivate ? 'Deactivate Administrator' : 'Reactivate Administrator',
-          style: const TextStyle(color: Color(0xFF2C2C2C)),
-        ),
-        content: Text(
-          willDeactivate
-              ? 'Are you sure you want to deactivate ${admin.name ?? admin.email}?'
-              : 'Reactivate ${admin.name ?? admin.email}?',
-          style: const TextStyle(color: Color(0xFF666666)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.setAdminActive(admin.id!, !willDeactivate);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(willDeactivate
-                        ? 'Administrator deactivated'
-                        : 'Administrator reactivated'),
-                  ),
-                );
-                _loadData();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: willDeactivate ? Colors.red : const Color(0xFF1A5F5F),
-              foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              willDeactivate
+                  ? 'Deactivate Administrator'
+                  : 'Reactivate Administrator',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: Text(willDeactivate ? 'Deactivate' : 'Reactivate'),
+            content: Text(
+              willDeactivate
+                  ? 'Are you sure you want to deactivate ${admin.name ?? admin.email}?'
+                  : 'Reactivate ${admin.name ?? admin.email}?',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.setAdminActive(
+                      admin.id!,
+                      !willDeactivate,
+                    );
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          willDeactivate
+                              ? 'Administrator deactivated'
+                              : 'Administrator reactivated',
+                        ),
+                      ),
+                    );
+                    _loadData();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      willDeactivate
+                          ? Colors.red
+                          : Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(willDeactivate ? 'Deactivate' : 'Reactivate'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -2540,28 +3183,30 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   String _deviceSchoolFilter = 'all';
 
   Widget _buildDevicesView() {
-    final padding = context.isMobile
-        ? const EdgeInsets.all(16)
-        : const EdgeInsets.all(24);
+    final padding =
+        context.isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24);
 
-    final filtered = devices.where((d) {
-      if (_deviceStatusFilter != 'all' && (d.status ?? 'offline') != _deviceStatusFilter) {
-        return false;
-      }
-      if (_deviceSchoolFilter != 'all' && d.schoolId != _deviceSchoolFilter) {
-        return false;
-      }
-      if (_deviceSearchQuery.isNotEmpty) {
-        final q = _deviceSearchQuery.toLowerCase();
-        final name = (d.deviceName ?? '').toLowerCase();
-        final id = d.deviceId.toLowerCase();
-        final loc = (d.location ?? '').toLowerCase();
-        if (!name.contains(q) && !id.contains(q) && !loc.contains(q)) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
+    final filtered =
+        devices.where((d) {
+          if (_deviceStatusFilter != 'all' &&
+              (d.status ?? 'offline') != _deviceStatusFilter) {
+            return false;
+          }
+          if (_deviceSchoolFilter != 'all' &&
+              d.schoolId != _deviceSchoolFilter) {
+            return false;
+          }
+          if (_deviceSearchQuery.isNotEmpty) {
+            final q = _deviceSearchQuery.toLowerCase();
+            final name = (d.deviceName ?? '').toLowerCase();
+            final id = d.deviceId.toLowerCase();
+            final loc = (d.location ?? '').toLowerCase();
+            if (!name.contains(q) && !id.contains(q) && !loc.contains(q)) {
+              return false;
+            }
+          }
+          return true;
+        }).toList();
 
     return SingleChildScrollView(
       padding: padding,
@@ -2570,22 +3215,25 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Devices',
                       style: TextStyle(
-                        color: Color(0xFF2C2C2C),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
                       'Manage fingerprint scanners and other hardware',
-                      style: TextStyle(color: Color(0xFF666666), fontSize: 13),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -2595,9 +3243,12 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Device'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -2609,15 +3260,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 child: TextField(
                   decoration: const InputDecoration(
                     hintText: 'Search by name, ID, or location...',
-                    hintStyle: TextStyle(color: Color(0xFF999999)),
-                    prefixIcon: Icon(Icons.search, color: Color(0xFF666666)),
-                    filled: true,
-                    fillColor: Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
+                    prefixIcon: Icon(Icons.search),
                   ),
-                  style: const TextStyle(color: Color(0xFF2C2C2C)),
                   onChanged: (v) => setState(() => _deviceSearchQuery = v),
                 ),
               ),
@@ -2628,19 +3272,28 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   DropdownMenuItem(value: 'all', child: Text('All statuses')),
                   DropdownMenuItem(value: 'active', child: Text('Active')),
                   DropdownMenuItem(value: 'offline', child: Text('Offline')),
-                  DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
+                  DropdownMenuItem(
+                    value: 'maintenance',
+                    child: Text('Maintenance'),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _deviceStatusFilter = v ?? 'all'),
+                onChanged:
+                    (v) => setState(() => _deviceStatusFilter = v ?? 'all'),
               ),
               const SizedBox(width: 12),
               _buildDeviceDropdown(
                 value: _deviceSchoolFilter,
                 items: [
-                  const DropdownMenuItem(value: 'all', child: Text('All schools')),
-                  ...schools.map((s) =>
-                      DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  const DropdownMenuItem(
+                    value: 'all',
+                    child: Text('All schools'),
+                  ),
+                  ...schools.map(
+                    (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _deviceSchoolFilter = v ?? 'all'),
+                onChanged:
+                    (v) => setState(() => _deviceSchoolFilter = v ?? 'all'),
               ),
             ],
           ),
@@ -2648,7 +3301,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           Row(
             children: [
               Expanded(
-                child: _buildDeviceSummaryCard(
+                child: _buildDeviceStatCard(
                   Colors.green,
                   Icons.check_circle,
                   '${devices.where((d) => d.status == 'active').length}',
@@ -2657,7 +3310,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildDeviceSummaryCard(
+                child: _buildDeviceStatCard(
                   Colors.red,
                   Icons.error_outline,
                   '${devices.where((d) => d.status == 'offline').length}',
@@ -2666,7 +3319,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildDeviceSummaryCard(
+                child: _buildDeviceStatCard(
                   Colors.orange,
                   Icons.build_circle,
                   '${devices.where((d) => d.status == 'maintenance').length}',
@@ -2675,8 +3328,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildDeviceSummaryCard(
-                  const Color(0xFF1A5F5F),
+                child: _buildDeviceStatCard(
+                  Theme.of(context).colorScheme.primary,
                   Icons.devices_other,
                   '${devices.length}',
                   'Total',
@@ -2690,16 +3343,27 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 60),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE0E0E0)),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                  Icon(Icons.devices_other, size: 48, color: Color(0xFF999999)),
-                  SizedBox(height: 12),
-                  Text('No devices match your filters',
-                      style: TextStyle(color: Color(0xFF666666), fontSize: 15)),
+                  Icon(
+                    Icons.devices_other,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No devices match your filters',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                    ),
+                  ),
                 ],
               ),
             )
@@ -2708,14 +3372,19 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE0E0E0)),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                separatorBuilder:
+                    (_, __) => Divider(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                 itemBuilder: (_, i) => _buildDeviceListRow(filtered[i]),
               ),
             ),
@@ -2732,8 +3401,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(4),
       ),
       child: DropdownButton<String>(
@@ -2742,13 +3411,72 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         onChanged: onChanged,
         underline: const SizedBox.shrink(),
         dropdownColor: Colors.white,
-        style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceStatCard(
+    Color color,
+    IconData icon,
+    String value,
+    String label,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDeviceListRow(Device device) {
-    final schoolName = schools
+    final schoolName =
+        schools
             .firstWhere(
               (s) => s.id == device.schoolId,
               orElse: () => const School(name: 'Unassigned'),
@@ -2767,64 +3495,103 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         statusColor = Colors.red;
     }
 
+    final hasName = (device.deviceName ?? '').trim().isNotEmpty;
+    final subtitleParts = <String>[
+      device.deviceId,
+      schoolName,
+      if (device.location != null && device.location!.trim().isNotEmpty)
+        device.location!,
+    ];
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
+              color: statusColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.fingerprint, color: statusColor),
+            child: Icon(Icons.fingerprint, color: statusColor, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  device.deviceName ?? device.deviceId,
-                  style: const TextStyle(
-                    color: Color(0xFF2C2C2C),
+                  hasName ? device.deviceName! : device.deviceId,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${device.deviceId} · $schoolName${device.location != null ? ' · ${device.location}' : ''}',
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                  subtitleParts.join(' · '),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+              color: statusColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              (device.status ?? 'offline').toUpperCase(),
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  (device.status ?? 'offline').toUpperCase(),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.5,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF666666)),
+            icon: Icon(
+              Icons.edit_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             onPressed: () => _showDeviceFormDialog(device: device),
             tooltip: 'Edit',
+            splashRadius: 20,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
             onPressed: () => _showDeleteDeviceDialog(device),
             tooltip: 'Delete',
+            splashRadius: 20,
           ),
         ],
       ),
@@ -2832,9 +3599,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   void _showDeviceFormDialog({Device? device}) {
-    final deviceIdController = TextEditingController(text: device?.deviceId ?? '');
-    final nameController = TextEditingController(text: device?.deviceName ?? '');
-    final locationController = TextEditingController(text: device?.location ?? '');
+    final deviceIdController = TextEditingController(
+      text: device?.deviceId ?? '',
+    );
+    final nameController = TextEditingController(
+      text: device?.deviceName ?? '',
+    );
+    final locationController = TextEditingController(
+      text: device?.location ?? '',
+    );
     String deviceType = device?.deviceType ?? 'fingerprint_scanner';
     String status = device?.status ?? 'offline';
     String? schoolId = device?.schoolId;
@@ -2844,203 +3617,276 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          InputDecoration field(String label, {bool required = false}) => InputDecoration(
-                labelText: required ? '$label *' : label,
-                labelStyle: const TextStyle(color: Color(0xFF666666)),
-                enabledBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF1A5F5F), width: 2),
-                ),
-              );
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              InputDecoration field(String label, {bool required = false}) =>
+                  InputDecoration(
+                    labelText: required ? '$label *' : label,
+                    labelStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                  );
 
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            title: Text(
-              isEdit ? 'Edit Device' : 'Add Device',
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: deviceIdController,
-                      enabled: !isEdit,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Device ID', required: true),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: nameController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Device Name'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: deviceType,
-                      decoration: field('Type'),
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'fingerprint_scanner',
-                            child: Text('Fingerprint Scanner')),
-                        DropdownMenuItem(
-                            value: 'attendance_terminal',
-                            child: Text('Attendance Terminal')),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (v) => setStateDialog(
-                          () => deviceType = v ?? 'fingerprint_scanner'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String?>(
-                      value: schoolId,
-                      decoration: field('Assigned School'),
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                            value: null, child: Text('Unassigned')),
-                        ...schools.map((s) => DropdownMenuItem<String?>(
-                            value: s.id, child: Text(s.name))),
-                      ],
-                      onChanged: (v) => setStateDialog(() => schoolId = v),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: locationController,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      decoration: field('Location'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: status,
-                      decoration: field('Status'),
-                      dropdownColor: Colors.white,
-                      style: const TextStyle(color: Color(0xFF2C2C2C)),
-                      items: const [
-                        DropdownMenuItem(value: 'active', child: Text('Active')),
-                        DropdownMenuItem(value: 'offline', child: Text('Offline')),
-                        DropdownMenuItem(
-                            value: 'maintenance', child: Text('Maintenance')),
-                      ],
-                      onChanged: (v) => setStateDialog(() => status = v ?? 'offline'),
-                    ),
-                  ],
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                title: Text(
+                  isEdit ? 'Edit Device' : 'Add Device',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        if (deviceIdController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Device ID is required')),
-                          );
-                          return;
-                        }
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          final updated = Device(
-                            id: device?.id,
-                            deviceId: deviceIdController.text.trim(),
-                            deviceName: nameController.text.trim().isEmpty
-                                ? null
-                                : nameController.text.trim(),
-                            deviceType: deviceType,
-                            schoolId: schoolId,
-                            isActive: status == 'active',
-                            lastSeen: device?.lastSeen,
-                            location: locationController.text.trim().isEmpty
-                                ? null
-                                : locationController.text.trim(),
-                            status: status,
-                          );
-                          if (isEdit) {
-                            await FirebaseService.updateDevice(updated);
-                          } else {
-                            await FirebaseService.addDevice(updated);
-                          }
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isEdit ? 'Device updated' : 'Device added'),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: deviceIdController,
+                          enabled: !isEdit,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Device ID', required: true),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: nameController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Device Name'),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: deviceType,
+                          decoration: field('Type'),
+                          dropdownColor: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'fingerprint_scanner',
+                              child: Text('Fingerprint Scanner'),
                             ),
-                          );
-                          _loadData();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A5F5F),
-                  foregroundColor: Colors.white,
+                            DropdownMenuItem(
+                              value: 'attendance_terminal',
+                              child: Text('Attendance Terminal'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text('Other'),
+                            ),
+                          ],
+                          onChanged:
+                              (v) => setStateDialog(
+                                () => deviceType = v ?? 'fingerprint_scanner',
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String?>(
+                          value: schoolId,
+                          decoration: field('Assigned School'),
+                          dropdownColor: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Unassigned'),
+                            ),
+                            ...schools.map(
+                              (s) => DropdownMenuItem<String?>(
+                                value: s.id,
+                                child: Text(s.name),
+                              ),
+                            ),
+                          ],
+                          onChanged: (v) => setStateDialog(() => schoolId = v),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: locationController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          decoration: field('Location'),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: status,
+                          decoration: field('Status'),
+                          dropdownColor: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'active',
+                              child: Text('Active'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'offline',
+                              child: Text('Offline'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'maintenance',
+                              child: Text('Maintenance'),
+                            ),
+                          ],
+                          onChanged:
+                              (v) =>
+                                  setStateDialog(() => status = v ?? 'offline'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                child: Text(isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add')),
-              ),
-            ],
-          );
-        },
-      ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              if (deviceIdController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Device ID is required'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                final updated = Device(
+                                  id: device?.id,
+                                  deviceId: deviceIdController.text.trim(),
+                                  deviceName:
+                                      nameController.text.trim().isEmpty
+                                          ? null
+                                          : nameController.text.trim(),
+                                  deviceType: deviceType,
+                                  schoolId: schoolId,
+                                  isActive: status == 'active',
+                                  lastSeen: device?.lastSeen,
+                                  location:
+                                      locationController.text.trim().isEmpty
+                                          ? null
+                                          : locationController.text.trim(),
+                                  status: status,
+                                );
+                                if (isEdit) {
+                                  await FirebaseService.updateDevice(updated);
+                                } else {
+                                  await FirebaseService.addDevice(updated);
+                                }
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isEdit
+                                          ? 'Device updated'
+                                          : 'Device added',
+                                    ),
+                                  ),
+                                );
+                                _loadData();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Add'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
   void _showDeleteDeviceDialog(Device device) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Delete Device', style: TextStyle(color: Color(0xFF2C2C2C))),
-        content: Text(
-          'Delete device "${device.deviceName ?? device.deviceId}"? This action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF666666)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF666666))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.deleteDevice(device.id!);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Device deleted')),
-                );
-                _loadData();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              'Delete Device',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: const Text('Delete'),
+            content: Text(
+              'Delete device "${device.deviceName ?? device.deviceId}"? This action cannot be undone.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.deleteDevice(device.id!);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Device deleted')),
+                    );
+                    _loadData();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -3078,12 +3924,13 @@ class _SchoolDetailsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final panelWidth = context.isMobile 
-        ? MediaQuery.of(context).size.width 
-        : (context.isTablet 
-            ? MediaQuery.of(context).size.width * 0.6 
-            : MediaQuery.of(context).size.width * 0.5);
-    
+    final panelWidth =
+        context.isMobile
+            ? MediaQuery.of(context).size.width
+            : (context.isTablet
+                ? MediaQuery.of(context).size.width * 0.6
+                : MediaQuery.of(context).size.width * 0.5);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Row(
@@ -3092,9 +3939,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Container(
-                color: Colors.transparent,
-              ),
+              child: Container(color: Colors.transparent),
             ),
           ),
           // Right panel
@@ -3118,7 +3963,9 @@ class _SchoolDetailsPanel extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: const Color(0xFFE0E0E0)),
+                      bottom: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
                   child: Row(
@@ -3148,8 +3995,8 @@ class _SchoolDetailsPanel extends StatelessWidget {
                           children: [
                             Text(
                               school.name,
-                              style: const TextStyle(
-                                color: Color(0xFF2C2C2C),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -3158,8 +4005,11 @@ class _SchoolDetailsPanel extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text(
                                 school.tagline!,
-                                style: const TextStyle(
-                                  color: Color(0xFF666666),
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                   fontSize: 14,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -3169,13 +4019,16 @@ class _SchoolDetailsPanel extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFF666666)),
+                        icon: Icon(
+                          Icons.close,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Content
                 Expanded(
                   child: SingleChildScrollView(
@@ -3183,89 +4036,135 @@ class _SchoolDetailsPanel extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                      // Description Section - Always show
-                      _buildSectionTitle('Description'),
-                      const SizedBox(height: 8),
-                      Text(
-                        school.description ?? 'No description provided',
-                        style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Contact Information Section - Always show all fields
-                      _buildSectionTitle('Contact Information'),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(Icons.location_on, 'Address', school.address ?? 'No address provided'),
-                      _buildInfoRow(Icons.business, 'City', school.city ?? 'No city provided'),
-                      _buildInfoRow(Icons.flag, 'Country', school.country ?? 'No country provided'),
-                      _buildInfoRow(Icons.phone, 'Phone', school.phone ?? 'No phone provided'),
-                      _buildInfoRow(Icons.email, 'Email', school.email ?? 'No email provided'),
-                      _buildInfoRow(Icons.language, 'Website', school.website ?? 'No website provided'),
-                      const SizedBox(height: 24),
-                      
-                      // Attendance Settings Section - Always show if times exist
-                      if (school.morningStart != null || school.afternoonStart != null) ...[
-                        _buildSectionTitle('Attendance Settings'),
+                        // Description Section - Always show
+                        _buildSectionTitle(context, 'Description'),
+                        const SizedBox(height: 8),
+                        Text(
+                          school.description ?? 'No description provided',
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Contact Information Section - Always show all fields
+                        _buildSectionTitle(context, 'Contact Information'),
                         const SizedBox(height: 12),
-                        if (school.morningStart != null && school.morningEnd != null)
-                          _buildAttendanceTime(
-                            Icons.wb_sunny,
-                            'Morning',
-                            '${school.morningStart} - ${school.morningEnd}',
-                            school.morningLateTime,
+                        _buildInfoRow(
+                          context,
+                          Icons.location_on,
+                          'Address',
+                          school.address ?? 'No address provided',
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.business,
+                          'City',
+                          school.city ?? 'No city provided',
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.flag,
+                          'Country',
+                          school.country ?? 'No country provided',
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.phone,
+                          'Phone',
+                          school.phone ?? 'No phone provided',
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.email,
+                          'Email',
+                          school.email ?? 'No email provided',
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.language,
+                          'Website',
+                          school.website ?? 'No website provided',
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Attendance Sessions Section - link to admin screen
+                        _buildSectionTitle(context, 'Attendance Sessions'),
+                        const SizedBox(height: 12),
+                        _buildInfoRow(
+                          context,
+                          Icons.event_note,
+                          'Sessions',
+                          'Manage from the Sessions tab',
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Assigned Devices Section - Always show
+                        _buildSectionTitle(context, 'Assigned Devices'),
+                        const SizedBox(height: 12),
+                        // Summary bar - Always show
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).colorScheme.surfaceContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              _buildDeviceStat(
+                                context,
+                                Icons.laptop,
+                                '$deviceCount',
+                                'Total',
+                                Colors.blue,
+                              ),
+                              const SizedBox(width: 16),
+                              _buildDeviceStat(
+                                context,
+                                Icons.check_circle,
+                                '$activeDeviceCount',
+                                'Active',
+                                Colors.green,
+                              ),
+                              const SizedBox(width: 16),
+                              _buildDeviceStat(
+                                context,
+                                Icons.cloud_off,
+                                '$offlineDeviceCount',
+                                'Offline',
+                                Colors.red,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Device list - Always show, even if empty
+                        if (schoolDevices.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Center(
+                              child: Text(
+                                'No devices assigned',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
                           )
                         else
-                          _buildInfoRow(Icons.wb_sunny, 'Morning', 'Not configured'),
-                        if (school.afternoonStart != null && school.afternoonEnd != null)
-                          _buildAttendanceTime(
-                            Icons.nightlight_round,
-                            'Afternoon',
-                            '${school.afternoonStart} - ${school.afternoonEnd}',
-                            school.afternoonLateTime,
-                          )
-                        else if (school.morningStart != null)
-                          _buildInfoRow(Icons.nightlight_round, 'Afternoon', 'Not configured'),
-                        const SizedBox(height: 24),
-                      ],
-                      
-                      // Assigned Devices Section - Always show
-                      _buildSectionTitle('Assigned Devices'),
-                      const SizedBox(height: 12),
-                      // Summary bar - Always show
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            _buildDeviceStat(Icons.laptop, '$deviceCount', 'Total', Colors.blue),
-                            const SizedBox(width: 16),
-                            _buildDeviceStat(Icons.check_circle, '$activeDeviceCount', 'Active', Colors.green),
-                            const SizedBox(width: 16),
-                            _buildDeviceStat(Icons.cloud_off, '$offlineDeviceCount', 'Offline', Colors.red),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Device list - Always show, even if empty
-                      if (schoolDevices.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Center(
-                            child: Text(
-                              'No devices assigned',
-                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
-                            ),
-                          ),
-                        )
-                      else
-                        ...schoolDevices.map((device) => Container(
+                          ...schoolDevices.map(
+                            (device) => Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF5F5F5),
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -3274,7 +4173,10 @@ class _SchoolDetailsPanel extends StatelessWidget {
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                      color: device.status == 'active' ? Colors.green : Colors.red,
+                                      color:
+                                          device.status == 'active'
+                                              ? Colors.green
+                                              : Colors.red,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -3282,160 +4184,219 @@ class _SchoolDetailsPanel extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       device.deviceName ?? device.deviceId,
-                                      style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
+                                      style: TextStyle(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                   Text(
-                                    device.status == 'active' ? '• Active' : '• Offline',
+                                    device.status == 'active'
+                                        ? 'â€¢ Active'
+                                        : 'â€¢ Offline',
                                     style: TextStyle(
-                                      color: device.status == 'active' ? Colors.green : Colors.red,
+                                      color:
+                                          device.status == 'active'
+                                              ? Colors.green
+                                              : Colors.red,
                                       fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
-                            )),
-                      const SizedBox(height: 24),
-                      
-                      // School Sessions Section - Always show
-                      _buildSectionTitle('School Sessions'),
-                      const SizedBox(height: 12),
-                      if (schoolSessions.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Center(
-                            child: Text(
-                              'No sessions found',
-                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
                             ),
                           ),
-                        )
-                      else
-                        ...schoolSessions.take(10).map((session) => Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF5F5F5),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: session.isActive ? Colors.green : const Color(0xFFE0E0E0),
-                                  width: session.isActive ? 2 : 1,
+                        const SizedBox(height: 24),
+
+                        // School Sessions Section - Always show
+                        _buildSectionTitle(context, 'School Sessions'),
+                        const SizedBox(height: 12),
+                        if (schoolSessions.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Center(
+                              child: Text(
+                                'No sessions found',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontSize: 14,
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    session.isActive ? Icons.play_circle_filled : Icons.calendar_today,
-                                    color: session.isActive ? Colors.green : const Color(0xFF666666),
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _formatDate(session.date),
-                                          style: const TextStyle(
-                                            color: Color(0xFF2C2C2C),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        if (session.period != null || session.className != null) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            [
-                                              if (session.period != null) session.period,
-                                              if (session.className != null) session.className,
-                                            ].join(' • '),
-                                            style: const TextStyle(
-                                              color: Color(0xFF666666),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                        if (session.startTime != null && session.endTime != null) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${session.startTime} - ${session.endTime}',
-                                            style: const TextStyle(
-                                              color: Color(0xFF666666),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
+                            ),
+                          )
+                        else
+                          ...schoolSessions
+                              .take(10)
+                              .map(
+                                (session) => Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color:
+                                          session.isActive
+                                              ? Colors.green
+                                              : Theme.of(
+                                                context,
+                                              ).colorScheme.outlineVariant,
+                                      width: session.isActive ? 2 : 1,
                                     ),
                                   ),
-                                  if (session.isActive)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green,
-                                        borderRadius: BorderRadius.circular(12),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        session.isActive
+                                            ? Icons.play_circle_filled
+                                            : Icons.calendar_today,
+                                        color:
+                                            session.isActive
+                                                ? Colors.green
+                                                : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                        size: 20,
                                       ),
-                                      child: const Text(
-                                        'Active',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _formatDate(session.date),
+                                              style: TextStyle(
+                                                color:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            if (session.className != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                session.className!,
+                                                style: TextStyle(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                            if (session.startTime != null &&
+                                                session.endTime != null) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${session.startTime} - ${session.endTime}',
+                                                style: TextStyle(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                ],
+                                      if (session.isActive)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Active',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            )),
-                      if (schoolSessions.length > 10)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            '... and ${schoolSessions.length - 10} more sessions',
-                            style: const TextStyle(
-                              color: Color(0xFF666666),
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      
-                      // School Administrators Section - Always show
-                      _buildSectionTitle('School Administrators'),
-                      const SizedBox(height: 12),
-                      if (schoolAdmins.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Center(
+                        if (schoolSessions.length > 10)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              'No administrators assigned',
-                              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
+                              '... and ${schoolSessions.length - 10} more sessions',
+                              style: TextStyle(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ),
-                        )
-                      else
-                        ...schoolAdmins.map((admin) => _buildAdminCard(admin)),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: onAddAdmin,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Another Admin'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A5F5F),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        const SizedBox(height: 24),
+
+                        // School Administrators Section - Always show
+                        _buildSectionTitle(context, 'School Administrators'),
+                        const SizedBox(height: 12),
+                        if (schoolAdmins.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Center(
+                              child: Text(
+                                'No administrators assigned',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ...schoolAdmins.map(
+                            (admin) => _buildAdminCard(context, admin),
+                          ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: onAddAdmin,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Another Admin'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -3443,7 +4404,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sessionDate = DateTime(date.year, date.month, date.day);
-    
+
     if (sessionDate == today) {
       return 'Today';
     } else if (sessionDate == today.add(const Duration(days: 1))) {
@@ -3452,38 +4413,66 @@ class _SchoolDetailsPanel extends StatelessWidget {
       return 'Yesterday';
     } else {
       // Format as "Mon, Jan 15, 2024"
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFF2C2C2C),
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
         fontSize: 16,
         fontWeight: FontWeight.bold,
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF666666)),
+          Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           Text(
             '$label: ',
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
@@ -3491,54 +4480,48 @@ class _SchoolDetailsPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildAttendanceTime(IconData icon, String period, String timeRange, String? lateTime) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: const Color(0xFF666666)),
-          const SizedBox(width: 8),
-          Text(
-            '$period: ',
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-          ),
-          Text(
-            lateTime != null ? '$timeRange (Late: $lateTime)' : timeRange,
-            style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeviceStat(IconData icon, String value, String label, Color color) {
+  Widget _buildDeviceStat(
+    BuildContext context,
+    IconData icon,
+    String value,
+    String label,
+    Color color,
+  ) {
     return Row(
       children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(width: 6),
         Text(
           '$value ',
-          style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildAdminCard(app_user.AppUser admin) {
-    final initial = (admin.name?.isNotEmpty ?? false) ? admin.name![0].toUpperCase() : '?';
+  Widget _buildAdminCard(BuildContext context, app_user.AppUser admin) {
+    final initial =
+        (admin.name?.isNotEmpty ?? false) ? admin.name![0].toUpperCase() : '?';
     final adminColor = Colors.purple;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3573,17 +4556,23 @@ class _SchoolDetailsPanel extends StatelessWidget {
                         Expanded(
                           child: Text(
                             admin.name ?? 'Unknown',
-                            style: const TextStyle(
-                              color: Color(0xFF2C2C2C),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: admin.isActive ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+                            color:
+                                admin.isActive
+                                    ? Colors.green.withOpacity(0.2)
+                                    : Colors.red.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -3600,12 +4589,22 @@ class _SchoolDetailsPanel extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.email, size: 14, color: Color(0xFF666666)),
+                        Icon(
+                          Icons.email,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             admin.email,
-                            style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
+                            style: TextStyle(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -3614,11 +4613,22 @@ class _SchoolDetailsPanel extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.phone, size: 14, color: Color(0xFF666666)),
+                          Icon(
+                            Icons.phone,
+                            size: 14,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             admin.phone!,
-                            style: const TextStyle(color: Color(0xFF666666), fontSize: 13),
+                            style: TextStyle(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -3637,8 +4647,11 @@ class _SchoolDetailsPanel extends StatelessWidget {
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Edit'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF666666),
-                    side: const BorderSide(color: Color(0xFFE0E0E0)),
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                 ),
               ),
@@ -3649,8 +4662,11 @@ class _SchoolDetailsPanel extends StatelessWidget {
                   icon: const Icon(Icons.lock_reset, size: 16),
                   label: const Text('Reset Password'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF666666),
-                    side: const BorderSide(color: Color(0xFFE0E0E0)),
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                 ),
               ),
@@ -3673,4 +4689,3 @@ class _SchoolDetailsPanel extends StatelessWidget {
     );
   }
 }
-
