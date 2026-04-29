@@ -194,6 +194,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     if (context.isMobile) return _buildMobileLayout();
     return Scaffold(
       body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildSidebar(isTablet: context.isTablet),
           Expanded(child: _buildMainContent()),
@@ -983,52 +984,68 @@ class _DashboardView extends StatelessWidget {
     final activeDevices = devices.where((d) => d.status == 'active').length;
     final offlineDevices = devices.where((d) => d.status == 'offline').length;
 
-    return SingleChildScrollView(
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildWelcomeBanner(context, activeSessions, onChat),
-          const SizedBox(height: 16),
-          _buildSummaryGrid(
-            context,
-            activeSessions: activeSessions,
-            activeDevices: activeDevices,
-            offlineDevices: offlineDevices,
-          ),
-          SizedBox(height: context.isMobile ? 16 : 20),
-          if (context.isMobile)
-            Column(
-              children: [
-                _DeviceStatusCard(
-                  active: activeDevices,
-                  offline: offlineDevices,
-                  total: devices.length,
-                ),
-                const SizedBox(height: 16),
-                _RecentActivityCard(activity: recentActivity),
-              ],
-            )
-          else
-            Row(
+    return LayoutBuilder(
+      builder: (context, viewportConstraints) {
+        final minScrollContentHeight =
+            viewportConstraints.maxHeight.isFinite
+                ? viewportConstraints.maxHeight
+                : 0.0;
+        return SingleChildScrollView(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minScrollContentHeight),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: _DeviceStatusCard(
-                    active: activeDevices,
-                    offline: offlineDevices,
-                    total: devices.length,
+                _buildWelcomeBanner(context, activeSessions, onChat),
+                const SizedBox(height: 16),
+                _buildSummaryGrid(
+                  context,
+                  activeSessions: activeSessions,
+                  activeDevices: activeDevices,
+                  offlineDevices: offlineDevices,
+                ),
+                SizedBox(height: context.isMobile ? 16 : 20),
+                if (context.isMobile)
+                  Column(
+                    children: [
+                      _DeviceStatusCard(
+                        active: activeDevices,
+                        offline: offlineDevices,
+                        total: devices.length,
+                      ),
+                      const SizedBox(height: 16),
+                      _RecentActivityCard(activity: recentActivity),
+                    ],
+                  )
+                else
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _DeviceStatusCard(
+                            active: activeDevices,
+                            offline: offlineDevices,
+                            total: devices.length,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 5,
+                          child: _RecentActivityCard(activity: recentActivity),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: _RecentActivityCard(activity: recentActivity),
-                ),
               ],
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1173,20 +1190,31 @@ class _DashboardView extends StatelessWidget {
         double aspectRatio;
         if (context.isMobile) {
           crossAxisCount = 2;
-          aspectRatio = 1.2;
+          aspectRatio = 1.25;
         } else if (context.isTablet) {
           crossAxisCount = 3;
-          aspectRatio = 1.1;
+          aspectRatio = 1.25;
         } else {
-          crossAxisCount = 6;
-          aspectRatio = 1.0;
+          final w = constraints.maxWidth;
+          // Fewer, wider tiles on typical laptop widths so stats don’t look
+          // like tiny islands in a wide gutter.
+          if (w < 880) {
+            crossAxisCount = 3;
+            aspectRatio = 1.42;
+          } else if (w < 1180) {
+            crossAxisCount = 4;
+            aspectRatio = 1.38;
+          } else {
+            crossAxisCount = 6;
+            aspectRatio = 1.38;
+          }
         }
         return GridView.count(
           crossAxisCount: crossAxisCount,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
           childAspectRatio: aspectRatio,
           children: [for (final c in cards) _SummaryCard(data: c)],
         );
@@ -1275,76 +1303,87 @@ class _DeviceStatusCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final maintenance = (total - active - offline).clamp(0, total);
     final pct = total == 0 ? 0 : (active / total * 100);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final hasBoundedHeight =
+            constraints.maxHeight < double.infinity &&
+            constraints.maxHeight > 0;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              Icon(Icons.fingerprint, color: colorScheme.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Device Status',
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Icon(Icons.fingerprint, color: colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Device Status',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
+              if (total == 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.devices_other,
+                          color: colorScheme.outline,
+                          size: 36,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No devices yet',
+                          style: TextStyle(color: colorScheme.outline),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: pct / 100,
+                    minHeight: 10,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    valueColor: const AlwaysStoppedAnimation(Colors.green),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${pct.toStringAsFixed(0)}% online',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _statRow(context, Colors.green, 'Active', active),
+              _statRow(context, Colors.red, 'Offline', offline),
+              _statRow(context, Colors.orange, 'Maintenance', maintenance),
+              if (hasBoundedHeight) const Spacer(),
             ],
           ),
-          const SizedBox(height: 16),
-          if (total == 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.devices_other,
-                      color: colorScheme.outline,
-                      size: 36,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'No devices yet',
-                      style: TextStyle(color: colorScheme.outline),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: pct / 100,
-                minHeight: 10,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation(Colors.green),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${pct.toStringAsFixed(0)}% online',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 12,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          _statRow(context, Colors.green, 'Active', active),
-          _statRow(context, Colors.red, 'Offline', offline),
-          _statRow(context, Colors.orange, 'Maintenance', maintenance),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1391,6 +1430,7 @@ class _RecentActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -1399,6 +1439,7 @@ class _RecentActivityCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1665,168 +1706,196 @@ class _DevicesViewState extends State<_DevicesView> {
             .where((d) => _effectiveStatus(d) == 'maintenance')
             .length;
 
-    return SingleChildScrollView(
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, viewportConstraints) {
+        final minScrollContentHeight =
+            viewportConstraints.maxHeight.isFinite
+                ? viewportConstraints.maxHeight
+                : 0.0;
+        return SingleChildScrollView(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minScrollContentHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Devices',
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Devices',
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Fingerprint scanners and attendance terminals for ${widget.school?.name ?? 'your school'}',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Fingerprint scanners and attendance terminals for ${widget.school?.name ?? 'your school'}',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 13,
+                    ElevatedButton.icon(
+                      onPressed: () => _showFormDialog(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Device'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search by name, ID, or location...',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: widget.onSearchChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainer,
+                        border: Border.all(color: colorScheme.outlineVariant),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: widget.statusFilter,
+                        underline: const SizedBox.shrink(),
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 14,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'all',
+                            child: Text('All statuses'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'active',
+                            child: Text('Active'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'offline',
+                            child: Text('Offline'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'maintenance',
+                            child: Text('Maintenance'),
+                          ),
+                        ],
+                        onChanged: (v) =>
+                            widget.onStatusFilterChanged(v ?? 'all'),
                       ),
                     ),
                   ],
                 ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showFormDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Device'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search by name, ID, or location...',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: widget.onSearchChanged,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  border: Border.all(color: colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: widget.statusFilter,
-                  underline: const SizedBox.shrink(),
-                  style: TextStyle(color: colorScheme.onSurface, fontSize: 14),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('All statuses')),
-                    DropdownMenuItem(value: 'active', child: Text('Active')),
-                    DropdownMenuItem(value: 'offline', child: Text('Offline')),
-                    DropdownMenuItem(
-                      value: 'maintenance',
-                      child: Text('Maintenance'),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statCard(
+                        Colors.green,
+                        Icons.check_circle,
+                        '$active',
+                        'Active',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        Colors.red,
+                        Icons.error_outline,
+                        '$offline',
+                        'Offline',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        Colors.orange,
+                        Icons.build_circle,
+                        '$maintenance',
+                        'Maintenance',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        colorScheme.primary,
+                        Icons.devices_other,
+                        '${widget.devices.length}',
+                        'Total',
+                      ),
                     ),
                   ],
-                  onChanged: (v) => widget.onStatusFilterChanged(v ?? 'all'),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _statCard(
-                  Colors.green,
-                  Icons.check_circle,
-                  '$active',
-                  'Active',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _statCard(
-                  Colors.red,
-                  Icons.error_outline,
-                  '$offline',
-                  'Offline',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _statCard(
-                  Colors.orange,
-                  Icons.build_circle,
-                  '$maintenance',
-                  'Maintenance',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _statCard(
-                  colorScheme.primary,
-                  Icons.devices_other,
-                  '${widget.devices.length}',
-                  'Total',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (filtered.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 60),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.devices_other,
-                    size: 48,
-                    color: colorScheme.outline,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No devices match your filters',
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 15,
+                const SizedBox(height: 20),
+                if (filtered.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 60),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.devices_other,
+                          size: 48,
+                          color: colorScheme.outline,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No devices match your filters',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      separatorBuilder:
+                          (_, __) => Divider(
+                            height: 1,
+                            color: colorScheme.outlineVariant,
+                          ),
+                      itemBuilder: (_, i) => _buildRow(filtered[i]),
                     ),
                   ),
-                ],
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                separatorBuilder:
-                    (_, __) =>
-                        Divider(height: 1, color: colorScheme.outlineVariant),
-                itemBuilder: (_, i) => _buildRow(filtered[i]),
-              ),
+              ],
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
