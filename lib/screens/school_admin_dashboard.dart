@@ -1021,25 +1021,32 @@ class _DashboardView extends StatelessWidget {
                     ],
                   )
                 else
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _DeviceStatusCard(
-                            active: activeDevices,
-                            offline: offlineDevices,
-                            total: devices.length,
+                  Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(3),
+                      1: FlexColumnWidth(5),
+                    },
+                    defaultVerticalAlignment: TableCellVerticalAlignment.top,
+                    children: [
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _DeviceStatusCard(
+                              active: activeDevices,
+                              offline: offlineDevices,
+                              total: devices.length,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 5,
-                          child: _RecentActivityCard(activity: recentActivity),
-                        ),
-                      ],
-                    ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _RecentActivityCard(
+                              activity: recentActivity,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
               ],
             ),
