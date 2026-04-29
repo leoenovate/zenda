@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'home_screen.dart';
+import 'school_admin_dashboard.dart';
 import 'system_owner_dashboard.dart';
+import 'teacher_dashboard_screen.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
@@ -23,9 +24,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email'],
-  );
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
   @override
   void dispose() {
@@ -57,9 +56,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       );
 
       if (!mounted) return;
-      final target = session.role == UserRole.systemOwner
-          ? const SystemOwnerDashboard()
-          : const HomeScreen();
+      final target = _dashboardForRole(session.role);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => target),
@@ -105,8 +102,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
 
       if (userCredential.user != null) {
         final session = await AuthService.restoreSession();
@@ -119,9 +117,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           );
         }
         if (!mounted) return;
-        final target = session?.role == UserRole.systemOwner
-            ? const SystemOwnerDashboard()
-            : const HomeScreen();
+        final target = _dashboardForRole(session?.role);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => target),
@@ -169,6 +165,19 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           _isGoogleLoading = false;
         });
       }
+    }
+  }
+
+  Widget _dashboardForRole(UserRole? role) {
+    switch (role) {
+      case UserRole.systemOwner:
+        return const SystemOwnerDashboard();
+      case UserRole.teacher:
+        return const TeacherDashboardScreen();
+      case UserRole.schoolAdmin:
+      case UserRole.parent:
+      case null:
+        return const SchoolAdminDashboard();
     }
   }
 
@@ -279,31 +288,34 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     ),
                     SizedBox(height: context.spacingLg),
                     OutlinedButton.icon(
-                      onPressed: (_isLoading || _isGoogleLoading)
-                          ? null
-                          : _signInWithGoogle,
-                      icon: _isGoogleLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Center(
-                                child: Text(
-                                  'G',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.onSurface,
-                                    fontFamily: 'Roboto',
+                      onPressed:
+                          (_isLoading || _isGoogleLoading)
+                              ? null
+                              : _signInWithGoogle,
+                      icon:
+                          _isGoogleLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Center(
+                                  child: Text(
+                                    'G',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                      fontFamily: 'Roboto',
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
                       label: Text(
                         'Continue with Google',
                         style: TextStyle(
@@ -321,10 +333,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     Row(
                       children: [
                         Expanded(
-                            child: Divider(color: colorScheme.outlineVariant)),
+                          child: Divider(color: colorScheme.outlineVariant),
+                        ),
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             'OR',
                             style: TextStyle(
@@ -334,36 +346,38 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                         ),
                         Expanded(
-                            child: Divider(color: colorScheme.outlineVariant)),
+                          child: Divider(color: colorScheme.outlineVariant),
+                        ),
                       ],
                     ),
                     SizedBox(height: context.spacingMd),
                     ElevatedButton(
-                      onPressed: (_isLoading || _isGoogleLoading)
-                          ? null
-                          : _login,
+                      onPressed:
+                          (_isLoading || _isGoogleLoading) ? null : _login,
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(
                           vertical: context.isMobile ? 16 : 18,
                         ),
                       ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.onPrimary),
+                      child:
+                          _isLoading
+                              ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.onPrimary,
+                                  ),
+                                ),
+                              )
+                              : Text(
+                                'Login with Email',
+                                style: TextStyle(
+                                  fontSize: context.isMobile ? 16 : 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            )
-                          : Text(
-                              'Login with Email',
-                              style: TextStyle(
-                                fontSize: context.isMobile ? 16 : 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                     ),
                     SizedBox(height: context.spacingMd),
                     Text(

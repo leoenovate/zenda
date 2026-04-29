@@ -7,8 +7,14 @@ import '../../widgets/admin/admin_list_scaffold.dart';
 class ParentsScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
+  final bool showSchoolFilter;
 
-  const ParentsScreen({super.key, required this.schools, this.onDataChanged});
+  const ParentsScreen({
+    super.key,
+    required this.schools,
+    this.onDataChanged,
+    this.showSchoolFilter = true,
+  });
 
   @override
   State<ParentsScreen> createState() => _ParentsScreenState();
@@ -87,13 +93,16 @@ class _ParentsScreenState extends State<ParentsScreen> {
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Parents',
-      subtitle: 'Parent contacts derived from student records',
+      subtitle: widget.showSchoolFilter
+          ? 'Parent contacts derived from student records'
+          : 'Parent contacts for your school',
       searchHint: 'Search by name, phone, or email...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
+      showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
       addButtonLabel: 'Add Parent',
       onAddPressed: () => _showFormDialog(),
       headerExtras: OutlinedButton.icon(
@@ -207,6 +216,9 @@ class _ParentsScreenState extends State<ParentsScreen> {
     final emailController = TextEditingController(text: parent?.email ?? '');
     String relationship = parent?.relationship ?? 'father';
     String? schoolId = parent?.schoolId;
+    if (schoolId == null && widget.schools.length == 1) {
+      schoolId = widget.schools.first.id;
+    }
     bool isActive = parent?.isActive ?? true;
     bool isSaving = false;
     final isEdit = parent != null;
@@ -216,7 +228,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setStateDialog) => AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
           title: Text(
             isEdit ? 'Edit Parent' : 'Add Parent',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -250,7 +262,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                   DropdownButtonFormField<String>(
                     value: relationship,
                     decoration: adminInputDecoration('Relationship'),
-                    dropdownColor: Colors.white,
+                    dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     items: const [
                       DropdownMenuItem(value: 'father', child: Text('Father')),
@@ -260,20 +272,22 @@ class _ParentsScreenState extends State<ParentsScreen> {
                     onChanged: (v) => setStateDialog(() => relationship = v ?? 'father'),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    value: schoolId,
-                    decoration: adminInputDecoration('School'),
-                    dropdownColor: Colors.white,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('Unassigned')),
-                      ...widget.schools.map((s) =>
-                          DropdownMenuItem<String?>(value: s.id, child: Text(s.name))),
-                    ],
-                    onChanged: (v) => setStateDialog(() => schoolId = v),
-                  ),
-                  const SizedBox(height: 12),
+                  if (widget.schools.length > 1) ...[
+                    DropdownButtonFormField<String?>(
+                      value: schoolId,
+                      decoration: adminInputDecoration('School'),
+                      dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('Unassigned')),
+                        ...widget.schools.map((s) =>
+                            DropdownMenuItem<String?>(value: s.id, child: Text(s.name))),
+                      ],
+                      onChanged: (v) => setStateDialog(() => schoolId = v),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: isActive,
@@ -355,7 +369,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
         title: Text('Delete Parent', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete parent record for ${p.name ?? p.phone}?',

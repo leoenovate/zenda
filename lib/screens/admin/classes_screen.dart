@@ -8,8 +8,14 @@ import '../../widgets/admin/admin_list_scaffold.dart';
 class ClassesScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
+  final bool showSchoolFilter;
 
-  const ClassesScreen({super.key, required this.schools, this.onDataChanged});
+  const ClassesScreen({
+    super.key,
+    required this.schools,
+    this.onDataChanged,
+    this.showSchoolFilter = true,
+  });
 
   @override
   State<ClassesScreen> createState() => _ClassesScreenState();
@@ -73,13 +79,16 @@ class _ClassesScreenState extends State<ClassesScreen> {
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Classes',
-      subtitle: 'Manage class groups and student assignments',
+      subtitle: widget.showSchoolFilter
+          ? 'Manage class groups and student assignments'
+          : 'Class groups and student assignments',
       searchHint: 'Search by name, grade, or level...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
+      showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
       addButtonLabel: 'Add Class',
       onAddPressed: () => _showFormDialog(),
       listContent: filtered.isEmpty
@@ -139,11 +148,12 @@ class _ClassesScreenState extends State<ClassesScreen> {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    schoolName,
+                    if (widget.showSchoolFilter && widget.schools.length > 1)
+                      schoolName,
                     if (c.grade != null) c.grade!,
                     if (teacherName.isNotEmpty) 'Teacher: $teacherName',
                     '${c.studentIds.length} students',
-                  ].join(' · '),
+                  ].where((s) => s.isNotEmpty).join(' · '),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
@@ -184,7 +194,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
           final teachersForSchool = _teachers.where((t) => t.schoolId == schoolId).toList();
 
           return AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
             title: Text(
               isEdit ? 'Edit Class' : 'Add Class',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -201,23 +211,25 @@ class _ClassesScreenState extends State<ClassesScreen> {
                       decoration: adminInputDecoration('Class Name', required: true),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String?>(
-                      value: schoolId,
-                      decoration: adminInputDecoration('School', required: true),
-                      dropdownColor: Colors.white,
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                      items: widget.schools
-                          .map((s) => DropdownMenuItem<String?>(
-                                value: s.id,
-                                child: Text(s.name),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setStateDialog(() {
-                        schoolId = v;
-                        teacherId = null;
-                      }),
-                    ),
-                    const SizedBox(height: 16),
+                    if (widget.schools.length > 1) ...[
+                      DropdownButtonFormField<String?>(
+                        value: schoolId,
+                        decoration: adminInputDecoration('School', required: true),
+                        dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                        items: widget.schools
+                            .map((s) => DropdownMenuItem<String?>(
+                                  value: s.id,
+                                  child: Text(s.name),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setStateDialog(() {
+                          schoolId = v;
+                          teacherId = null;
+                        }),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextField(
                       controller: gradeController,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -235,7 +247,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
                           ? teacherId
                           : null,
                       decoration: adminInputDecoration('Class Teacher'),
-                      dropdownColor: Colors.white,
+                      dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: [
                         const DropdownMenuItem<String?>(
@@ -337,7 +349,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
         title: Text('Delete Class', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete class "${c.name}"? This action cannot be undone.',

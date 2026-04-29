@@ -2472,7 +2472,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       context: context,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             title: Text(
               school == null ? 'Add School' : 'Edit School',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -2686,7 +2686,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       context: context,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             title: Text(
               'Delete School',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -2854,7 +2854,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   );
 
               return AlertDialog(
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
                 title: Text(
                   isEdit ? 'Edit Administrator' : 'Add Administrator',
                   style: TextStyle(
@@ -2911,7 +2911,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: role,
                           decoration: field('Role', required: true),
-                          dropdownColor: Colors.white,
+                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3057,7 +3057,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       context: context,
       builder:
           (dialogCtx) => AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
             title: Text(
               'Reset Password',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -3112,7 +3112,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       context: context,
       builder:
           (dialogCtx) => AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
             title: Text(
               willDeactivate
                   ? 'Deactivate Administrator'
@@ -3410,7 +3410,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         items: items,
         onChanged: onChanged,
         underline: const SizedBox.shrink(),
-        dropdownColor: Colors.white,
+        dropdownColor: Theme.of(context).colorScheme.surface,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 14,
@@ -3640,7 +3640,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   );
 
               return AlertDialog(
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
                 title: Text(
                   isEdit ? 'Edit Device' : 'Add Device',
                   style: TextStyle(
@@ -3673,7 +3673,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: deviceType,
                           decoration: field('Type'),
-                          dropdownColor: Colors.white,
+                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3700,7 +3700,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String?>(
                           value: schoolId,
                           decoration: field('Assigned School'),
-                          dropdownColor: Colors.white,
+                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3730,7 +3730,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: status,
                           decoration: field('Status'),
-                          dropdownColor: Colors.white,
+                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3842,7 +3842,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       context: context,
       builder:
           (dialogCtx) => AlertDialog(
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
             title: Text(
               'Delete Device',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),

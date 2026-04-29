@@ -3,9 +3,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/school_admin_dashboard.dart';
 import 'screens/system_owner_dashboard.dart';
 import 'screens/parent_dashboard_screen.dart';
+import 'screens/teacher_dashboard_screen.dart';
 import 'services/auth_service.dart';
 import 'services/auth_storage_service.dart';
 import 'services/firebase_service.dart';
@@ -56,15 +57,15 @@ void main() async {
   try {
     // Ensure Flutter is initialized
     WidgetsFlutterBinding.ensureInitialized();
-    
+
     // Initialize Firebase with platform-specific options
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     // Log successful initialization
     print('Firebase successfully initialized');
-    
+
     runApp(_buildApp());
   } catch (e) {
     print('Error initializing Firebase: $e');
@@ -140,8 +141,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
             target = const SystemOwnerDashboard();
             break;
           case UserRole.schoolAdmin:
+            target = const SchoolAdminDashboard();
+            break;
           case UserRole.teacher:
-            target = const HomeScreen();
+            target = const TeacherDashboardScreen();
             break;
           case UserRole.parent:
             // Parents don't sign in via Firebase Auth, fall through to the
@@ -181,8 +184,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final isDemoParent = studentNumber.trim().toUpperCase() == 'STD001';
         List<Student> students = [];
         try {
-          students =
-              await FirebaseService.getStudentsByStudentNumber(studentNumber);
+          students = await FirebaseService.getStudentsByStudentNumber(
+            studentNumber,
+          );
         } catch (e) {
           print('Error fetching students for parent: $e');
           if (!isDemoParent) {
@@ -196,11 +200,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
 
           if (students.isNotEmpty) {
-            AuthService.setSession(AuthSession(
-              role: UserRole.parent,
-              studentNumber: studentNumber,
-              students: students,
-            ));
+            AuthService.setSession(
+              AuthSession(
+                role: UserRole.parent,
+                studentNumber: studentNumber,
+                students: students,
+              ),
+            );
             final phone =
                 students.first.fatherPhone ?? students.first.motherPhone ?? '';
             targetScreen = ParentDashboardScreen(
@@ -212,21 +218,35 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         }
       } else if (role == UserRole.systemOwner) {
-        AuthService.setSession(AuthSession(
-          role: role,
-          email: stored['email'] as String?,
-          uid: stored['uid'] as String?,
-          schoolId: stored['schoolId'] as String?,
-        ));
+        AuthService.setSession(
+          AuthSession(
+            role: role,
+            email: stored['email'] as String?,
+            uid: stored['uid'] as String?,
+            schoolId: stored['schoolId'] as String?,
+          ),
+        );
         targetScreen = const SystemOwnerDashboard();
+      } else if (role == UserRole.teacher) {
+        AuthService.setSession(
+          AuthSession(
+            role: role,
+            email: stored['email'] as String?,
+            uid: stored['uid'] as String?,
+            schoolId: stored['schoolId'] as String?,
+          ),
+        );
+        targetScreen = const TeacherDashboardScreen();
       } else {
-        AuthService.setSession(AuthSession(
-          role: role,
-          email: stored['email'] as String?,
-          uid: stored['uid'] as String?,
-          schoolId: stored['schoolId'] as String?,
-        ));
-        targetScreen = const HomeScreen();
+        AuthService.setSession(
+          AuthSession(
+            role: role,
+            email: stored['email'] as String?,
+            uid: stored['uid'] as String?,
+            schoolId: stored['schoolId'] as String?,
+          ),
+        );
+        targetScreen = const SchoolAdminDashboard();
       }
 
       if (mounted) {
@@ -249,13 +269,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    
+
     return _initialScreen ?? const LoginScreen();
   }
 }

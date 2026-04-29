@@ -7,11 +7,13 @@ import '../../widgets/admin/admin_list_scaffold.dart';
 class TeachersScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
+  final bool showSchoolFilter;
 
   const TeachersScreen({
     super.key,
     required this.schools,
     this.onDataChanged,
+    this.showSchoolFilter = true,
   });
 
   @override
@@ -72,13 +74,16 @@ class _TeachersScreenState extends State<TeachersScreen> {
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Teachers',
-      subtitle: 'Manage teaching staff across schools',
+      subtitle: widget.showSchoolFilter
+          ? 'Manage teaching staff across schools'
+          : 'Manage teaching staff',
       searchHint: 'Search by name, email, subject, or ID...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
+      showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
       addButtonLabel: 'Add Teacher',
       onAddPressed: () => _showFormDialog(),
       listContent: filtered.isEmpty
@@ -133,10 +138,11 @@ class _TeachersScreenState extends State<TeachersScreen> {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    schoolName,
+                    if (widget.showSchoolFilter && widget.schools.length > 1)
+                      schoolName,
                     if (t.subject != null) t.subject!,
                     if (t.email != null) t.email!,
-                  ].join(' · '),
+                  ].where((s) => s.isNotEmpty).join(' · '),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
@@ -191,7 +197,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setStateDialog) => AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
           title: Text(
             isEdit ? 'Edit Teacher' : 'Add Teacher',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -208,20 +214,22 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     decoration: adminInputDecoration('Full Name', required: true),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    value: schoolId,
-                    decoration: adminInputDecoration('School', required: true),
-                    dropdownColor: Colors.white,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                    items: widget.schools
-                        .map((s) => DropdownMenuItem<String?>(
-                              value: s.id,
-                              child: Text(s.name),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setStateDialog(() => schoolId = v),
-                  ),
-                  const SizedBox(height: 16),
+                  if (widget.schools.length > 1) ...[
+                    DropdownButtonFormField<String?>(
+                      value: schoolId,
+                      decoration: adminInputDecoration('School', required: true),
+                      dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      items: widget.schools
+                          .map((s) => DropdownMenuItem<String?>(
+                                value: s.id,
+                                child: Text(s.name),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setStateDialog(() => schoolId = v),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -332,7 +340,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
         title: Text('Delete Teacher', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete "${t.name}"? This action cannot be undone.',

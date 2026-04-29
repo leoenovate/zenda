@@ -243,7 +243,7 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Target school',
                       ),
-                      dropdownColor: Colors.white,
+                      dropdownColor: Theme.of(context).colorScheme.surface,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: _schools
                           .map((s) => DropdownMenuItem<String?>(

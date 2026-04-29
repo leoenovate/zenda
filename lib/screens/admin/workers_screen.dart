@@ -7,8 +7,14 @@ import '../../widgets/admin/admin_list_scaffold.dart';
 class WorkersScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
+  final bool showSchoolFilter;
 
-  const WorkersScreen({super.key, required this.schools, this.onDataChanged});
+  const WorkersScreen({
+    super.key,
+    required this.schools,
+    this.onDataChanged,
+    this.showSchoolFilter = true,
+  });
 
   @override
   State<WorkersScreen> createState() => _WorkersScreenState();
@@ -67,13 +73,16 @@ class _WorkersScreenState extends State<WorkersScreen> {
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Workers',
-      subtitle: 'Non-student staff attendance (kitchen, cleaners, security)',
+      subtitle: widget.showSchoolFilter
+          ? 'Non-student staff attendance (kitchen, cleaners, security)'
+          : 'Non-student staff attendance',
       searchHint: 'Search by name, role, or employee ID...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
+      showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
       addButtonLabel: 'Add Worker',
       onAddPressed: () => _showFormDialog(),
       listContent: filtered.isEmpty
@@ -131,11 +140,12 @@ class _WorkersScreenState extends State<WorkersScreen> {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    schoolName,
+                    if (widget.showSchoolFilter && widget.schools.length > 1)
+                      schoolName,
                     if (w.role != null) w.role!,
                     if (w.employeeId != null) 'ID: ${w.employeeId}',
                     if (w.fingerprintData != null) 'Fingerprint on file',
-                  ].join(' · '),
+                  ].where((s) => s.isNotEmpty).join(' · '),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
@@ -174,7 +184,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setStateDialog) => AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
           title: Text(
             isEdit ? 'Edit Worker' : 'Add Worker',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -191,20 +201,22 @@ class _WorkersScreenState extends State<WorkersScreen> {
                     decoration: adminInputDecoration('Full Name', required: true),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    value: schoolId,
-                    decoration: adminInputDecoration('School', required: true),
-                    dropdownColor: Colors.white,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                    items: widget.schools
-                        .map((s) => DropdownMenuItem<String?>(
-                              value: s.id,
-                              child: Text(s.name),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setStateDialog(() => schoolId = v),
-                  ),
-                  const SizedBox(height: 16),
+                  if (widget.schools.length > 1) ...[
+                    DropdownButtonFormField<String?>(
+                      value: schoolId,
+                      decoration: adminInputDecoration('School', required: true),
+                      dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      items: widget.schools
+                          .map((s) => DropdownMenuItem<String?>(
+                                value: s.id,
+                                child: Text(s.name),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setStateDialog(() => schoolId = v),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextField(
                     controller: roleController,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -317,7 +329,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
         title: Text('Delete Worker', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
           'Delete "${w.name}"? This action cannot be undone.',

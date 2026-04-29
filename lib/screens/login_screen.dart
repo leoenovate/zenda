@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
 import 'parent_dashboard_screen.dart';
+import 'school_admin_dashboard.dart';
 import 'system_owner_dashboard.dart';
+import 'teacher_dashboard_screen.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
@@ -22,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  UserRole? _selectedRole;
 
   @override
   void dispose() {
@@ -32,16 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a role'),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
-      );
-      return;
-    }
-
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -55,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final password = _passwordController.text;
 
       AuthSession session;
-      if (_selectedRole == UserRole.parent) {
+      if (_isStudentNumber(emailOrStudentNumber)) {
         session = await AuthService.signInAsParent(
           studentNumber: emailOrStudentNumber,
           password: password,
@@ -64,7 +54,6 @@ class _LoginScreenState extends State<LoginScreen> {
         session = await AuthService.signInWithEmail(
           email: emailOrStudentNumber,
           password: password,
-          expectedRole: _selectedRole,
         );
       }
 
@@ -82,11 +71,12 @@ class _LoginScreenState extends State<LoginScreen> {
       switch (session.role) {
         case UserRole.parent:
           target = ParentDashboardScreen(
-            phoneNumber: session.students.isNotEmpty
-                ? (session.students.first.fatherPhone ??
-                    session.students.first.motherPhone ??
-                    '')
-                : '',
+            phoneNumber:
+                session.students.isNotEmpty
+                    ? (session.students.first.fatherPhone ??
+                        session.students.first.motherPhone ??
+                        '')
+                    : '',
             students: session.students,
           );
           break;
@@ -94,8 +84,10 @@ class _LoginScreenState extends State<LoginScreen> {
           target = const SystemOwnerDashboard();
           break;
         case UserRole.schoolAdmin:
+          target = const SchoolAdminDashboard();
+          break;
         case UserRole.teacher:
-          target = const HomeScreen();
+          target = const TeacherDashboardScreen();
           break;
       }
 
@@ -120,6 +112,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  bool _isStudentNumber(String value) => !value.contains('@');
+
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
@@ -131,9 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Positioned(
             top: 8,
             right: 8,
-            child: SafeArea(
-              child: const ThemeSwitcher(onAppBar: false),
-            ),
+            child: SafeArea(child: const ThemeSwitcher(onAppBar: false)),
           ),
         ],
       ),
@@ -217,11 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
             color: colorScheme.primaryContainer,
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            Icons.school_rounded,
-            size: 64,
-            color: onBrand,
-          ),
+          child: Icon(Icons.school_rounded, size: 64, color: onBrand),
         ),
         const SizedBox(height: 24),
         Text(
@@ -262,9 +250,15 @@ class _LoginScreenState extends State<LoginScreen> {
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
-        _buildFeatureButton(icon: Icons.check_circle, label: 'Real-time Updates'),
+        _buildFeatureButton(
+          icon: Icons.check_circle,
+          label: 'Real-time Updates',
+        ),
         _buildFeatureButton(icon: Icons.shield, label: 'Secure & Reliable'),
-        _buildFeatureButton(icon: Icons.desktop_windows, label: 'Multi-Platform'),
+        _buildFeatureButton(
+          icon: Icons.desktop_windows,
+          label: 'Multi-Platform',
+        ),
       ],
     );
   }
@@ -276,10 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: onBrand.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: onBrand.withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -317,10 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 8),
           Text(
             'Please sign in to continue',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 32),
           Container(
@@ -340,32 +328,17 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Select Role',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildRoleSelection(),
-                const SizedBox(height: 24),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.text,
                   decoration: InputDecoration(
-                    labelText: _selectedRole == UserRole.parent
-                        ? 'Student Number'
-                        : 'Email or Student Number',
-                    hintText: _selectedRole == UserRole.parent
-                        ? 'STD001'
-                        : 'email@school.com',
+                    labelText: 'Email or Student Number',
+                    hintText: 'email@school.com or STD001',
                     prefixIcon: const Icon(Icons.person),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter ${_selectedRole == UserRole.parent ? "student number" : "email or student number"}';
+                      return 'Please enter your email or student number';
                     }
                     return null;
                   },
@@ -407,31 +380,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: _isLoading
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              colorScheme.onPrimary,
-                            ),
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                  child:
+                      _isLoading
+                          ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.onPrimary,
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 20),
-                          ],
-                        ),
+                          )
+                          : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward, size: 20),
+                            ],
+                          ),
                 ),
                 const SizedBox(height: 24),
                 Container(
@@ -462,14 +436,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildDemoCredential('Owner', 'owner@school.com',
-                          'owner123', UserRole.systemOwner),
-                      _buildDemoCredential('Admin', 'admin@school.com',
-                          'admin123', UserRole.schoolAdmin),
-                      _buildDemoCredential('Teacher', 'teacher@school.com',
-                          'teacher123', UserRole.teacher),
                       _buildDemoCredential(
-                          'Parent', 'STD001', 'parent123', UserRole.parent),
+                        'Owner',
+                        'owner@school.com',
+                        'owner123',
+                      ),
+                      _buildDemoCredential(
+                        'Admin',
+                        'admin@school.com',
+                        'admin123',
+                      ),
+                      _buildDemoCredential(
+                        'Teacher',
+                        'teacher@school.com',
+                        'teacher123',
+                      ),
+                      _buildDemoCredential('Parent', 'STD001', 'parent123'),
                     ],
                   ),
                 ),
@@ -480,112 +462,14 @@ class _LoginScreenState extends State<LoginScreen> {
           Text(
             '\u00a92025 Zenda. All rights reserved.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.outline,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.outline),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRoleSelection() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildRoleButton(
-                role: UserRole.parent,
-                icon: Icons.family_restroom,
-                label: 'Parent',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildRoleButton(
-                role: UserRole.teacher,
-                icon: Icons.school,
-                label: 'Teacher',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildRoleButton(
-                role: UserRole.schoolAdmin,
-                icon: Icons.computer,
-                label: 'School Admin',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildRoleButton(
-                role: UserRole.systemOwner,
-                icon: Icons.people,
-                label: 'System Owner',
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRoleButton({
-    required UserRole role,
-    required IconData icon,
-    required String label,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isSelected = _selectedRole == role;
-    final bg = isSelected
-        ? colorScheme.primary.withValues(alpha: 0.1)
-        : colorScheme.surfaceContainer;
-    final border = isSelected ? colorScheme.primary : colorScheme.outlineVariant;
-    final fg = isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedRole = role;
-        });
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: fg, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: fg,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDemoCredential(
-      String role, String username, String password, UserRole userRole) {
+  Widget _buildDemoCredential(String role, String username, String password) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -595,14 +479,12 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(6),
           onTap: () {
             setState(() {
-              _selectedRole = userRole;
               _emailController.text = username;
               _passwordController.text = password;
             });
           },
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             child: Row(
               children: [
                 Text(
