@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
-import '../../models/device_enrolled_user.dart';
+import '../../models/device_enrollment.dart';
 import '../../models/school.dart';
 import '../../models/teacher.dart';
 import '../../models/worker.dart';
+import '../../services/firebase_service.dart';
 import '../../services/zenda_device_api_service.dart';
 
 /// Screen for managing fingerprint slots on a single device.
 ///
-/// Mirrors the zenda-api-v2 web dashboard: lists enrolled users from
-/// `GET /api/users/:deviceId`, lets the school admin enroll a new slot,
-/// delete a slot, clear all slots, and request a fresh status push from
-/// the device over MQTT.
+/// Reads the canonical enrolled-users list from the
+/// `device_enrollments` Firestore collection (school-scoped via
+/// `FirebaseService._scoped`) and uses the api-v2 server only as a
+/// MQTT relay for enroll / delete / clear commands. Persistence is
+/// done in Firestore as soon as the device confirms an enroll, so the
+/// list survives api-v2 server restarts and doesn't depend on the
+/// device firmware ever publishing `/status`.
 class DeviceEnrollmentsScreen extends StatefulWidget {
   final Device device;
   final School? school;
@@ -33,14 +37,13 @@ class DeviceEnrollmentsScreen extends StatefulWidget {
 }
 
 class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
-  static const int _maxSlot = 20;
-  static const Duration _refreshDelay = Duration(seconds: 2);
+  static const int _maxSlot = 200;
 
   bool _isLoading = true;
-  bool _isRefreshingFromDevice = false;
+  bool _isRefreshing = false;
   bool _isEnrolling = false;
   String? _error;
-  List<DeviceEnrolledUser> _users = const [];
+  List<DeviceEnrollment> _enrollments = const [];
 
   @override
   void initState() {
@@ -54,12 +57,12 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
       _error = null;
     });
     try {
-      final users = await ZendaDeviceApiService.getUsersForDevice(
-        widget.device.deviceId,
+      final enrollments = await FirebaseService.getDeviceEnrollments(
+        deviceId: widget.device.deviceId,
       );
       if (!mounted) return;
       setState(() {
-        _users = users;
+        _enrollments = enrollments;
         _isLoading = false;
       });
     } catch (e) {
@@ -71,35 +74,34 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     }
   }
 
-  Future<void> _refreshFromDevice() async {
-    if (_isRefreshingFromDevice || _isEnrolling) return;
-    setState(() => _isRefreshingFromDevice = true);
+  /// Re-reads enrollments from Firestore. Synchronous and fast — no
+  /// device round-trip is needed because Firestore is the system of
+  /// record (we wrote there as soon as the device confirmed each enroll).
+  Future<void> _refresh() async {
+    if (_isRefreshing || _isEnrolling) return;
+    setState(() => _isRefreshing = true);
     try {
-      await ZendaDeviceApiService.postGetStatus(
-        deviceId: widget.device.deviceId,
-      );
-      await Future.delayed(_refreshDelay);
       await _load();
       if (!mounted) return;
-      _showSnackBar('Refreshed from device');
+      _showSnackBar('Enrollments updated');
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('Refresh failed: $e', isError: true);
     } finally {
       if (mounted) {
-        setState(() => _isRefreshingFromDevice = false);
+        setState(() => _isRefreshing = false);
       }
     }
   }
 
-  Future<void> _confirmAndDelete(DeviceEnrolledUser user) async {
+  Future<void> _confirmAndDelete(DeviceEnrollment enrollment) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
           (ctx) => AlertDialog(
             title: const Text('Delete enrollment?'),
             content: Text(
-              'Remove ${user.userName} from '
+              'Remove ${enrollment.name} from '
               '$_deviceLabel? This sends a delete command to the device.',
             ),
             actions: [
@@ -117,13 +119,23 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ZendaDeviceApiService.postDelete(
+      // Best-effort MQTT delete. We always remove the Firestore record
+      // even if the device is offline — the local DB is the source of
+      // truth, the device will pick up the change on the next clear /
+      // re-enroll cycle.
+      try {
+        await ZendaDeviceApiService.postDelete(
+          deviceId: widget.device.deviceId,
+          id: enrollment.slotId,
+        );
+      } catch (_) {}
+      await FirebaseService.deleteDeviceEnrollment(
         deviceId: widget.device.deviceId,
-        id: user.userId,
+        slotId: enrollment.slotId,
       );
       if (!mounted) return;
-      _showSnackBar('Delete command sent');
-      await _refreshFromDevice();
+      _showSnackBar('Enrollment removed');
+      await _load();
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('Failed to delete: $e', isError: true);
@@ -159,10 +171,15 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ZendaDeviceApiService.postClear(deviceId: widget.device.deviceId);
+      try {
+        await ZendaDeviceApiService.postClear(
+          deviceId: widget.device.deviceId,
+        );
+      } catch (_) {}
+      await FirebaseService.clearDeviceEnrollments(widget.device.deviceId);
       if (!mounted) return;
-      _showSnackBar('Clear command sent');
-      await _refreshFromDevice();
+      _showSnackBar('All enrollments cleared');
+      await _load();
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('Failed to clear: $e', isError: true);
@@ -170,15 +187,17 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
   }
 
   Future<void> _openEnrollDialog() async {
-    final usedSlots = _users.map((u) => u.userId).toSet();
+    final usedSlots = _enrollments.map((e) => e.slotId).toSet();
+    final schoolId = widget.device.schoolId ?? widget.school?.id ?? '';
     setState(() => _isEnrolling = true);
-    final result = await showDialog<bool>(
+    final result = await showDialog<DeviceEnrollment>(
       context: context,
       barrierDismissible: false,
       builder:
           (ctx) => _EnrollDialog(
             deviceId: widget.device.deviceId,
             deviceLabel: _deviceLabel,
+            schoolId: schoolId,
             usedSlots: usedSlots,
             maxSlot: _maxSlot,
             teachers: widget.teachers,
@@ -187,7 +206,10 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     );
     if (!mounted) return;
     setState(() => _isEnrolling = false);
-    if (result == true) {
+    if (result != null) {
+      // The dialog already wrote the record to Firestore as soon as the
+      // device confirmed enrollment, so the next list refresh is just
+      // a re-read.
       await _load();
     }
   }
@@ -256,7 +278,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
               )
             else if (_error != null)
               _buildErrorCard(colorScheme)
-            else if (_users.isEmpty)
+            else if (_enrollments.isEmpty)
               _buildEmptyState(colorScheme)
             else
               _buildUsersList(colorScheme),
@@ -323,7 +345,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${_users.length}/$_maxSlot slots',
+              '${_enrollments.length}/$_maxSlot slots',
               style: TextStyle(
                 color: colorScheme.onSecondaryContainer,
                 fontSize: 12,
@@ -341,19 +363,16 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed:
-                _isRefreshingFromDevice || _isEnrolling
-                    ? null
-                    : _refreshFromDevice,
+            onPressed: _isRefreshing || _isEnrolling ? null : _refresh,
             icon:
-                _isRefreshingFromDevice
+                _isRefreshing
                     ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                     : const Icon(Icons.sync),
-            label: const Text('Refresh from device'),
+            label: const Text('Refresh'),
           ),
         ),
       ],
@@ -410,8 +429,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tap "Refresh from device" to ask the device for its current users, '
-            'or enroll a new user to get started.',
+            'Tap "Enroll user" to add a teacher or worker to this device.',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
@@ -451,7 +469,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
                   ),
                 ),
                 Text(
-                  '${_users.length} user${_users.length == 1 ? '' : 's'}',
+                  '${_enrollments.length} user${_enrollments.length == 1 ? '' : 's'}',
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -465,41 +483,57 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _users.length,
+            itemCount: _enrollments.length,
             separatorBuilder:
                 (_, __) =>
                     Divider(height: 1, color: colorScheme.outlineVariant),
-            itemBuilder: (_, i) => _buildUserRow(_users[i], colorScheme),
+            itemBuilder: (_, i) => _buildUserRow(_enrollments[i], colorScheme),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUserRow(DeviceEnrolledUser user, ColorScheme colorScheme) {
-    final subtitleParts = <String>[
-      'Slot ${user.userId}',
-      if (user.cardId != null) 'Card ${user.cardId}',
-      if (user.userPhone != null) user.userPhone!,
-    ];
+  Widget _buildUserRow(DeviceEnrollment enrollment, ColorScheme colorScheme) {
+    final deviceName = (widget.device.deviceName ?? '').trim();
+    final deviceLine =
+        deviceName.isEmpty
+            ? widget.device.deviceId
+            : '${widget.device.deviceId} · $deviceName';
+    final phone = enrollment.phone ?? '';
 
     return Padding(
-      key: ValueKey('enrolled-${user.userId}'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      key: ValueKey('enrolled-${enrollment.slotId}'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              Icons.fingerprint,
-              color: colorScheme.onPrimaryContainer,
-              size: 20,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.fingerprint,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 16,
+                ),
+                Text(
+                  '#${enrollment.slotId}',
+                  style: TextStyle(
+                    color: colorScheme.onPrimaryContainer,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 14),
@@ -509,7 +543,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  user.userName,
+                  enrollment.name,
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 14,
@@ -518,23 +552,82 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (subtitleParts.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitleParts.join(' · '),
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+                const SizedBox(height: 6),
+                _EnrollmentField(
+                  label: 'Slot',
+                  value: enrollment.slotId.toString(),
+                ),
+                _EnrollmentField(
+                  label: 'Card ID',
+                  value: enrollment.cardId.isEmpty ? '—' : enrollment.cardId,
+                  monospace: true,
+                ),
+                _EnrollmentField(
+                  label: 'Phone',
+                  value: phone.isEmpty ? '—' : phone,
+                ),
+                _EnrollmentField(
+                  label: 'Device',
+                  value: deviceLine,
+                  monospace: true,
+                ),
               ],
             ),
           ),
           IconButton(
             tooltip: 'Delete enrollment',
             icon: Icon(Icons.delete_outline, color: colorScheme.error),
-            onPressed: () => _confirmAndDelete(user),
+            onPressed: () => _confirmAndDelete(enrollment),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One labelled key/value line inside an enrolled-user row. Keeps the
+/// label column at a fixed width so multiple lines align vertically.
+class _EnrollmentField extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool monospace;
+
+  const _EnrollmentField({
+    required this.label,
+    required this.value,
+    this.monospace = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 12,
+                fontFamily: monospace ? 'monospace' : null,
+              ),
+              maxLines: 1,
+            ),
           ),
         ],
       ),
@@ -545,6 +638,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
 class _EnrollDialog extends StatefulWidget {
   final String deviceId;
   final String deviceLabel;
+  final String schoolId;
   final Set<int> usedSlots;
   final int maxSlot;
   final List<Teacher> teachers;
@@ -553,6 +647,7 @@ class _EnrollDialog extends StatefulWidget {
   const _EnrollDialog({
     required this.deviceId,
     required this.deviceLabel,
+    required this.schoolId,
     required this.usedSlots,
     required this.maxSlot,
     required this.teachers,
@@ -660,7 +755,24 @@ class _EnrollDialogState extends State<_EnrollDialog> {
       });
       await _pollEnrollmentStatus(slot);
       if (!mounted) return;
-      Navigator.pop(context, true);
+
+      // Persist to Firestore — this is the source of truth for the
+      // device_enrollments collection. We do it here rather than
+      // relying on the api-v2 server's MQTT-driven mirror because the
+      // server can be asleep on Render's free tier and miss the
+      // device's `/enrollment success` ack.
+      final enrollment = DeviceEnrollment(
+        deviceId: widget.deviceId,
+        schoolId: widget.schoolId,
+        slotId: slot,
+        name: participant.name,
+        cardId: participant.cardId,
+        phone: participant.phone.isEmpty ? null : participant.phone,
+        enrolledAt: DateTime.now(),
+      );
+      await FirebaseService.upsertDeviceEnrollment(enrollment);
+      if (!mounted) return;
+      Navigator.pop(context, enrollment);
     } catch (e) {
       if (!mounted) return;
       setState(() {

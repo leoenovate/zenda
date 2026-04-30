@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/role.dart';
@@ -5,9 +7,11 @@ import '../../models/school.dart';
 import '../../models/teacher.dart';
 import '../../models/user.dart' as app_user;
 import '../../models/worker.dart';
+import '../../services/device_enrollment_lookup_service.dart';
 import '../../services/firebase_service.dart';
 import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import '../../widgets/admin/enrolled_badge.dart';
 
 const List<String> _kRoleColorPalette = [
   '#FF7043',
@@ -40,6 +44,13 @@ class _Person {
   final String? roleId;
   final String? subtitle;
 
+  /// Ordered cardId candidates used to match this person against the
+  /// device enrollment table. Mirrors `_EnrollmentParticipant`'s lookup:
+  /// `employeeId` first, falling back to the document id. Empty for kinds
+  /// that aren't enrollable (admin / staff users live in `users/` and
+  /// don't have an employeeId today).
+  final List<String?> cardCandidates;
+
   const _Person({
     required this.kind,
     required this.id,
@@ -47,6 +58,7 @@ class _Person {
     required this.schoolId,
     required this.roleId,
     this.subtitle,
+    this.cardCandidates = const [],
   });
 }
 
@@ -79,6 +91,8 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   bool _isLoading = true;
   List<_Person> _people = [];
   String _searchQuery = '';
+  DeviceEnrollmentLookup _enrollments =
+      const DeviceEnrollmentLookup.empty();
 
   bool get _isUnassignedBucket => widget.role.id == null;
 
@@ -113,6 +127,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
         _people = _buildPeople(workers, teachers, users);
         _isLoading = false;
       });
+      unawaited(_loadEnrollments());
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -120,6 +135,15 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error loading employees: $e')));
     }
+  }
+
+  Future<void> _loadEnrollments() async {
+    try {
+      final devices = await FirebaseService.getDevices();
+      final lookup = await DeviceEnrollmentLookup.fetch(devices);
+      if (!mounted) return;
+      setState(() => _enrollments = lookup);
+    } catch (_) {}
   }
 
   List<_Person> _buildPeople(
@@ -143,6 +167,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
             if ((w.phone ?? '').isNotEmpty) w.phone!,
             if ((w.email ?? '').isNotEmpty) w.email!,
           ].where((s) => s.isNotEmpty).join(' · '),
+          cardCandidates: [w.employeeId, w.id],
         ),
       );
     }
@@ -161,6 +186,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
             if ((t.phone ?? '').isNotEmpty) t.phone!,
             if ((t.email ?? '').isNotEmpty) t.email!,
           ].where((s) => s.isNotEmpty).join(' · '),
+          cardCandidates: [t.employeeId, t.id],
         ),
       );
     }
@@ -251,8 +277,8 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
       schoolFilter: 'all',
       onSchoolFilterChanged: (_) {},
       showSchoolFilter: false,
-      addButtonLabel: _isUnassignedBucket ? null : 'Add employee',
-      onAddPressed: _isUnassignedBucket ? null : _openAddDialog,
+      addButtonLabel: 'Add employee',
+      onAddPressed: _openAddDialog,
       headerExtras: headerExtras,
       listContent: filtered.isEmpty
           ? AdminEmptyState(
@@ -323,6 +349,16 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                 ),
               ],
             ),
+          ),
+          Builder(
+            builder: (_) {
+              final hits = _enrollments.findEnrollments(p.cardCandidates);
+              if (hits.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: EnrolledBadge(enrollments: hits),
+              );
+            },
           ),
           PopupMenuButton<_RowAction>(
             tooltip: 'More',
@@ -402,10 +438,11 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
       });
 
     if (available.isEmpty) {
+      final msg = _isUnassignedBucket
+          ? 'No assigned people to unassign'
+          : 'Every eligible person is already assigned';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Every eligible person is already assigned'),
-        ),
+        SnackBar(content: Text(msg)),
       );
       return;
     }
@@ -437,10 +474,13 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                 (p.subtitle ?? '').toLowerCase().contains(q);
           }).toList();
 
+          final dialogTitle = _isUnassignedBucket
+              ? 'Unassign people from their roles'
+              : 'Add employees to ${widget.role.name}';
           return AlertDialog(
             backgroundColor: colorScheme.surface,
             title: Text(
-              'Add employees to ${widget.role.name}',
+              dialogTitle,
               style: TextStyle(color: colorScheme.onSurface),
             ),
             content: SizedBox(
@@ -569,14 +609,14 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                           }
                           if (!mounted) return;
                           Navigator.pop(dialogCtx);
+                          final personLabel =
+                              selected.length == 1 ? 'person' : 'people';
+                          final msg = _isUnassignedBucket
+                              ? 'Unassigned ${selected.length} $personLabel'
+                              : 'Assigned ${selected.length} $personLabel '
+                                  'to ${widget.role.name}';
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Assigned ${selected.length} '
-                                '${selected.length == 1 ? 'person' : 'people'} '
-                                'to ${widget.role.name}',
-                              ),
-                            ),
+                            SnackBar(content: Text(msg)),
                           );
                           await _load();
                           widget.onDataChanged?.call();

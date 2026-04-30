@@ -1,10 +1,14 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/teacher.dart';
+import '../../services/device_enrollment_lookup_service.dart';
 import '../../services/firebase_service.dart';
 import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import '../../widgets/admin/enrolled_badge.dart';
 import '../../widgets/admin/role_dropdown.dart';
 
 class TeachersScreen extends StatefulWidget {
@@ -29,6 +33,8 @@ class _TeachersScreenState extends State<TeachersScreen> {
   List<Role> _roles = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
+  DeviceEnrollmentLookup _enrollments =
+      const DeviceEnrollmentLookup.empty();
 
   @override
   void initState() {
@@ -49,12 +55,26 @@ class _TeachersScreenState extends State<TeachersScreen> {
         _roles = results[1] as List<Role>;
         _isLoading = false;
       });
+      // Refresh enrollment badges in the background — slow HTTP queries
+      // against each device shouldn't block the list from rendering.
+      unawaited(_loadEnrollments());
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading teachers: $e')),
       );
+    }
+  }
+
+  Future<void> _loadEnrollments() async {
+    try {
+      final devices = await FirebaseService.getDevices();
+      final lookup = await DeviceEnrollmentLookup.fetch(devices);
+      if (!mounted) return;
+      setState(() => _enrollments = lookup);
+    } catch (_) {
+      // Silently leave the badge off if we can't reach the device API.
     }
   }
 
@@ -165,6 +185,16 @@ class _TeachersScreenState extends State<TeachersScreen> {
                 ),
               ],
             ),
+          ),
+          Builder(
+            builder: (_) {
+              final hits = _enrollments.findEnrollments([t.employeeId, t.id]);
+              if (hits.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: EnrolledBadge(enrollments: hits),
+              );
+            },
           ),
           if (!t.isActive)
             Container(

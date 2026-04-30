@@ -1,10 +1,14 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/worker.dart';
+import '../../services/device_enrollment_lookup_service.dart';
 import '../../services/firebase_service.dart';
 import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import '../../widgets/admin/enrolled_badge.dart';
 
 class WorkersScreen extends StatefulWidget {
   final List<School> schools;
@@ -28,6 +32,8 @@ class _WorkersScreenState extends State<WorkersScreen> {
   List<Role> _roles = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
+  DeviceEnrollmentLookup _enrollments =
+      const DeviceEnrollmentLookup.empty();
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
         _roles = results[1] as List<Role>;
         _isLoading = false;
       });
+      unawaited(_loadEnrollments());
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -55,6 +62,15 @@ class _WorkersScreenState extends State<WorkersScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error loading workers: $e')));
     }
+  }
+
+  Future<void> _loadEnrollments() async {
+    try {
+      final devices = await FirebaseService.getDevices();
+      final lookup = await DeviceEnrollmentLookup.fetch(devices);
+      if (!mounted) return;
+      setState(() => _enrollments = lookup);
+    } catch (_) {}
   }
 
   /// Roles applicable to workers in [schoolId] (active and `appliesTo`
@@ -207,6 +223,16 @@ class _WorkersScreenState extends State<WorkersScreen> {
                 ),
               ],
             ),
+          ),
+          Builder(
+            builder: (_) {
+              final hits = _enrollments.findEnrollments([w.employeeId, w.id]);
+              if (hits.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: EnrolledBadge(enrollments: hits),
+              );
+            },
           ),
           IconButton(
             icon: Icon(

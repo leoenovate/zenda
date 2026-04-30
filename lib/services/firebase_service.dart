@@ -15,6 +15,7 @@ import '../models/system_config.dart';
 import '../models/worker.dart';
 import '../models/staff_time_off.dart';
 import '../models/role.dart';
+import '../models/device_enrollment.dart';
 import 'auth_service.dart';
 import 'dart:async';
 
@@ -655,6 +656,95 @@ class FirebaseService {
       await _firestore.collection('devices').doc(deviceId).delete();
     } catch (e) {
       throw Exception('Failed to delete device: $e');
+    }
+  }
+
+  // --- Device enrollments ---------------------------------------------
+  //
+  // The `device_enrollments` collection tracks which employee is
+  // programmed at which slot on which fingerprint device. Document id
+  // is `${deviceId}_${slotId}` so writes are idempotent upserts.
+  //
+  // The Flutter app is the system of record for this collection — we
+  // write here as soon as the device confirms a successful enroll, and
+  // we read here for every list view, so we never have to wait for a
+  // possibly-sleeping api-v2 server to mirror state from MQTT pushes.
+
+  /// Lists every enrollment in the current school's scope. Pass
+  /// [deviceId] to narrow to a single device.
+  static Future<List<DeviceEnrollment>> getDeviceEnrollments({
+    String? deviceId,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> q = _scoped(
+        _firestore.collection('device_enrollments'),
+      );
+      if (deviceId != null && deviceId.isNotEmpty) {
+        q = q.where('deviceId', isEqualTo: deviceId);
+      }
+      final snapshot = await q.get();
+      final results = snapshot.docs
+          .map((doc) => DeviceEnrollment.fromFirestore(doc.data(), doc.id))
+          .toList();
+      results.sort((a, b) => a.slotId.compareTo(b.slotId));
+      return results;
+    } catch (e) {
+      throw Exception('Failed to load device enrollments: $e');
+    }
+  }
+
+  /// Upserts a single enrollment record. Always uses the deterministic
+  /// `${deviceId}_${slotId}` doc id so subsequent enrolls at the same
+  /// slot replace the previous holder cleanly.
+  static Future<void> upsertDeviceEnrollment(DeviceEnrollment enrollment) async {
+    try {
+      final docId = DeviceEnrollment.makeDocId(
+        enrollment.deviceId,
+        enrollment.slotId,
+      );
+      final data = enrollment.toFirestore();
+      data['enrolledAt'] ??= FieldValue.serverTimestamp();
+      await _firestore
+          .collection('device_enrollments')
+          .doc(docId)
+          .set(data, SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to save enrollment: $e');
+    }
+  }
+
+  static Future<void> deleteDeviceEnrollment({
+    required String deviceId,
+    required int slotId,
+  }) async {
+    try {
+      final docId = DeviceEnrollment.makeDocId(deviceId, slotId);
+      await _firestore.collection('device_enrollments').doc(docId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete enrollment: $e');
+    }
+  }
+
+  /// Removes every enrollment row for [deviceId]. Done in batched
+  /// commits to stay within Firestore's 500-write batch limit.
+  static Future<void> clearDeviceEnrollments(String deviceId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('device_enrollments')
+          .where('deviceId', isEqualTo: deviceId)
+          .get();
+      if (snapshot.docs.isEmpty) return;
+      const batchLimit = 400;
+      for (var i = 0; i < snapshot.docs.length; i += batchLimit) {
+        final batch = _firestore.batch();
+        final end = (i + batchLimit).clamp(0, snapshot.docs.length);
+        for (final doc in snapshot.docs.sublist(i, end)) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      throw Exception('Failed to clear enrollments: $e');
     }
   }
 

@@ -167,6 +167,33 @@ class AuthService {
         throw Exception('User record is missing a role');
       }
 
+      if (!doc.exists) {
+        // Bootstrap: create the users/{uid} doc so Firestore rules can
+        // resolve the role for every subsequent query. Without this,
+        // `userDoc().role` evaluates to null in rules and admin queries
+        // fail with permission-denied even though the caller is
+        // authenticated. The `syncClaimsOnUserWrite` Cloud Function
+        // mirrors the role/schoolId fields into custom claims after
+        // the write, so the next request uses the fast claim path.
+        await doc.reference.set(
+          {
+            'email': trimmedEmail,
+            'role': userRoleToFirestore(role),
+            if (schoolId != null) 'schoolId': schoolId,
+            if (name != null) 'name': name,
+            'isActive': true,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastLogin': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+        // Force a refresh so any newly-set custom claim is picked up
+        // by subsequent Firestore requests in this session.
+        try {
+          await cred.user!.getIdToken(true);
+        } catch (_) {}
+      }
+
       _current = AuthSession(
         role: role,
         uid: uid,

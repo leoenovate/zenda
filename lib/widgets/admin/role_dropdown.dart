@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/role.dart';
-import '../../services/role_constants.dart';
 import 'admin_list_scaffold.dart';
 
 /// Reusable dropdown for picking a custom [Role] when editing a worker,

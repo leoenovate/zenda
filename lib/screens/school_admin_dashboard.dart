@@ -27,7 +27,6 @@ import 'admin/role_employees_screen.dart';
 import 'admin/sessions_screen.dart';
 import 'admin/students_screen.dart';
 import 'admin/teachers_screen.dart';
-import 'admin/workers_screen.dart';
 import 'admin/staff_time_off_screen.dart';
 import 'chat_list_screen.dart';
 import 'reports_screen.dart';

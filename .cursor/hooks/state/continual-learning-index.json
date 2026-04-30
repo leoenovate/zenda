@@ -1,7 +1,11 @@
 ﻿{
   "version": 1,
-  "updatedAt": "2026-04-30T09:40:00.0000000Z",
+  "updatedAt": "2026-04-30T14:51:30.0000000Z",
   "transcripts": {
+    "01e1d018-f002-4432-bbb8-a5717aebf5be": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\01e1d018-f002-4432-bbb8-a5717aebf5be\\01e1d018-f002-4432-bbb8-a5717aebf5be.jsonl",
+      "mtime": "2026-04-30T12:27:27.3873941Z"
+    },
     "11af36dd-ad40-4d53-bdbc-f9e14f4a22d7": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\11af36dd-ad40-4d53-bdbc-f9e14f4a22d7\\11af36dd-ad40-4d53-bdbc-f9e14f4a22d7.jsonl",
       "mtime": "2026-04-21T17:01:41.1618250Z"
@@ -24,7 +28,7 @@
     },
     "40073aac-8d5c-4ccb-8bc3-a56da807c3c0": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\40073aac-8d5c-4ccb-8bc3-a56da807c3c0\\40073aac-8d5c-4ccb-8bc3-a56da807c3c0.jsonl",
-      "mtime": "2026-04-29T21:36:52.0501844Z"
+      "mtime": "2026-04-30T10:02:37.3470930Z"
     },
     "403d404b-524c-4f32-8760-a259e21889a4": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\403d404b-524c-4f32-8760-a259e21889a4\\403d404b-524c-4f32-8760-a259e21889a4.jsonl",
@@ -32,7 +36,11 @@
     },
     "4552e129-62c9-4f87-84cf-cfed2b541a5e": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\4552e129-62c9-4f87-84cf-cfed2b541a5e\\4552e129-62c9-4f87-84cf-cfed2b541a5e.jsonl",
-      "mtime": "2026-04-30T09:39:19.2339872Z"
+      "mtime": "2026-04-30T14:50:59.3033020Z"
+    },
+    "4af9778d-a872-4f95-8769-2205f28ea354": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\4af9778d-a872-4f95-8769-2205f28ea354\\4af9778d-a872-4f95-8769-2205f28ea354.jsonl",
+      "mtime": "2026-04-30T11:49:51.6069467Z"
     },
     "555a379c-fe9a-426c-88cf-198bbed7fd6e": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\555a379c-fe9a-426c-88cf-198bbed7fd6e\\555a379c-fe9a-426c-88cf-198bbed7fd6e.jsonl",
@@ -52,7 +60,7 @@
     },
     "62e3468f-9170-43e6-8c29-c243beadb199": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\62e3468f-9170-43e6-8c29-c243beadb199\\62e3468f-9170-43e6-8c29-c243beadb199.jsonl",
-      "mtime": "2026-04-30T09:25:42.8544422Z"
+      "mtime": "2026-04-30T10:42:28.8562842Z"
     },
     "6fdbeb1c-bf88-4630-82a6-665f1d9f3904": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\6fdbeb1c-bf88-4630-82a6-665f1d9f3904\\6fdbeb1c-bf88-4630-82a6-665f1d9f3904.jsonl",
@@ -68,7 +76,7 @@
     },
     "7eee420a-bba6-499b-8b87-33bdf9a7d447": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\7eee420a-bba6-499b-8b87-33bdf9a7d447\\7eee420a-bba6-499b-8b87-33bdf9a7d447.jsonl",
-      "mtime": "2026-04-28T23:50:35.9658090Z"
+      "mtime": "2026-04-30T09:54:38.9497683Z"
     },
     "7faf4124-d94f-43c4-afc0-90d32114c47c": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\7faf4124-d94f-43c4-afc0-90d32114c47c\\7faf4124-d94f-43c4-afc0-90d32114c47c.jsonl",
@@ -89,6 +97,10 @@
     "c2bf8d33-dadc-4fec-b1cd-c97d89f122b9": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\c2bf8d33-dadc-4fec-b1cd-c97d89f122b9\\c2bf8d33-dadc-4fec-b1cd-c97d89f122b9.jsonl",
       "mtime": "2026-04-22T14:48:41.5199122Z"
+    },
+    "c453cbec-2fba-4848-92dc-d911748ffe6c": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\c453cbec-2fba-4848-92dc-d911748ffe6c\\c453cbec-2fba-4848-92dc-d911748ffe6c.jsonl",
+      "mtime": "2026-04-30T14:46:46.9085666Z"
     },
     "c51bc23d-2721-4194-b468-9af94d6f4b90": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\c51bc23d-2721-4194-b468-9af94d6f4b90\\c51bc23d-2721-4194-b468-9af94d6f4b90.jsonl",
@@ -120,7 +132,7 @@
     },
     "eddd3c55-2efd-43ad-a745-2b1b8db946dd": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\eddd3c55-2efd-43ad-a745-2b1b8db946dd\\eddd3c55-2efd-43ad-a745-2b1b8db946dd.jsonl",
-      "mtime": "2026-04-30T09:33:58.2333083Z"
+      "mtime": "2026-04-30T10:08:30.0528971Z"
     },
     "ee98b98c-f1b9-4b4b-85fd-3c66758e5831": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\ee98b98c-f1b9-4b4b-85fd-3c66758e5831\\ee98b98c-f1b9-4b4b-85fd-3c66758e5831.jsonl",
