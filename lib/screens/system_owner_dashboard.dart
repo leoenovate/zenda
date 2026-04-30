@@ -19,6 +19,7 @@ import 'admin/parents_screen.dart';
 import 'reports_screen.dart';
 import 'admin/sessions_screen.dart';
 import 'admin/workers_screen.dart';
+import 'admin/staff_time_off_screen.dart';
 import 'admin/system_config_screen.dart';
 
 class SystemOwnerDashboard extends StatefulWidget {
@@ -232,8 +233,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 _buildNavItem(Icons.family_restroom, 'Parents', 5),
                 _buildNavItem(Icons.event_note, 'Sessions', 6),
                 _buildNavItem(Icons.engineering, 'Workers', 7),
-                _buildNavItem(Icons.insights_rounded, 'Reports', 8),
-                _buildNavItem(Icons.settings, 'System', 9),
+                _buildNavItem(Icons.event_busy, 'Time off', 8),
+                _buildNavItem(Icons.insights_rounded, 'Reports', 9),
+                _buildNavItem(Icons.settings, 'System', 10),
               ],
             ),
           ),
@@ -416,8 +418,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.insights_rounded, color: Colors.white70),
-            title: const Text('Reports', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.event_busy, color: Colors.white70),
+            title: const Text('Time off', style: TextStyle(color: Colors.white)),
             selected: _selectedIndex == 8,
             onTap: () {
               setState(() => _selectedIndex = 8);
@@ -425,11 +427,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.settings, color: Colors.white70),
-            title: const Text('System', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.insights_rounded, color: Colors.white70),
+            title: const Text('Reports', style: TextStyle(color: Colors.white)),
             selected: _selectedIndex == 9,
             onTap: () {
               setState(() => _selectedIndex = 9);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings, color: Colors.white70),
+            title: const Text('System', style: TextStyle(color: Colors.white)),
+            selected: _selectedIndex == 10,
+            onTap: () {
+              setState(() => _selectedIndex = 10);
               Navigator.pop(context);
             },
           ),
@@ -521,8 +532,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       case 7:
         return WorkersScreen(schools: schools, onDataChanged: _loadData);
       case 8:
-        return const ReportsView();
+        return StaffTimeOffScreen(schools: schools, onDataChanged: _loadData);
       case 9:
+        return const ReportsView();
+      case 10:
         return const SystemConfigScreen();
       default:
         return _buildDashboard();

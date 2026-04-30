@@ -26,6 +26,7 @@ import 'admin/sessions_screen.dart';
 import 'admin/students_screen.dart';
 import 'admin/teachers_screen.dart';
 import 'admin/workers_screen.dart';
+import 'admin/staff_time_off_screen.dart';
 import 'chat_list_screen.dart';
 import 'reports_screen.dart';
 
@@ -46,6 +47,7 @@ enum _Section {
   dashboard,
   devices,
   sessions,
+  timeOff,
   reports,
   rolesAdmins,
   rolesTeachers,
@@ -57,6 +59,7 @@ enum _Section {
 
 class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   _Section _selected = _Section.dashboard;
+  String? _selectedCustomRoleId;
   bool _sidebarCollapsed = false;
   bool _rolesExpanded = true;
   bool _isLoading = true;
@@ -211,9 +214,8 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     return Color(parsed);
   }
 
-  /// Opens the form that creates a brand-new custom role record in
-  /// Firestore. After save, the dashboard refreshes and switches to the
-  /// Custom Roles management screen so the user can see the new entry.
+  /// Opens the form that creates a brand-new custom role record in Firestore.
+  /// After save, the dashboard refreshes and selects that role in the sidebar.
   void _openAddRoleDialog({bool closeDrawer = false}) {
     if (closeDrawer) {
       Navigator.pop(context);
@@ -357,7 +359,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                               }
                               setStateDialog(() => isSaving = true);
                               try {
-                                await FirebaseService.addRole(
+                                final roleId = await FirebaseService.addRole(
                                   Role(
                                     name: name,
                                     description:
@@ -379,6 +381,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                                 if (!mounted) return;
                                 setState(() {
                                   _selected = _Section.rolesCustom;
+                                  _selectedCustomRoleId = roleId;
                                   _rolesExpanded = true;
                                 });
                               } catch (e) {
@@ -483,6 +486,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                 _buildNavItem(Icons.dashboard, 'Dashboard', _Section.dashboard),
                 _buildNavItem(Icons.fingerprint, 'Devices', _Section.devices),
                 _buildNavItem(Icons.event_note, 'Sessions', _Section.sessions),
+                _buildNavItem(Icons.event_busy, 'Time off', _Section.timeOff),
                 _buildRolesNavItem(),
                 _buildNavItem(
                   Icons.insights_rounded,
@@ -635,9 +639,13 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     _Section section, {
     int indent = 0,
     int? badge,
+    String? customRoleId,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSelected = _selected == section;
+    final isSelected =
+        _selected == section &&
+        (section != _Section.rolesCustom ||
+            customRoleId == _selectedCustomRoleId);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -655,7 +663,11 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: () => setState(() => _selected = section),
+          onTap:
+              () => setState(() {
+                _selected = section;
+                _selectedCustomRoleId = customRoleId;
+              }),
           child: Padding(
             padding: EdgeInsets.fromLTRB(10 + indent * 16.0, 8, 10, 8),
             child: Row(
@@ -714,11 +726,11 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  /// Children populated dynamically from the loaded dataset; built-in
-  /// categories with zero records are hidden, but the Custom Roles entry
-  /// is always shown so admins can manage their definitions.
+  /// Children populated dynamically from the loaded dataset. Built-in
+  /// categories with zero records are hidden; custom roles are shown by name
+  /// so new roles like "Cleaner" appear directly in the sidebar.
   List<_RoleEntry> _roleEntries() {
-    return [
+    final entries = [
       _RoleEntry(
         Icons.admin_panel_settings,
         'Admins',
@@ -749,33 +761,51 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _students.length,
         _Section.rolesStudents,
       ),
-      _RoleEntry(
-        Icons.badge_outlined,
-        'Custom Roles',
-        _customRoles.length,
-        _Section.rolesCustom,
-        alwaysShow: true,
-      ),
     ];
+
+    for (final role in _customRoles) {
+      entries.add(
+        _RoleEntry(
+          Icons.badge_outlined,
+          role.name,
+          null,
+          _Section.rolesCustom,
+          alwaysShow: true,
+          customRoleId: role.id,
+        ),
+      );
+    }
+
+    return entries;
   }
 
   Widget _buildRolesNavItem() {
     final colorScheme = Theme.of(context).colorScheme;
     final entries = _roleEntries();
-    final visible = entries.where((e) => e.count > 0 || e.alwaysShow).toList();
-    final isAnyChildSelected = entries.any((e) => e.section == _selected);
+    final visible =
+        entries.where((e) => (e.count ?? 0) > 0 || e.alwaysShow).toList();
+    final isAnyChildSelected = entries.any(
+      (e) =>
+          e.section == _selected &&
+          (e.section != _Section.rolesCustom ||
+              e.customRoleId == _selectedCustomRoleId),
+    );
 
     if (_sidebarCollapsed) {
-      return PopupMenuButton<_Section>(
+      return PopupMenuButton<_RoleEntry>(
         tooltip: 'Roles',
         position: PopupMenuPosition.over,
         offset: const Offset(70, 0),
-        onSelected: (s) => setState(() => _selected = s),
+        onSelected:
+            (entry) => setState(() {
+              _selected = entry.section;
+              _selectedCustomRoleId = entry.customRoleId;
+            }),
         itemBuilder:
             (_) => [
-              for (final e in entries)
-                PopupMenuItem<_Section>(
-                  value: e.section,
+              for (final e in visible)
+                PopupMenuItem<_RoleEntry>(
+                  value: e,
                   child: Row(
                     children: [
                       Icon(
@@ -785,29 +815,33 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                       ),
                       const SizedBox(width: 10),
                       Text(e.label),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${e.count}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                      if (e.count != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
                             color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                                Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${e.count}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -936,6 +970,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                 e.section,
                 indent: 1,
                 badge: e.count,
+                customRoleId: e.customRoleId,
               ),
           _buildAddRoleNavButton(),
         ],
@@ -1028,6 +1063,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                   _drawerTile(Icons.dashboard, 'Dashboard', _Section.dashboard),
                   _drawerTile(Icons.fingerprint, 'Devices', _Section.devices),
                   _drawerTile(Icons.event_note, 'Sessions', _Section.sessions),
+                  _drawerTile(Icons.event_busy, 'Time off', _Section.timeOff),
                   ExpansionTile(
                     iconColor: colorScheme.onPrimary,
                     collapsedIconColor: colorScheme.onPrimary.withOpacity(0.85),
@@ -1041,7 +1077,12 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                     ),
                     initiallyExpanded:
                         _rolesExpanded ||
-                        entries.any((e) => e.section == _selected),
+                        entries.any(
+                          (e) =>
+                              e.section == _selected &&
+                              (e.section != _Section.rolesCustom ||
+                                  e.customRoleId == _selectedCustomRoleId),
+                        ),
                     onExpansionChanged:
                         (v) => setState(() => _rolesExpanded = v),
                     children: [
@@ -1059,7 +1100,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                         onTap: () => _openAddRoleDialog(closeDrawer: true),
                       ),
                       for (final e in entries)
-                        if (e.count > 0 || e.alwaysShow)
+                        if ((e.count ?? 0) > 0 || e.alwaysShow)
                           ListTile(
                             contentPadding: const EdgeInsets.fromLTRB(
                               56,
@@ -1076,27 +1117,37 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                               e.label,
                               style: TextStyle(color: colorScheme.onPrimary),
                             ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.onPrimary.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${e.count}',
-                                style: TextStyle(
-                                  color: colorScheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            selected: _selected == e.section,
+                            trailing:
+                                e.count == null
+                                    ? null
+                                    : Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.onPrimary
+                                            .withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${e.count}',
+                                        style: TextStyle(
+                                          color: colorScheme.onPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                            selected:
+                                _selected == e.section &&
+                                (e.section != _Section.rolesCustom ||
+                                    e.customRoleId == _selectedCustomRoleId),
                             onTap: () {
-                              setState(() => _selected = e.section);
+                              setState(() {
+                                _selected = e.section;
+                                _selectedCustomRoleId = e.customRoleId;
+                              });
                               Navigator.pop(context);
                             },
                           ),
@@ -1135,7 +1186,10 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
       title: Text(label, style: TextStyle(color: colorScheme.onPrimary)),
       selected: _selected == section,
       onTap: () {
-        setState(() => _selected = section);
+        setState(() {
+          _selected = section;
+          _selectedCustomRoleId = null;
+        });
         Navigator.pop(context);
       },
     );
@@ -1188,6 +1242,12 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onDataChanged: _loadData,
           showSchoolFilter: false,
         );
+      case _Section.timeOff:
+        return StaffTimeOffScreen(
+          schools: schools,
+          onDataChanged: _loadData,
+          showSchoolFilter: false,
+        );
       case _Section.reports:
         return const ReportsView();
       case _Section.rolesAdmins:
@@ -1221,10 +1281,22 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           showSchoolFilter: false,
         );
       case _Section.rolesCustom:
+        final selectedRole = _customRoles.cast<Role?>().firstWhere(
+          (role) => role?.id == _selectedCustomRoleId,
+          orElse: () => null,
+        );
         return CustomRolesScreen(
           schools: schools,
           onDataChanged: _loadData,
           showSchoolFilter: false,
+          focusedRoleId: selectedRole?.id,
+          titleOverride: selectedRole?.name ?? 'Roles',
+          subtitleOverride:
+              selectedRole == null
+                  ? 'Define additional staff role labels for your school'
+                  : (selectedRole.description?.isNotEmpty == true
+                      ? selectedRole.description!
+                      : 'Manage this role for your school'),
         );
     }
   }
@@ -1234,8 +1306,9 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
 class _RoleEntry {
   final IconData icon;
   final String label;
-  final int count;
+  final int? count;
   final _Section section;
+  final String? customRoleId;
 
   /// When true, the entry is shown even if `count == 0` (so the user can
   /// always reach the management screen).
@@ -1247,6 +1320,7 @@ class _RoleEntry {
     this.count,
     this.section, {
     this.alwaysShow = false,
+    this.customRoleId,
   });
 }
 

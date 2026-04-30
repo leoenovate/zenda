@@ -12,6 +12,7 @@ import '../models/class_group.dart';
 import '../models/parent.dart' as app_parent;
 import '../models/system_config.dart';
 import '../models/worker.dart';
+import '../models/staff_time_off.dart';
 import '../models/role.dart';
 import 'auth_service.dart';
 import 'dart:async';
@@ -1341,6 +1342,67 @@ class FirebaseService {
       await _firestore.collection('workers').doc(id).delete();
     } catch (e) {
       throw Exception('Failed to delete worker: $e');
+    }
+  }
+
+  // STAFF TIME OFF (workers, teachers, school admins — collection id is legacy)
+
+  static Future<List<StaffTimeOff>> getStaffTimeOffs({String? schoolId}) async {
+    try {
+      final q = _scoped(
+        _firestore.collection('worker_time_off'),
+        explicitSchoolId: schoolId,
+      );
+      final snap = await q.get();
+      final list = snap.docs
+          .map((d) => StaffTimeOff.fromFirestore(d.data(), d.id))
+          .toList();
+      list.sort((a, b) {
+        final c = b.startDate.compareTo(a.startDate);
+        if (c != 0) return c;
+        return (a.assigneeName).compareTo(b.assigneeName);
+      });
+      return list;
+    } catch (e) {
+      throw Exception('Failed to get staff time off: $e');
+    }
+  }
+
+  static Future<String> addStaffTimeOff(StaffTimeOff entry) async {
+    try {
+      final data = entry.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('worker_time_off').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add staff time off: $e');
+    }
+  }
+
+  static Future<void> updateStaffTimeOff(StaffTimeOff entry) async {
+    try {
+      if (entry.id == null) {
+        throw Exception('Time off ID is required for update');
+      }
+      final data = entry.toFirestore();
+      if (entry.assigneeKind != 'worker') {
+        data['workerId'] = FieldValue.delete();
+        data['workerName'] = FieldValue.delete();
+      }
+      await _firestore
+          .collection('worker_time_off')
+          .doc(entry.id)
+          .update(data);
+    } catch (e) {
+      throw Exception('Failed to update staff time off: $e');
+    }
+  }
+
+  static Future<void> deleteStaffTimeOff(String id) async {
+    try {
+      await _firestore.collection('worker_time_off').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete staff time off: $e');
     }
   }
 

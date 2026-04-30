@@ -68,6 +68,7 @@ service cloud.firestore {
     match /teachers/{id}    { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /classes/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /workers/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
+    match /worker_time_off/{id} { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /sessions/{id}    { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /devices/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /parents/{id}     { allow read, write: if isAdmin(); }

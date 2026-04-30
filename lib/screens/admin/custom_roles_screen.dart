@@ -12,6 +12,9 @@ class CustomRolesScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
   final bool showSchoolFilter;
+  final String? focusedRoleId;
+  final String? titleOverride;
+  final String? subtitleOverride;
 
   /// Optional callback fired with `(focusForm: true)` shortly after mount when
   /// the caller wants the create dialog to open immediately (e.g. when
@@ -23,6 +26,9 @@ class CustomRolesScreen extends StatefulWidget {
     required this.schools,
     this.onDataChanged,
     this.showSchoolFilter = true,
+    this.focusedRoleId,
+    this.titleOverride,
+    this.subtitleOverride,
     this.autoOpenForm = false,
   });
 
@@ -68,6 +74,9 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
 
   List<Role> get _filtered {
     return _roles.where((r) {
+      if (widget.focusedRoleId != null && r.id != widget.focusedRoleId) {
+        return false;
+      }
       if (_schoolFilter != 'all' && r.schoolId != _schoolFilter) return false;
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
@@ -88,11 +97,12 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
 
     final filtered = _filtered;
     return AdminListScaffold(
-      title: 'Custom Roles',
+      title: widget.titleOverride ?? 'Roles',
       subtitle:
-          widget.showSchoolFilter
+          widget.subtitleOverride ??
+          (widget.showSchoolFilter
               ? 'Define additional staff role labels per school'
-              : 'Define additional staff role labels for your school',
+              : 'Define additional staff role labels for your school'),
       searchHint: 'Search by name or description...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
@@ -106,7 +116,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
           filtered.isEmpty
               ? const AdminEmptyState(
                 icon: Icons.badge_outlined,
-                message: 'No custom roles yet',
+                message: 'No roles yet',
               )
               : AdminListCard(
                 child: ListView.separated(
