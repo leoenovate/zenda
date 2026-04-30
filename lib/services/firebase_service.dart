@@ -12,6 +12,7 @@ import '../models/class_group.dart';
 import '../models/parent.dart' as app_parent;
 import '../models/system_config.dart';
 import '../models/worker.dart';
+import '../models/role.dart';
 import 'auth_service.dart';
 import 'dart:async';
 
@@ -51,12 +52,15 @@ class FirebaseService {
     try {
       // Ensure attendanceHistory is properly formatted
       studentData['attendanceHistory'] = studentData['attendanceHistory'] ?? [];
-      
+
       // Add timestamp if not present
-      studentData['createdAt'] = studentData['createdAt'] ?? DateTime.now().toIso8601String();
-      
-      final DocumentReference docRef = await _firestore.collection(_collection).add(studentData);
-      
+      studentData['createdAt'] =
+          studentData['createdAt'] ?? DateTime.now().toIso8601String();
+
+      final DocumentReference docRef = await _firestore
+          .collection(_collection)
+          .add(studentData);
+
       // Return the document ID
       return docRef.id;
     } catch (e) {
@@ -69,7 +73,7 @@ class FirebaseService {
     int retryCount = 0;
     const maxRetries = 3;
     const retryDelay = Duration(seconds: 2);
-    
+
     Future<List<Student>> attemptGetStudents() async {
       try {
         final QuerySnapshot snapshot =
@@ -103,16 +107,18 @@ class FirebaseService {
           await Future.delayed(retryDelay * retryCount);
           return attemptGetStudents();
         } else {
-          throw Exception('Failed to get students after multiple attempts: ${e.message}');
+          throw Exception(
+            'Failed to get students after multiple attempts: ${e.message}',
+          );
         }
       } catch (e) {
         throw Exception('Failed to get students: $e');
       }
     }
-    
+
     return attemptGetStudents();
   }
-  
+
   // Helper to parse sessionIds list from a Firestore student document.
   // Accepts the new `sessionIds` array. Returns an empty list when missing.
   static List<String> _parseSessionIds(Map<String, dynamic> data) {
@@ -126,7 +132,8 @@ class FirebaseService {
   // Helper to parse attendance history with better error handling
   static List<Attendance> _parseAttendanceHistory(Map<String, dynamic> data) {
     try {
-      final List<dynamic> rawAttendance = data['attendanceHistory'] as List<dynamic>? ?? [];
+      final List<dynamic> rawAttendance =
+          data['attendanceHistory'] as List<dynamic>? ?? [];
       return rawAttendance.map((attendance) {
         try {
           final statusString = attendance['status'] as String? ?? 'present';
@@ -139,7 +146,7 @@ class FirebaseService {
           } catch (e) {
             status = AttendanceStatus.present;
           }
-          
+
           return Attendance(
             date: DateTime.parse(attendance['date']),
             status: status,
@@ -205,9 +212,15 @@ class FirebaseService {
   }
 
   // Update a student
-  static Future<void> updateStudent(String studentId, Map<String, dynamic> studentData) async {
+  static Future<void> updateStudent(
+    String studentId,
+    Map<String, dynamic> studentData,
+  ) async {
     try {
-      await _firestore.collection(_collection).doc(studentId).update(studentData);
+      await _firestore
+          .collection(_collection)
+          .doc(studentId)
+          .update(studentData);
     } catch (e) {
       throw Exception('Failed to update student: $e');
     }
@@ -221,9 +234,9 @@ class FirebaseService {
       throw Exception('Failed to delete student: $e');
     }
   }
-  
+
   // CHAT FUNCTIONALITY
-  
+
   // Send a message
   static Future<String> sendMessage({
     required String studentId,
@@ -242,14 +255,16 @@ class FirebaseService {
         'senderName': senderName,
         'attachmentUrl': attachmentUrl,
       };
-      
-      final DocumentReference docRef = await _firestore.collection(_messagesCollection).add(message);
+
+      final DocumentReference docRef = await _firestore
+          .collection(_messagesCollection)
+          .add(message);
       return docRef.id;
     } catch (e) {
       throw Exception('Failed to send message: $e');
     }
   }
-  
+
   // Get messages for a specific student
   static Stream<List<Message>> getMessagesStream(String studentId) {
     try {
@@ -259,14 +274,16 @@ class FirebaseService {
           .orderBy('timestamp', descending: true)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList();
-      });
+            return snapshot.docs
+                .map((doc) => Message.fromFirestore(doc))
+                .toList();
+          });
     } catch (e) {
       print('Error getting messages: $e');
       return Stream.value([]);
     }
   }
-  
+
   // Mark message as read
   static Future<void> markMessageAsRead(String messageId) async {
     try {
@@ -277,7 +294,7 @@ class FirebaseService {
       throw Exception('Failed to mark message as read: $e');
     }
   }
-  
+
   // Delete a message
   static Future<void> deleteMessage(String messageId) async {
     try {
@@ -286,14 +303,20 @@ class FirebaseService {
       throw Exception('Failed to delete message: $e');
     }
   }
-  
+
   // Get unread message count for a student
-  static Stream<int> getUnreadMessageCount(String studentId, MessageSender recipient) {
+  static Stream<int> getUnreadMessageCount(
+    String studentId,
+    MessageSender recipient,
+  ) {
     try {
       return _firestore
           .collection(_messagesCollection)
           .where('studentId', isEqualTo: studentId)
-          .where('sender', isEqualTo: recipient == MessageSender.school ? 'parent' : 'school')
+          .where(
+            'sender',
+            isEqualTo: recipient == MessageSender.school ? 'parent' : 'school',
+          )
           .where('isRead', isEqualTo: false)
           .snapshots()
           .map((snapshot) => snapshot.docs.length);
@@ -302,24 +325,29 @@ class FirebaseService {
       return Stream.value(0);
     }
   }
-  
+
   // Get all conversations with unread messages (for overview)
-  static Stream<Map<String, int>> getAllUnreadMessages(MessageSender recipient) {
+  static Stream<Map<String, int>> getAllUnreadMessages(
+    MessageSender recipient,
+  ) {
     try {
       return _firestore
           .collection(_messagesCollection)
-          .where('sender', isEqualTo: recipient == MessageSender.school ? 'parent' : 'school')
+          .where(
+            'sender',
+            isEqualTo: recipient == MessageSender.school ? 'parent' : 'school',
+          )
           .where('isRead', isEqualTo: false)
           .snapshots()
           .map((snapshot) {
-        final Map<String, int> result = {};
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final studentId = data['studentId'] as String;
-          result[studentId] = (result[studentId] ?? 0) + 1;
-        }
-        return result;
-      });
+            final Map<String, int> result = {};
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              final studentId = data['studentId'] as String;
+              result[studentId] = (result[studentId] ?? 0) + 1;
+            }
+            return result;
+          });
     } catch (e) {
       print('Error getting all unread messages: $e');
       return Stream.value({});
@@ -335,21 +363,23 @@ class FirebaseService {
     required AttendanceStatus status,
   }) async {
     try {
-      final studentDoc = await _firestore.collection(_collection).doc(studentId).get();
+      final studentDoc =
+          await _firestore.collection(_collection).doc(studentId).get();
       if (!studentDoc.exists) {
         throw Exception('Student not found');
       }
 
       final data = studentDoc.data()!;
-      List<dynamic> attendanceHistory = data['attendanceHistory'] as List<dynamic>? ?? [];
+      List<dynamic> attendanceHistory =
+          data['attendanceHistory'] as List<dynamic>? ?? [];
 
       // Remove existing attendance for the same date if any
       attendanceHistory.removeWhere((att) {
         try {
           final attDate = DateTime.parse(att['date']);
           return attDate.year == date.year &&
-                 attDate.month == date.month &&
-                 attDate.day == date.day;
+              attDate.month == date.month &&
+              attDate.day == date.day;
         } catch (e) {
           return false;
         }
@@ -370,12 +400,15 @@ class FirebaseService {
   }
 
   // Get students by student number (registration number)
-  static Future<List<Student>> getStudentsByStudentNumber(String studentNumber) async {
+  static Future<List<Student>> getStudentsByStudentNumber(
+    String studentNumber,
+  ) async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection(_collection)
-          .where('registrationNumber', isEqualTo: studentNumber)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection(_collection)
+              .where('registrationNumber', isEqualTo: studentNumber)
+              .get();
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -406,21 +439,27 @@ class FirebaseService {
   }
 
   // Get students by parent phone number
-  static Future<List<Student>> getStudentsByParentPhone(String phoneNumber) async {
+  static Future<List<Student>> getStudentsByParentPhone(
+    String phoneNumber,
+  ) async {
     try {
       // Format phone number (remove +250 if present, handle variations)
-      String normalizedPhone = phoneNumber.replaceAll('+250', '').replaceAll(' ', '');
-      
+      String normalizedPhone = phoneNumber
+          .replaceAll('+250', '')
+          .replaceAll(' ', '');
+
       // Query for students with matching father or mother phone
-      final QuerySnapshot snapshot = await _firestore
-          .collection(_collection)
-          .where('fatherPhone', isEqualTo: normalizedPhone)
-          .get();
-      
-      final QuerySnapshot motherSnapshot = await _firestore
-          .collection(_collection)
-          .where('motherPhone', isEqualTo: normalizedPhone)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection(_collection)
+              .where('fatherPhone', isEqualTo: normalizedPhone)
+              .get();
+
+      final QuerySnapshot motherSnapshot =
+          await _firestore
+              .collection(_collection)
+              .where('motherPhone', isEqualTo: normalizedPhone)
+              .get();
 
       final Set<String> seenIds = {};
       final List<Student> students = [];
@@ -430,26 +469,28 @@ class FirebaseService {
         if (!seenIds.contains(doc.id)) {
           seenIds.add(doc.id);
           final data = doc.data() as Map<String, dynamic>;
-          students.add(Student(
-            id: doc.id,
-            name: data['name'] ?? '',
-            sessionIds: _parseSessionIds(data),
-            registrationNumber: data['registrationNumber'],
-            gender: data['gender'],
-            birthdate: data['birthdate'],
-            fatherName: data['fatherName'],
-            fatherPhone: data['fatherPhone'],
-            motherName: data['motherName'],
-            motherPhone: data['motherPhone'],
-            country: data['country'],
-            province: data['province'],
-            district: data['district'],
-            sector: data['sector'],
-            cell: data['cell'],
-            fingerprintData: data['fingerprintData'],
-            fingerprintTimestamp: data['fingerprintTimestamp'],
-            attendanceHistory: _parseAttendanceHistory(data),
-          ));
+          students.add(
+            Student(
+              id: doc.id,
+              name: data['name'] ?? '',
+              sessionIds: _parseSessionIds(data),
+              registrationNumber: data['registrationNumber'],
+              gender: data['gender'],
+              birthdate: data['birthdate'],
+              fatherName: data['fatherName'],
+              fatherPhone: data['fatherPhone'],
+              motherName: data['motherName'],
+              motherPhone: data['motherPhone'],
+              country: data['country'],
+              province: data['province'],
+              district: data['district'],
+              sector: data['sector'],
+              cell: data['cell'],
+              fingerprintData: data['fingerprintData'],
+              fingerprintTimestamp: data['fingerprintTimestamp'],
+              attendanceHistory: _parseAttendanceHistory(data),
+            ),
+          );
         }
       }
 
@@ -458,26 +499,28 @@ class FirebaseService {
         if (!seenIds.contains(doc.id)) {
           seenIds.add(doc.id);
           final data = doc.data() as Map<String, dynamic>;
-          students.add(Student(
-            id: doc.id,
-            name: data['name'] ?? '',
-            sessionIds: _parseSessionIds(data),
-            registrationNumber: data['registrationNumber'],
-            gender: data['gender'],
-            birthdate: data['birthdate'],
-            fatherName: data['fatherName'],
-            fatherPhone: data['fatherPhone'],
-            motherName: data['motherName'],
-            motherPhone: data['motherPhone'],
-            country: data['country'],
-            province: data['province'],
-            district: data['district'],
-            sector: data['sector'],
-            cell: data['cell'],
-            fingerprintData: data['fingerprintData'],
-            fingerprintTimestamp: data['fingerprintTimestamp'],
-            attendanceHistory: _parseAttendanceHistory(data),
-          ));
+          students.add(
+            Student(
+              id: doc.id,
+              name: data['name'] ?? '',
+              sessionIds: _parseSessionIds(data),
+              registrationNumber: data['registrationNumber'],
+              gender: data['gender'],
+              birthdate: data['birthdate'],
+              fatherName: data['fatherName'],
+              fatherPhone: data['fatherPhone'],
+              motherName: data['motherName'],
+              motherPhone: data['motherPhone'],
+              country: data['country'],
+              province: data['province'],
+              district: data['district'],
+              sector: data['sector'],
+              cell: data['cell'],
+              fingerprintData: data['fingerprintData'],
+              fingerprintTimestamp: data['fingerprintTimestamp'],
+              attendanceHistory: _parseAttendanceHistory(data),
+            ),
+          );
         }
       }
 
@@ -519,7 +562,8 @@ class FirebaseService {
   // Get all schools
   static Future<List<School>> getSchools() async {
     try {
-      final QuerySnapshot snapshot = await _firestore.collection('schools').get();
+      final QuerySnapshot snapshot =
+          await _firestore.collection('schools').get();
       return snapshot.docs.map((doc) {
         return School.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -545,7 +589,10 @@ class FirebaseService {
       if (school.id == null) {
         throw Exception('School ID is required for update');
       }
-      await _firestore.collection('schools').doc(school.id).update(school.toFirestore());
+      await _firestore
+          .collection('schools')
+          .doc(school.id)
+          .update(school.toFirestore());
     } catch (e) {
       throw Exception('Failed to update school: $e');
     }
@@ -591,7 +638,10 @@ class FirebaseService {
       if (device.id == null) {
         throw Exception('Device ID is required for update');
       }
-      await _firestore.collection('devices').doc(device.id).update(device.toFirestore());
+      await _firestore
+          .collection('devices')
+          .doc(device.id)
+          .update(device.toFirestore());
     } catch (e) {
       throw Exception('Failed to update device: $e');
     }
@@ -612,7 +662,10 @@ class FirebaseService {
       final QuerySnapshot snapshot =
           await _scoped(_firestore.collection('users')).get();
       return snapshot.docs.map((doc) {
-        return app_user.AppUser.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+        return app_user.AppUser.fromFirestore(
+          doc.data() as Map<String, dynamic>,
+          doc.id,
+        );
       }).toList();
     } catch (e) {
       throw Exception('Failed to get users: $e');
@@ -639,7 +692,10 @@ class FirebaseService {
       final currentUser = primaryAuth.currentUser;
 
       final UserCredential cred = await primaryAuth
-          .createUserWithEmailAndPassword(email: email.trim(), password: password);
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
       final uid = cred.user!.uid;
 
       await _firestore.collection('users').doc(uid).set({
@@ -657,7 +713,8 @@ class FirebaseService {
       // responsible for keeping the owner's session; during development with
       // open rules we don't have a secondary-app path, so signOut is the
       // pragmatic recovery.
-      if (currentUser != null && primaryAuth.currentUser?.uid != currentUser.uid) {
+      if (currentUser != null &&
+          primaryAuth.currentUser?.uid != currentUser.uid) {
         await primaryAuth.signOut();
       }
 
@@ -675,7 +732,10 @@ class FirebaseService {
       if (user.id == null) {
         throw Exception('User ID is required for update');
       }
-      await _firestore.collection('users').doc(user.id).update(user.toFirestore());
+      await _firestore
+          .collection('users')
+          .doc(user.id)
+          .update(user.toFirestore());
     } catch (e) {
       throw Exception('Failed to update admin: $e');
     }
@@ -697,7 +757,9 @@ class FirebaseService {
   // SDK call from a trusted backend (see functions/setRoleClaim).
   static Future<void> setAdminActive(String userId, bool isActive) async {
     try {
-      await _firestore.collection('users').doc(userId).update({'isActive': isActive});
+      await _firestore.collection('users').doc(userId).update({
+        'isActive': isActive,
+      });
     } catch (e) {
       throw Exception('Failed to update admin status: $e');
     }
@@ -715,13 +777,14 @@ class FirebaseService {
   // Get sessions scoped to the current user / given school.
   static Future<List<Session>> getSessions({String? schoolId}) async {
     try {
-      final q = _scoped(_firestore.collection('sessions'),
-          explicitSchoolId: schoolId);
+      final q = _scoped(
+        _firestore.collection('sessions'),
+        explicitSchoolId: schoolId,
+      );
       final snap = await q.get();
-      final sessions = snap.docs
-          .map((d) => Session.fromFirestore(d.data(), d.id))
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
+      final sessions =
+          snap.docs.map((d) => Session.fromFirestore(d.data(), d.id)).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
       return sessions;
     } catch (e) {
       throw Exception('Failed to get sessions: $e');
@@ -731,24 +794,33 @@ class FirebaseService {
   // Get sessions for a specific school
   static Future<List<Session>> getSchoolSessions(String schoolId) async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('sessions')
-          .where('schoolId', isEqualTo: schoolId)
-          .orderBy('date', descending: true)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('sessions')
+              .where('schoolId', isEqualTo: schoolId)
+              .orderBy('date', descending: true)
+              .get();
       return snapshot.docs.map((doc) {
-        return Session.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
+        return Session.fromFirestore(
+          doc.data() as Map<String, dynamic>,
+          doc.id,
+        );
       }).toList();
     } catch (e) {
       // If index doesn't exist yet, try without orderBy
       try {
-        final QuerySnapshot snapshot = await _firestore
-            .collection('sessions')
-            .where('schoolId', isEqualTo: schoolId)
-            .get();
-        final sessions = snapshot.docs.map((doc) {
-          return Session.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
+        final QuerySnapshot snapshot =
+            await _firestore
+                .collection('sessions')
+                .where('schoolId', isEqualTo: schoolId)
+                .get();
+        final sessions =
+            snapshot.docs.map((doc) {
+              return Session.fromFirestore(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+            }).toList();
         // Sort manually
         sessions.sort((a, b) => b.date.compareTo(a.date));
         return sessions;
@@ -759,14 +831,17 @@ class FirebaseService {
   }
 
   // Get recent activity (from api_logs)
-  static Future<List<Map<String, dynamic>>> getRecentActivity({int limit = 10}) async {
+  static Future<List<Map<String, dynamic>>> getRecentActivity({
+    int limit = 10,
+  }) async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('api_logs')
-          .orderBy('timestamp', descending: true)
-          .limit(limit)
-          .get();
-      
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('api_logs')
+              .orderBy('timestamp', descending: true)
+              .limit(limit)
+              .get();
+
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return {
@@ -787,10 +862,14 @@ class FirebaseService {
 
   static Future<List<Teacher>> getTeachers({String? schoolId}) async {
     try {
-      final q = _scoped(_firestore.collection('teachers'),
-          explicitSchoolId: schoolId);
+      final q = _scoped(
+        _firestore.collection('teachers'),
+        explicitSchoolId: schoolId,
+      );
       final snap = await q.get();
-      return snap.docs.map((d) => Teacher.fromFirestore(d.data(), d.id)).toList();
+      return snap.docs
+          .map((d) => Teacher.fromFirestore(d.data(), d.id))
+          .toList();
     } catch (e) {
       throw Exception('Failed to get teachers: $e');
     }
@@ -812,7 +891,10 @@ class FirebaseService {
       if (teacher.id == null) {
         throw Exception('Teacher ID is required for update');
       }
-      await _firestore.collection('teachers').doc(teacher.id).update(teacher.toFirestore());
+      await _firestore
+          .collection('teachers')
+          .doc(teacher.id)
+          .update(teacher.toFirestore());
     } catch (e) {
       throw Exception('Failed to update teacher: $e');
     }
@@ -830,10 +912,14 @@ class FirebaseService {
 
   static Future<List<ClassGroup>> getClasses({String? schoolId}) async {
     try {
-      final q = _scoped(_firestore.collection('classes'),
-          explicitSchoolId: schoolId);
+      final q = _scoped(
+        _firestore.collection('classes'),
+        explicitSchoolId: schoolId,
+      );
       final snap = await q.get();
-      return snap.docs.map((d) => ClassGroup.fromFirestore(d.data(), d.id)).toList();
+      return snap.docs
+          .map((d) => ClassGroup.fromFirestore(d.data(), d.id))
+          .toList();
     } catch (e) {
       throw Exception('Failed to get classes: $e');
     }
@@ -855,7 +941,10 @@ class FirebaseService {
       if (group.id == null) {
         throw Exception('Class ID is required for update');
       }
-      await _firestore.collection('classes').doc(group.id).update(group.toFirestore());
+      await _firestore
+          .collection('classes')
+          .doc(group.id)
+          .update(group.toFirestore());
     } catch (e) {
       throw Exception('Failed to update class: $e');
     }
@@ -869,7 +958,10 @@ class FirebaseService {
     }
   }
 
-  static Future<void> assignStudentsToClass(String classId, List<String> studentIds) async {
+  static Future<void> assignStudentsToClass(
+    String classId,
+    List<String> studentIds,
+  ) async {
     try {
       await _firestore.collection('classes').doc(classId).update({
         'studentIds': studentIds,
@@ -883,10 +975,14 @@ class FirebaseService {
 
   static Future<List<app_parent.Parent>> getParents({String? schoolId}) async {
     try {
-      final q = _scoped(_firestore.collection('parents'),
-          explicitSchoolId: schoolId);
+      final q = _scoped(
+        _firestore.collection('parents'),
+        explicitSchoolId: schoolId,
+      );
       final snap = await q.get();
-      return snap.docs.map((d) => app_parent.Parent.fromFirestore(d.data(), d.id)).toList();
+      return snap.docs
+          .map((d) => app_parent.Parent.fromFirestore(d.data(), d.id))
+          .toList();
     } catch (e) {
       throw Exception('Failed to get parents: $e');
     }
@@ -908,7 +1004,10 @@ class FirebaseService {
       if (parent.id == null) {
         throw Exception('Parent ID is required for update');
       }
-      await _firestore.collection('parents').doc(parent.id).update(parent.toFirestore());
+      await _firestore
+          .collection('parents')
+          .doc(parent.id)
+          .update(parent.toFirestore());
     } catch (e) {
       throw Exception('Failed to update parent: $e');
     }
@@ -934,16 +1033,24 @@ class FirebaseService {
       final students = await getStudents();
       final Map<String, Map<String, dynamic>> byPhone = {};
 
-      void record(String? phone, String? name, String relationship, String studentId) {
+      void record(
+        String? phone,
+        String? name,
+        String relationship,
+        String studentId,
+      ) {
         if (phone == null || phone.trim().isEmpty) return;
         final key = phone.trim();
         if (existingPhones.contains(key)) return;
-        final entry = byPhone.putIfAbsent(key, () => {
-              'phone': key,
-              'name': name,
-              'relationship': relationship,
-              'studentIds': <String>[],
-            });
+        final entry = byPhone.putIfAbsent(
+          key,
+          () => {
+            'phone': key,
+            'name': name,
+            'relationship': relationship,
+            'studentIds': <String>[],
+          },
+        );
         (entry['studentIds'] as List<String>).add(studentId);
         entry['name'] ??= name;
       }
@@ -994,7 +1101,10 @@ class FirebaseService {
       if (session.id == null) {
         throw Exception('Session ID is required for update');
       }
-      await _firestore.collection('sessions').doc(session.id).update(session.toFirestore());
+      await _firestore
+          .collection('sessions')
+          .doc(session.id)
+          .update(session.toFirestore());
     } catch (e) {
       throw Exception('Failed to update session: $e');
     }
@@ -1132,8 +1242,11 @@ class FirebaseService {
       final legacyPeriod = data['period'] as String?;
       if (legacyPeriod == null) continue;
       final schoolId = data['schoolId'] as String?;
-      final mapping = schoolId == null ? null : schoolPeriodToSessionId[schoolId];
-      final existing = (data['sessionIds'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+      final mapping =
+          schoolId == null ? null : schoolPeriodToSessionId[schoolId];
+      final existing =
+          (data['sessionIds'] as List?)?.map((e) => e.toString()).toList() ??
+          <String>[];
       final sessionId = mapping?[legacyPeriod];
       final List<String> nextIds = [...existing];
       if (sessionId != null && !nextIds.contains(sessionId)) {
@@ -1159,7 +1272,8 @@ class FirebaseService {
 
   static Future<SystemConfig> getSystemConfig() async {
     try {
-      final doc = await _firestore.collection('system').doc(_systemConfigDocId).get();
+      final doc =
+          await _firestore.collection('system').doc(_systemConfigDocId).get();
       if (!doc.exists) {
         return const SystemConfig();
       }
@@ -1184,10 +1298,14 @@ class FirebaseService {
 
   static Future<List<Worker>> getWorkers({String? schoolId}) async {
     try {
-      final q = _scoped(_firestore.collection('workers'),
-          explicitSchoolId: schoolId);
+      final q = _scoped(
+        _firestore.collection('workers'),
+        explicitSchoolId: schoolId,
+      );
       final snap = await q.get();
-      return snap.docs.map((d) => Worker.fromFirestore(d.data(), d.id)).toList();
+      return snap.docs
+          .map((d) => Worker.fromFirestore(d.data(), d.id))
+          .toList();
     } catch (e) {
       throw Exception('Failed to get workers: $e');
     }
@@ -1209,7 +1327,10 @@ class FirebaseService {
       if (worker.id == null) {
         throw Exception('Worker ID is required for update');
       }
-      await _firestore.collection('workers').doc(worker.id).update(worker.toFirestore());
+      await _firestore
+          .collection('workers')
+          .doc(worker.id)
+          .update(worker.toFirestore());
     } catch (e) {
       throw Exception('Failed to update worker: $e');
     }
@@ -1220,6 +1341,59 @@ class FirebaseService {
       await _firestore.collection('workers').doc(id).delete();
     } catch (e) {
       throw Exception('Failed to delete worker: $e');
+    }
+  }
+
+  // ROLES (custom, school-scoped role definitions)
+
+  static Future<List<Role>> getRoles({String? schoolId}) async {
+    try {
+      final q = _scoped(
+        _firestore.collection('roles'),
+        explicitSchoolId: schoolId,
+      );
+      final snap = await q.get();
+      final roles =
+          snap.docs.map((d) => Role.fromFirestore(d.data(), d.id)).toList();
+      roles.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      return roles;
+    } catch (e) {
+      throw Exception('Failed to get roles: $e');
+    }
+  }
+
+  static Future<String> addRole(Role role) async {
+    try {
+      final data = role.toFirestore();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      data['updatedAt'] = FieldValue.serverTimestamp();
+      final ref = await _firestore.collection('roles').add(data);
+      return ref.id;
+    } catch (e) {
+      throw Exception('Failed to add role: $e');
+    }
+  }
+
+  static Future<void> updateRole(Role role) async {
+    try {
+      if (role.id == null) {
+        throw Exception('Role ID is required for update');
+      }
+      final data = role.toFirestore();
+      data['updatedAt'] = FieldValue.serverTimestamp();
+      await _firestore.collection('roles').doc(role.id).update(data);
+    } catch (e) {
+      throw Exception('Failed to update role: $e');
+    }
+  }
+
+  static Future<void> deleteRole(String id) async {
+    try {
+      await _firestore.collection('roles').doc(id).delete();
+    } catch (e) {
+      throw Exception('Failed to delete role: $e');
     }
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../models/message.dart';
 import '../models/parent.dart' as app_parent;
+import '../models/role.dart';
 import '../models/school.dart';
 import '../models/session.dart';
 import '../models/student.dart';
@@ -18,6 +19,7 @@ import '../services/firebase_service.dart';
 import '../utils/responsive_builder.dart';
 import '../widgets/theme/theme_switcher.dart';
 import 'admin/admins_screen.dart';
+import 'admin/custom_roles_screen.dart';
 import 'admin/device_enrollments_screen.dart';
 import 'admin/parents_screen.dart';
 import 'admin/sessions_screen.dart';
@@ -50,6 +52,7 @@ enum _Section {
   rolesParents,
   rolesWorkers,
   rolesStudents,
+  rolesCustom,
 }
 
 class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
@@ -64,6 +67,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   List<app_parent.Parent> _parents = [];
   List<Worker> _workers = [];
   List<app_user.AppUser> _admins = [];
+  List<Role> _customRoles = [];
   List<Device> _devices = [];
   List<Session> _sessions = [];
   List<Map<String, dynamic>> _recentActivity = [];
@@ -93,6 +97,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         FirebaseService.getDevices(),
         FirebaseService.getSessions(),
         FirebaseService.getRecentActivity(limit: 10),
+        FirebaseService.getRoles(),
       ]);
 
       final schools = results[0] as List<School>;
@@ -128,6 +133,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _devices = results[6] as List<Device>;
         _sessions = results[7] as List<Session>;
         _recentActivity = results[8] as List<Map<String, dynamic>>;
+        _customRoles = results[9] as List<Role>;
         _isLoading = false;
       });
     } catch (e) {
@@ -182,6 +188,216 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
               userName: _school?.name ?? 'School Admin',
             ),
       ),
+    );
+  }
+
+  static const List<String> _roleColorPalette = [
+    '#FF7043',
+    '#26A69A',
+    '#5C6BC0',
+    '#AB47BC',
+    '#EC407A',
+    '#66BB6A',
+    '#FFA726',
+    '#42A5F5',
+  ];
+
+  static Color? _parseHexColor(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
+    var v = hex.replaceFirst('#', '');
+    if (v.length == 6) v = 'FF$v';
+    final parsed = int.tryParse(v, radix: 16);
+    if (parsed == null) return null;
+    return Color(parsed);
+  }
+
+  /// Opens the form that creates a brand-new custom role record in
+  /// Firestore. After save, the dashboard refreshes and switches to the
+  /// Custom Roles management screen so the user can see the new entry.
+  void _openAddRoleDialog({bool closeDrawer = false}) {
+    if (closeDrawer) {
+      Navigator.pop(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openAddRoleDialog();
+      });
+      return;
+    }
+
+    final schoolId = _schoolId ?? _school?.id;
+    if (schoolId == null || schoolId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot create a role without a school context'),
+        ),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    String color = _roleColorPalette.first;
+    bool isSaving = false;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  'Add new role',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Define a custom role label for staff in your school.',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          style: TextStyle(color: colorScheme.onSurface),
+                          decoration: const InputDecoration(
+                            labelText: 'Role name *',
+                            hintText: 'e.g. Librarian, Bus Driver',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: descriptionController,
+                          maxLines: 2,
+                          style: TextStyle(color: colorScheme.onSurface),
+                          decoration: const InputDecoration(
+                            labelText: 'Description',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Color',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final hex in _roleColorPalette)
+                              InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () => setStateDialog(() => color = hex),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: _parseHexColor(hex) ?? Colors.grey,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color:
+                                          color == hex
+                                              ? colorScheme.onSurface
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child:
+                                      color == hex
+                                          ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 18,
+                                          )
+                                          : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              final name = nameController.text.trim();
+                              final description =
+                                  descriptionController.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Role name is required'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                await FirebaseService.addRole(
+                                  Role(
+                                    name: name,
+                                    description:
+                                        description.isEmpty
+                                            ? null
+                                            : description,
+                                    schoolId: schoolId,
+                                    color: color,
+                                  ),
+                                );
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Role "$name" created'),
+                                  ),
+                                );
+                                await _loadData();
+                                if (!mounted) return;
+                                setState(() {
+                                  _selected = _Section.rolesCustom;
+                                  _rolesExpanded = true;
+                                });
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(isSaving ? 'Saving...' : 'Create role'),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -498,8 +714,9 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  /// Children populated dynamically from the loaded dataset; categories with
-  /// zero records are hidden.
+  /// Children populated dynamically from the loaded dataset; built-in
+  /// categories with zero records are hidden, but the Custom Roles entry
+  /// is always shown so admins can manage their definitions.
   List<_RoleEntry> _roleEntries() {
     return [
       _RoleEntry(
@@ -532,13 +749,20 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _students.length,
         _Section.rolesStudents,
       ),
+      _RoleEntry(
+        Icons.badge_outlined,
+        'Custom Roles',
+        _customRoles.length,
+        _Section.rolesCustom,
+        alwaysShow: true,
+      ),
     ];
   }
 
   Widget _buildRolesNavItem() {
     final colorScheme = Theme.of(context).colorScheme;
     final entries = _roleEntries();
-    final visible = entries.where((e) => e.count > 0).toList();
+    final visible = entries.where((e) => e.count > 0 || e.alwaysShow).toList();
     final isAnyChildSelected = entries.any((e) => e.section == _selected);
 
     if (_sidebarCollapsed) {
@@ -665,6 +889,21 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                         ),
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'Add new role',
+                      onPressed: _openAddRoleDialog,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: colorScheme.onPrimary.withOpacity(0.85),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Icon(
                       _rolesExpanded ? Icons.expand_less : Icons.expand_more,
                       color: colorScheme.onPrimary.withOpacity(0.75),
@@ -676,7 +915,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
             ),
           ),
         ),
-        if (_rolesExpanded)
+        if (_rolesExpanded) ...[
           if (visible.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(36, 4, 16, 8),
@@ -698,7 +937,44 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                 indent: 1,
                 badge: e.count,
               ),
+          _buildAddRoleNavButton(),
+        ],
       ],
+    );
+  }
+
+  Widget _buildAddRoleNavButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: _openAddRoleDialog,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(26, 8, 10, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_circle_outline,
+                  color: colorScheme.onPrimary.withOpacity(0.85),
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Add new role',
+                  style: TextStyle(
+                    color: colorScheme.onPrimary.withOpacity(0.85),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -769,8 +1045,21 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                     onExpansionChanged:
                         (v) => setState(() => _rolesExpanded = v),
                     children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(56, 0, 16, 0),
+                        leading: Icon(
+                          Icons.add_circle_outline,
+                          color: colorScheme.onPrimary.withOpacity(0.85),
+                          size: 20,
+                        ),
+                        title: Text(
+                          'Add new role',
+                          style: TextStyle(color: colorScheme.onPrimary),
+                        ),
+                        onTap: () => _openAddRoleDialog(closeDrawer: true),
+                      ),
                       for (final e in entries)
-                        if (e.count > 0)
+                        if (e.count > 0 || e.alwaysShow)
                           ListTile(
                             contentPadding: const EdgeInsets.fromLTRB(
                               56,
@@ -931,6 +1220,12 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onDataChanged: _loadData,
           showSchoolFilter: false,
         );
+      case _Section.rolesCustom:
+        return CustomRolesScreen(
+          schools: schools,
+          onDataChanged: _loadData,
+          showSchoolFilter: false,
+        );
     }
   }
 }
@@ -942,7 +1237,17 @@ class _RoleEntry {
   final int count;
   final _Section section;
 
-  const _RoleEntry(this.icon, this.label, this.count, this.section);
+  /// When true, the entry is shown even if `count == 0` (so the user can
+  /// always reach the management screen).
+  final bool alwaysShow;
+
+  const _RoleEntry(
+    this.icon,
+    this.label,
+    this.count,
+    this.section, {
+    this.alwaysShow = false,
+  });
 }
 
 // ----------------------------------------------------------------------
@@ -1326,7 +1631,8 @@ class _DeviceStatusCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.start,
-            mainAxisSize: hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize:
+                hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -1805,8 +2111,8 @@ class _DevicesViewState extends State<_DevicesView> {
                             child: Text('Maintenance'),
                           ),
                         ],
-                        onChanged: (v) =>
-                            widget.onStatusFilterChanged(v ?? 'all'),
+                        onChanged:
+                            (v) => widget.onStatusFilterChanged(v ?? 'all'),
                       ),
                     ),
                   ],
@@ -2089,12 +2395,13 @@ class _DevicesViewState extends State<_DevicesView> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DeviceEnrollmentsScreen(
-          device: device,
-          school: widget.school,
-          teachers: widget.teachers,
-          workers: widget.workers,
-        ),
+        builder:
+            (_) => DeviceEnrollmentsScreen(
+              device: device,
+              school: widget.school,
+              teachers: widget.teachers,
+              workers: widget.workers,
+            ),
       ),
     );
   }

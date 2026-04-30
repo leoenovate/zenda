@@ -71,6 +71,7 @@ service cloud.firestore {
     match /sessions/{id}    { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /devices/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
     match /parents/{id}     { allow read, write: if isAdmin(); }
+    match /roles/{id}       { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
 
     // --- Messages ---------------------------------------------------------
 
