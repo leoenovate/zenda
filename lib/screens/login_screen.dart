@@ -23,12 +23,27 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedUser();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRememberedUser() async {
+    final identifier = await AuthStorageService.getLastLoginIdentifier();
+    if (!mounted || identifier == null || identifier.isEmpty) return;
+    setState(() {
+      _emailController.text = identifier;
+    });
   }
 
   Future<void> _login() async {
@@ -55,6 +70,12 @@ class _LoginScreenState extends State<LoginScreen> {
           email: emailOrStudentNumber,
           password: password,
         );
+      }
+
+      if (_rememberUser) {
+        await AuthStorageService.saveLastLoginIdentifier(emailOrStudentNumber);
+      } else {
+        await AuthStorageService.clearLastLoginIdentifier();
       }
 
       await AuthStorageService.saveSession(
@@ -374,7 +395,29 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: _rememberUser,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  title: Text(
+                    'Remember this user',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onChanged:
+                      _isLoading
+                          ? null
+                          : (value) {
+                            setState(() {
+                              _rememberUser = value ?? true;
+                            });
+                          },
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(

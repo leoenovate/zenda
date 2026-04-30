@@ -19,19 +19,33 @@ class StaffTimeOff {
   final String status;
   final DateTime? createdAt;
 
+  /// Firebase Storage path (for delete/replace). Download URL in [attachmentUrl].
+  final String? attachmentStoragePath;
+  final String? attachmentUrl;
+  final String? attachmentFileName;
+
   const StaffTimeOff({
     this.id,
     required this.schoolId,
     required this.assigneeKind,
     required this.assigneeId,
     required this.assigneeName,
-    required this.startDate,
+ required this.startDate,
     required this.endDate,
     required this.type,
     this.notes,
     this.status = 'approved',
     this.createdAt,
+    this.attachmentStoragePath,
+    this.attachmentUrl,
+    this.attachmentFileName,
   });
+
+  bool get hasAttachment =>
+      attachmentStoragePath != null &&
+      attachmentStoragePath!.isNotEmpty &&
+      attachmentUrl != null &&
+      attachmentUrl!.isNotEmpty;
 
   static DateTime _dateOnlyFrom(dynamic v) {
     final d = _parseDate(v);
@@ -76,6 +90,9 @@ class StaffTimeOff {
       notes: data['notes'] as String?,
       status: data['status'] ?? 'approved',
       createdAt: _parseDate(data['createdAt']),
+      attachmentStoragePath: data['attachmentStoragePath'] as String?,
+      attachmentUrl: data['attachmentUrl'] as String?,
+      attachmentFileName: data['attachmentFileName'] as String?,
     );
   }
 
@@ -94,6 +111,13 @@ class StaffTimeOff {
       'type': type,
       'status': status,
       if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
+      if (hasAttachment) ...{
+        'attachmentStoragePath': attachmentStoragePath,
+        'attachmentUrl': attachmentUrl,
+        if (attachmentFileName != null &&
+            attachmentFileName!.trim().isNotEmpty)
+          'attachmentFileName': attachmentFileName!.trim(),
+      },
     };
     if (assigneeKind == 'worker') {
       m['workerId'] = assigneeId;

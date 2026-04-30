@@ -1354,9 +1354,10 @@ class FirebaseService {
         explicitSchoolId: schoolId,
       );
       final snap = await q.get();
-      final list = snap.docs
-          .map((d) => StaffTimeOff.fromFirestore(d.data(), d.id))
-          .toList();
+      final list =
+          snap.docs
+              .map((d) => StaffTimeOff.fromFirestore(d.data(), d.id))
+              .toList();
       list.sort((a, b) {
         final c = b.startDate.compareTo(a.startDate);
         if (c != 0) return c;
@@ -1389,10 +1390,7 @@ class FirebaseService {
         data['workerId'] = FieldValue.delete();
         data['workerName'] = FieldValue.delete();
       }
-      await _firestore
-          .collection('worker_time_off')
-          .doc(entry.id)
-          .update(data);
+      await _firestore.collection('worker_time_off').doc(entry.id).update(data);
     } catch (e) {
       throw Exception('Failed to update staff time off: $e');
     }
@@ -1456,6 +1454,76 @@ class FirebaseService {
       await _firestore.collection('roles').doc(id).delete();
     } catch (e) {
       throw Exception('Failed to delete role: $e');
+    }
+  }
+
+  /// Sets `worker.role` to [roleName] for every worker in [workerIds].
+  /// Pass an empty/null [roleName] to clear the role assignment.
+  static Future<void> setWorkersRole({
+    required List<String> workerIds,
+    required String? roleName,
+  }) async {
+    if (workerIds.isEmpty) return;
+    try {
+      final batch = _firestore.batch();
+      final value = (roleName == null || roleName.isEmpty) ? null : roleName;
+      for (final id in workerIds) {
+        batch.update(_firestore.collection('workers').doc(id), {'role': value});
+      }
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to update worker roles: $e');
+    }
+  }
+
+  /// Renames every worker whose `role` matches [oldName] to [newName].
+  /// Scoped to the current school unless [schoolId] is provided. Returns
+  /// the number of records updated.
+  static Future<int> renameWorkersRole({
+    required String oldName,
+    required String newName,
+    String? schoolId,
+  }) async {
+    try {
+      final q = _scoped(
+        _firestore.collection('workers'),
+        explicitSchoolId: schoolId,
+      ).where('role', isEqualTo: oldName);
+      final snap = await q.get();
+      if (snap.docs.isEmpty) return 0;
+      final batch = _firestore.batch();
+      for (final d in snap.docs) {
+        batch.update(d.reference, {'role': newName});
+      }
+      await batch.commit();
+      return snap.docs.length;
+    } catch (e) {
+      throw Exception('Failed to rename worker roles: $e');
+    }
+  }
+
+  /// Clears every worker whose `role` matches [roleName] (sets to null).
+  /// Scoped to the current school unless [schoolId] is provided. Returns
+  /// the number of records updated.
+  static Future<int> clearWorkersRole({
+    required String roleName,
+    String? schoolId,
+  }) async {
+    try {
+      final q = _scoped(
+        _firestore.collection('workers'),
+        explicitSchoolId: schoolId,
+      ).where('role', isEqualTo: roleName);
+      final snap = await q.get();
+      if (snap.docs.isEmpty) return 0;
+      final batch = _firestore.batch();
+      for (final d in snap.docs) {
+        batch.update(d.reference, {'role': null});
+      }
+      await batch.commit();
+      return snap.docs.length;
+    } catch (e) {
+      throw Exception('Failed to clear worker roles: $e');
     }
   }
 }

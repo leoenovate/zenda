@@ -13,6 +13,23 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Supporting documents for staff time-off (see staff_time_off_screen.dart).
+    match /time_off_attachments/{schoolId}/{timeOffId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                  && request.resource.size < 10 * 1024 * 1024
+                  && (
+                    request.resource.contentType.matches('image/.*')
+                    || request.resource.contentType == 'application/pdf'
+                    || request.resource.contentType == 'application/msword'
+                    || request.resource.contentType
+                        == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    || request.resource.contentType
+                        == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    || request.resource.contentType == 'application/vnd.ms-excel'
+                  );
+    }
+
     // Deny everything else by default.
     match /{allPaths=**} {
       allow read, write: if false;

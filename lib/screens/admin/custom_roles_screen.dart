@@ -398,6 +398,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                 }
                                 setStateDialog(() => isSaving = true);
                                 try {
+                                  int renamedWorkers = 0;
                                   if (isEdit) {
                                     final updated = role.copyWith(
                                       name: name,
@@ -410,6 +411,14 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                       isActive: isActive,
                                     );
                                     await FirebaseService.updateRole(updated);
+                                    if (role.name != name) {
+                                      renamedWorkers =
+                                          await FirebaseService.renameWorkersRole(
+                                            oldName: role.name,
+                                            newName: name,
+                                            schoolId: schoolId ?? role.schoolId,
+                                          );
+                                    }
                                   } else {
                                     await FirebaseService.addRole(
                                       Role(
@@ -425,15 +434,17 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                   }
                                   if (!mounted) return;
                                   Navigator.pop(dialogCtx);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isEdit
-                                            ? 'Role updated'
-                                            : 'Role created',
-                                      ),
-                                    ),
-                                  );
+                                  final msg =
+                                      isEdit
+                                          ? (renamedWorkers > 0
+                                              ? 'Role updated · '
+                                                  '$renamedWorkers ${renamedWorkers == 1 ? 'employee' : 'employees'} '
+                                                  'reassigned'
+                                              : 'Role updated')
+                                          : 'Role created';
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text(msg)));
                                   await _load();
                                   widget.onDataChanged?.call();
                                 } catch (e) {
@@ -485,12 +496,22 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                     return;
                   }
                   try {
+                    final cleared = await FirebaseService.clearWorkersRole(
+                      roleName: role.name,
+                      schoolId: role.schoolId,
+                    );
                     await FirebaseService.deleteRole(role.id!);
                     if (!mounted) return;
                     Navigator.pop(dialogCtx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Role deleted')),
-                    );
+                    final msg =
+                        cleared > 0
+                            ? 'Role deleted · '
+                                '$cleared ${cleared == 1 ? 'employee' : 'employees'} '
+                                'unassigned'
+                            : 'Role deleted';
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(msg)));
                     await _load();
                     widget.onDataChanged?.call();
                   } catch (e) {

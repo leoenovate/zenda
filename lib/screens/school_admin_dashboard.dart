@@ -22,6 +22,7 @@ import 'admin/admins_screen.dart';
 import 'admin/custom_roles_screen.dart';
 import 'admin/device_enrollments_screen.dart';
 import 'admin/parents_screen.dart';
+import 'admin/role_employees_screen.dart';
 import 'admin/sessions_screen.dart';
 import 'admin/students_screen.dart';
 import 'admin/teachers_screen.dart';
@@ -764,11 +765,20 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     ];
 
     for (final role in _customRoles) {
+      final roleNameLower = role.name.trim().toLowerCase();
+      final assigned =
+          _workers
+              .where(
+                (w) =>
+                    w.schoolId == role.schoolId &&
+                    (w.role ?? '').trim().toLowerCase() == roleNameLower,
+              )
+              .length;
       entries.add(
         _RoleEntry(
           Icons.badge_outlined,
           role.name,
-          null,
+          assigned,
           _Section.rolesCustom,
           alwaysShow: true,
           customRoleId: role.id,
@@ -1285,18 +1295,22 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           (role) => role?.id == _selectedCustomRoleId,
           orElse: () => null,
         );
+        if (selectedRole != null) {
+          return RoleEmployeesScreen(
+            key: ValueKey('role-${selectedRole.id}'),
+            role: selectedRole,
+            allRoles: _customRoles,
+            schools: schools,
+            onDataChanged: _loadData,
+          );
+        }
         return CustomRolesScreen(
           schools: schools,
           onDataChanged: _loadData,
           showSchoolFilter: false,
-          focusedRoleId: selectedRole?.id,
-          titleOverride: selectedRole?.name ?? 'Roles',
+          titleOverride: 'Roles',
           subtitleOverride:
-              selectedRole == null
-                  ? 'Define additional staff role labels for your school'
-                  : (selectedRole.description?.isNotEmpty == true
-                      ? selectedRole.description!
-                      : 'Manage this role for your school'),
+              'Define additional staff role labels for your school',
         );
     }
   }

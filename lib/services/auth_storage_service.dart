@@ -13,6 +13,7 @@ class AuthStorageService {
   static const String _keyUid = 'auth_uid';
   static const String _keySchoolId = 'auth_school_id';
   static const String _keyStudentNumber = 'auth_student_number';
+  static const String _keyLastLoginIdentifier = 'auth_last_login_identifier';
 
   /// Save the latest session. All fields except role are optional.
   static Future<void> saveSession({
@@ -81,6 +82,28 @@ class AuthStorageService {
   static Future<bool> isLoggedIn() async {
     final session = await getStoredSession();
     return session != null;
+  }
+
+  /// Remember only the login identifier (email or student number) for the
+  /// login form. This intentionally survives logout; it is not an auth session.
+  static Future<void> saveLastLoginIdentifier(String identifier) async {
+    final trimmed = identifier.trim();
+    final prefs = await SharedPreferences.getInstance();
+    if (trimmed.isEmpty) {
+      await prefs.remove(_keyLastLoginIdentifier);
+      return;
+    }
+    await prefs.setString(_keyLastLoginIdentifier, trimmed);
+  }
+
+  static Future<String?> getLastLoginIdentifier() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLastLoginIdentifier);
+  }
+
+  static Future<void> clearLastLoginIdentifier() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyLastLoginIdentifier);
   }
 
   static Future<void> clearStoredLogin() async {

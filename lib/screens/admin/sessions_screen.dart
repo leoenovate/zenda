@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import '../../models/class_group.dart';
+import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/session.dart';
 import '../../models/teacher.dart';
+import '../../models/user.dart' as app_user;
+import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
@@ -22,11 +25,50 @@ class SessionsScreen extends StatefulWidget {
   State<SessionsScreen> createState() => _SessionsScreenState();
 }
 
+/// Selectable role option in the "Who will attend?" picker. Wraps either a
+/// built-in role (teacher / admin / staff / worker) or a custom [Role]
+/// definition from the `roles/` collection.
+class _RoleOption {
+  final String key;
+  final String label;
+  final String assigneeKind;
+  final String schoolId;
+
+  /// Set for built-in roles so the same option works across schools.
+  final bool isBuiltIn;
+
+  const _RoleOption({
+    required this.key,
+    required this.label,
+    required this.assigneeKind,
+    required this.schoolId,
+    this.isBuiltIn = false,
+  });
+}
+
+/// A specific person who can be picked when `audienceMode == 'single'`.
+class _RolePerson {
+  final String assigneeKind;
+  final String id;
+  final String name;
+  final String schoolId;
+
+  const _RolePerson({
+    required this.assigneeKind,
+    required this.id,
+    required this.name,
+    required this.schoolId,
+  });
+}
+
 class _SessionsScreenState extends State<SessionsScreen> {
   bool _isLoading = true;
   List<Session> _sessions = [];
   List<Teacher> _teachers = [];
   List<ClassGroup> _classes = [];
+  List<Worker> _workers = [];
+  List<Role> _roles = [];
+  List<app_user.AppUser> _users = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
 
@@ -43,12 +85,18 @@ class _SessionsScreenState extends State<SessionsScreen> {
         FirebaseService.getSessions(),
         FirebaseService.getTeachers(),
         FirebaseService.getClasses(),
+        FirebaseService.getWorkers(),
+        FirebaseService.getRoles(),
+        FirebaseService.getUsers(),
       ]);
       if (!mounted) return;
       setState(() {
         _sessions = results[0] as List<Session>;
         _teachers = results[1] as List<Teacher>;
         _classes = results[2] as List<ClassGroup>;
+        _workers = results[3] as List<Worker>;
+        _roles = results[4] as List<Role>;
+        _users = results[5] as List<app_user.AppUser>;
         _isLoading = false;
       });
     } catch (e) {
@@ -68,12 +116,165 @@ class _SessionsScreenState extends State<SessionsScreen> {
         final match =
             (s.className ?? '').toLowerCase().contains(q) ||
             (s.teacherName ?? '').toLowerCase().contains(q) ||
+            (s.assigneeName ?? '').toLowerCase().contains(q) ||
+            (s.audienceRole ?? '').toLowerCase().contains(q) ||
             _audienceLabel(s).toLowerCase().contains(q);
         if (!match) return false;
       }
       return true;
     }).toList();
   }
+
+  // ---------------------------------------------------------------------------
+  // Role / person catalog used by the form dialog.
+  // ---------------------------------------------------------------------------
+
+  /// Returns every selectable role for [schoolId], built-in roles first and
+  /// then custom roles defined for the school.
+  List<_RoleOption> _rolesForSchool(String schoolId) {
+    return [
+      _RoleOption(
+        key: 'teacher',
+        label: 'Teachers',
+        assigneeKind: 'teacher',
+        schoolId: schoolId,
+        isBuiltIn: true,
+      ),
+      _RoleOption(
+        key: 'admin',
+        label: 'Administrators',
+        assigneeKind: 'admin',
+        schoolId: schoolId,
+        isBuiltIn: true,
+      ),
+      _RoleOption(
+        key: 'staff',
+        label: 'Staff accounts',
+        assigneeKind: 'staff',
+        schoolId: schoolId,
+        isBuiltIn: true,
+      ),
+      _RoleOption(
+        key: 'worker',
+        label: 'Workers (all)',
+        assigneeKind: 'worker',
+        schoolId: schoolId,
+        isBuiltIn: true,
+      ),
+      for (final r in _roles)
+        if (r.isActive && r.schoolId == schoolId && r.id != null)
+          _RoleOption(
+            key: r.name,
+            label: r.name,
+            assigneeKind: 'worker',
+            schoolId: schoolId,
+          ),
+    ];
+  }
+
+  bool _isSchoolAdminUser(app_user.AppUser u) {
+    final r = (u.role ?? '').toLowerCase();
+    return r == 'admin' || r == 'school_admin';
+  }
+
+  /// Returns every person that belongs to [option] in the same school.
+  /// For custom roles, this is workers whose `role` field matches the role
+  /// name (case-insensitive). For the built-in `worker` role this is every
+  /// worker, regardless of custom-role assignment.
+  List<_RolePerson> _peopleInRole(_RoleOption option) {
+    final out = <_RolePerson>[];
+    final schoolId = option.schoolId;
+
+    switch (option.key) {
+      case 'teacher':
+        for (final t in _teachers) {
+          if (!t.isActive || t.id == null) continue;
+          if (t.schoolId != schoolId) continue;
+          out.add(
+            _RolePerson(
+              assigneeKind: 'teacher',
+              id: t.id!,
+              name: t.name,
+              schoolId: t.schoolId,
+            ),
+          );
+        }
+        break;
+      case 'admin':
+        for (final u in _users) {
+          if (!u.isActive || u.id == null) continue;
+          if (!_isSchoolAdminUser(u)) continue;
+          if (u.schoolId != schoolId) continue;
+          final name = (u.name != null && u.name!.trim().isNotEmpty)
+              ? u.name!.trim()
+              : u.email;
+          out.add(
+            _RolePerson(
+              assigneeKind: 'admin',
+              id: u.id!,
+              name: name,
+              schoolId: schoolId,
+            ),
+          );
+        }
+        break;
+      case 'staff':
+        for (final u in _users) {
+          if (!u.isActive || u.id == null) continue;
+          if ((u.role ?? '').toLowerCase() != 'staff') continue;
+          if (u.schoolId != schoolId) continue;
+          final name = (u.name != null && u.name!.trim().isNotEmpty)
+              ? u.name!.trim()
+              : u.email;
+          out.add(
+            _RolePerson(
+              assigneeKind: 'staff',
+              id: u.id!,
+              name: name,
+              schoolId: schoolId,
+            ),
+          );
+        }
+        break;
+      case 'worker':
+        for (final w in _workers) {
+          if (!w.isActive || w.id == null) continue;
+          if (w.schoolId != schoolId) continue;
+          out.add(
+            _RolePerson(
+              assigneeKind: 'worker',
+              id: w.id!,
+              name: w.name,
+              schoolId: w.schoolId,
+            ),
+          );
+        }
+        break;
+      default:
+        // Custom role: workers whose .role matches the role's name.
+        final target = option.key.trim().toLowerCase();
+        for (final w in _workers) {
+          if (!w.isActive || w.id == null) continue;
+          if (w.schoolId != schoolId) continue;
+          if ((w.role ?? '').trim().toLowerCase() != target) continue;
+          out.add(
+            _RolePerson(
+              assigneeKind: 'worker',
+              id: w.id!,
+              name: w.name,
+              schoolId: w.schoolId,
+            ),
+          );
+        }
+    }
+
+    out.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +289,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
           widget.showSchoolFilter
               ? 'Daily class sessions and attendance windows'
               : 'Class sessions and attendance windows for your school',
-      searchHint: 'Search by class or teacher...',
+      searchHint: 'Search by class, role or person...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
       schools: widget.schools,
@@ -119,6 +320,16 @@ class _SessionsScreenState extends State<SessionsScreen> {
     );
   }
 
+  IconData _iconForAudience(Session s) {
+    if (s.audienceType == 'students') return Icons.school_outlined;
+    return switch (s.assigneeKind ?? s.audienceRole ?? '') {
+      'teacher' => Icons.groups_2_outlined,
+      'admin' => Icons.admin_panel_settings_outlined,
+      'staff' => Icons.support_agent_outlined,
+      _ => Icons.badge_outlined,
+    };
+  }
+
   Widget _buildRow(Session s) {
     final schoolName =
         widget.schools
@@ -130,9 +341,9 @@ class _SessionsScreenState extends State<SessionsScreen> {
 
     final statusColor = s.isActive ? Colors.green : Colors.grey;
     final audienceColor =
-        s.audienceType == 'teachers'
-            ? Theme.of(context).colorScheme.tertiary
-            : Theme.of(context).colorScheme.primary;
+        s.audienceType == 'students'
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.tertiary;
     final audienceLabel = _audienceLabel(s);
 
     return Padding(
@@ -146,12 +357,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
               color: audienceColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              s.audienceType == 'teachers'
-                  ? Icons.groups_2_outlined
-                  : Icons.school_outlined,
-              color: audienceColor,
-            ),
+            child: Icon(_iconForAudience(s), color: audienceColor),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -172,7 +378,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     if (widget.showSchoolFilter && widget.schools.length > 1)
                       schoolName,
                     audienceLabel,
-                    if (s.teacherName != null &&
+                    if (s.audienceType == 'students' &&
+                        s.teacherName != null &&
                         !audienceLabel.contains(s.teacherName!))
                       'Teacher: ${s.teacherName}',
                     if (s.startTime != null && s.endTime != null)
@@ -231,18 +438,36 @@ class _SessionsScreenState extends State<SessionsScreen> {
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  String _roleDisplayName(String key) {
+    switch (key.toLowerCase()) {
+      case 'teacher':
+        return 'Teachers';
+      case 'admin':
+        return 'Administrators';
+      case 'staff':
+        return 'Staff accounts';
+      case 'worker':
+        return 'Workers';
+      default:
+        return key;
+    }
+  }
+
   String _audienceLabel(Session s) {
     if (s.audienceLabel != null && s.audienceLabel!.trim().isNotEmpty) {
       return s.audienceLabel!;
     }
-    if (s.audienceMode == 'all_teachers') return 'All teachers';
-    if (s.audienceMode == 'single_teacher' && s.teacherName != null) {
-      return 'Teacher: ${s.teacherName}';
+    if (s.audienceType == 'students') {
+      if (s.className != null && s.className!.trim().isNotEmpty) {
+        return 'Class: ${s.className}';
+      }
+      return 'Students';
     }
-    if (s.className != null && s.className!.trim().isNotEmpty) {
-      return 'Class: ${s.className}';
+    final role = _roleDisplayName(s.audienceRole ?? '');
+    if (s.audienceMode == 'single' && (s.assigneeName ?? '').isNotEmpty) {
+      return '$role: ${s.assigneeName}';
     }
-    return s.audienceType == 'teachers' ? 'Teachers' : 'Students';
+    return s.audienceRole == null ? 'Role' : 'All $role'.trim();
   }
 
   Widget _dialogSection({
@@ -329,11 +554,12 @@ class _SessionsScreenState extends State<SessionsScreen> {
     String? classId = session?.classId;
     String? teacherId = session?.teacherId;
     String audienceType = session?.audienceType ?? 'students';
+    // 'class' for students; 'all' / 'single' for role audiences.
     String audienceMode =
         session?.audienceMode ??
-        (audienceType == 'teachers'
-            ? (teacherId == null ? 'all_teachers' : 'single_teacher')
-            : 'class');
+        (audienceType == 'role' ? 'all' : 'class');
+    String? selectedRoleKey = session?.audienceRole;
+    String? assigneeId = session?.assigneeId ?? session?.teacherId;
     bool isActive = session?.isActive ?? true;
     bool isSaving = false;
     final isEdit = session != null;
@@ -349,11 +575,56 @@ class _SessionsScreenState extends State<SessionsScreen> {
       builder:
           (dialogCtx) => StatefulBuilder(
             builder: (dialogCtx, setStateDialog) {
-              final teachersForSchool =
-                  _teachers.where((t) => t.schoolId == schoolId).toList();
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
               final classesForSchool =
                   _classes.where((c) => c.schoolId == schoolId).toList();
-              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              final teachersForSchool =
+                  _teachers.where((t) => t.schoolId == schoolId).toList();
+
+              final roleOptions = schoolId == null
+                  ? const <_RoleOption>[]
+                  : _rolesForSchool(schoolId!);
+              if (audienceType == 'role' &&
+                  selectedRoleKey != null &&
+                  !roleOptions.any(
+                    (r) => r.key.toLowerCase() ==
+                        selectedRoleKey!.toLowerCase(),
+                  )) {
+                selectedRoleKey = null;
+                assigneeId = null;
+              }
+              if (audienceType == 'role' &&
+                  selectedRoleKey == null &&
+                  roleOptions.isNotEmpty) {
+                selectedRoleKey = roleOptions.first.key;
+              }
+
+              final selectedRole = audienceType == 'role'
+                  ? roleOptions.firstWhere(
+                      (r) =>
+                          r.key.toLowerCase() ==
+                          (selectedRoleKey ?? '').toLowerCase(),
+                      orElse: () => roleOptions.isNotEmpty
+                          ? roleOptions.first
+                          : _RoleOption(
+                              key: 'teacher',
+                              label: 'Teachers',
+                              assigneeKind: 'teacher',
+                              schoolId: schoolId ?? '',
+                              isBuiltIn: true,
+                            ),
+                    )
+                  : null;
+
+              final peopleInRole = selectedRole == null
+                  ? const <_RolePerson>[]
+                  : _peopleInRole(selectedRole);
+
+              if (audienceMode == 'single' &&
+                  assigneeId != null &&
+                  !peopleInRole.any((p) => p.id == assigneeId)) {
+                assigneeId = null;
+              }
               return AlertDialog(
                 backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
                 title: Text(
@@ -396,6 +667,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                   teacherId = null;
                                   classId = null;
                                   classNameController.clear();
+                                  selectedRoleKey = null;
+                                  assigneeId = null;
                                 }),
                           ),
                           const SizedBox(height: 16),
@@ -478,10 +751,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
                           icon: Icons.how_to_reg_outlined,
                           title: 'Who will attend?',
                           subtitle:
-                              'Choose a student class or a teacher role session.',
+                              'Choose a student class or any role — built-in or custom.',
                           child: DefaultTabController(
                             length: 2,
-                            initialIndex: audienceType == 'teachers' ? 1 : 0,
+                            initialIndex: audienceType == 'role' ? 1 : 0,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -502,25 +775,23 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                         text: 'Students',
                                       ),
                                       Tab(
-                                        icon: Icon(Icons.groups_2_outlined),
-                                        text: 'Teachers',
+                                        icon: Icon(Icons.badge_outlined),
+                                        text: 'Role',
                                       ),
                                     ],
                                     onTap:
                                         (index) => setStateDialog(() {
                                           audienceType =
-                                              index == 0
-                                                  ? 'students'
-                                                  : 'teachers';
-                                          audienceMode =
-                                              index == 0
-                                                  ? 'class'
-                                                  : 'all_teachers';
+                                              index == 0 ? 'students' : 'role';
                                           if (index == 0) {
-                                            teacherId = null;
+                                            audienceMode = 'class';
+                                            selectedRoleKey = null;
+                                            assigneeId = null;
                                           } else {
+                                            audienceMode = 'all';
                                             classId = null;
                                             classNameController.clear();
+                                            teacherId = null;
                                           }
                                         }),
                                   ),
@@ -620,84 +891,124 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                             setStateDialog(() => teacherId = v),
                                   ),
                                 ] else ...[
+                                  DropdownButtonFormField<String?>(
+                                    value: selectedRoleKey,
+                                    decoration: adminInputDecoration(
+                                      'Role',
+                                      required: true,
+                                    ),
+                                    dropdownColor: colorScheme.surface,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                    ),
+                                    items: [
+                                      for (final role in roleOptions)
+                                        DropdownMenuItem<String?>(
+                                          value: role.key,
+                                          child: Text(
+                                            role.isBuiltIn
+                                                ? role.label
+                                                : '${role.label} (custom)',
+                                          ),
+                                        ),
+                                    ],
+                                    onChanged:
+                                        (v) => setStateDialog(() {
+                                          selectedRoleKey = v;
+                                          assigneeId = null;
+                                        }),
+                                  ),
+                                  const SizedBox(height: 12),
                                   RadioListTile<String>(
                                     contentPadding: EdgeInsets.zero,
-                                    value: 'all_teachers',
+                                    value: 'all',
                                     groupValue: audienceMode,
                                     activeColor: colorScheme.primary,
                                     title: Text(
-                                      'All teachers',
+                                      'Everyone in this role',
                                       style: TextStyle(
                                         color: colorScheme.onSurface,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     subtitle: Text(
-                                      '${teachersForSchool.length} teacher${teachersForSchool.length == 1 ? '' : 's'} in this school will be expected.',
+                                      selectedRole == null
+                                          ? 'Pick a role above first.'
+                                          : '${peopleInRole.length} '
+                                              '${peopleInRole.length == 1 ? 'person' : 'people'} '
+                                              'will be expected.',
                                       style: TextStyle(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     onChanged:
                                         (v) => setStateDialog(() {
-                                          audienceMode = v ?? 'all_teachers';
-                                          teacherId = null;
+                                          audienceMode = v ?? 'all';
+                                          assigneeId = null;
                                         }),
                                   ),
                                   RadioListTile<String>(
                                     contentPadding: EdgeInsets.zero,
-                                    value: 'single_teacher',
+                                    value: 'single',
                                     groupValue: audienceMode,
                                     activeColor: colorScheme.primary,
                                     title: Text(
-                                      'One teacher',
+                                      'Only one person',
                                       style: TextStyle(
                                         color: colorScheme.onSurface,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     subtitle: Text(
-                                      'Use this for a session that only one teacher should attend.',
+                                      'Use this for a session that targets a single individual in the role.',
                                       style: TextStyle(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     onChanged:
                                         (v) => setStateDialog(() {
-                                          audienceMode = v ?? 'single_teacher';
+                                          audienceMode = v ?? 'single';
                                         }),
                                   ),
-                                  if (audienceMode == 'single_teacher') ...[
+                                  if (audienceMode == 'single') ...[
                                     const SizedBox(height: 8),
                                     DropdownButtonFormField<String?>(
-                                      value:
-                                          teachersForSchool.any(
-                                                (t) => t.id == teacherId,
-                                              )
-                                              ? teacherId
-                                              : null,
+                                      value: peopleInRole.any(
+                                        (p) => p.id == assigneeId,
+                                      )
+                                          ? assigneeId
+                                          : null,
                                       decoration: adminInputDecoration(
-                                        'Teacher',
+                                        'Person',
                                         required: true,
                                       ),
                                       dropdownColor: colorScheme.surface,
                                       style: TextStyle(
                                         color: colorScheme.onSurface,
                                       ),
-                                      items:
-                                          teachersForSchool
+                                      items: peopleInRole.isEmpty
+                                          ? [
+                                              const DropdownMenuItem<String?>(
+                                                value: null,
+                                                child: Text(
+                                                  'No people in this role yet',
+                                                ),
+                                              ),
+                                            ]
+                                          : peopleInRole
                                               .map(
-                                                (t) =>
-                                                    DropdownMenuItem<String?>(
-                                                      value: t.id,
-                                                      child: Text(t.name),
-                                                    ),
+                                                (p) => DropdownMenuItem<
+                                                    String?>(
+                                                  value: p.id,
+                                                  child: Text(p.name),
+                                                ),
                                               )
                                               .toList(),
-                                      onChanged:
-                                          (v) => setStateDialog(
-                                            () => teacherId = v,
-                                          ),
+                                      onChanged: peopleInRole.isEmpty
+                                          ? null
+                                          : (v) => setStateDialog(
+                                                () => assigneeId = v,
+                                              ),
                                     ),
                                   ],
                                 ],
@@ -754,19 +1065,29 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                 );
                                 return;
                               }
-                              if (audienceType == 'teachers' &&
-                                  audienceMode == 'single_teacher' &&
-                                  teacherId == null) {
+                              if (audienceType == 'role' &&
+                                  (selectedRoleKey == null ||
+                                      selectedRole == null)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Choose a teacher'),
+                                    content: Text('Choose a role'),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (audienceType == 'role' &&
+                                  audienceMode == 'single' &&
+                                  assigneeId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Choose a person'),
                                   ),
                                 );
                                 return;
                               }
                               setStateDialog(() => isSaving = true);
                               try {
-                                final teacher =
+                                final selectedTeacher =
                                     teacherId == null
                                         ? null
                                         : _teachers.firstWhere(
@@ -777,12 +1098,63 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                                 schoolId: '',
                                               ),
                                         );
-                                final audienceLabel =
-                                    audienceType == 'teachers'
-                                        ? (audienceMode == 'all_teachers'
-                                            ? 'All teachers'
-                                            : 'Teacher: ${teacher?.name ?? ''}')
-                                        : 'Class: ${classNameController.text.trim()}';
+                                final selectedPerson = (audienceType ==
+                                            'role' &&
+                                        audienceMode == 'single' &&
+                                        assigneeId != null)
+                                    ? peopleInRole.firstWhere(
+                                        (p) => p.id == assigneeId,
+                                        orElse: () => _RolePerson(
+                                          assigneeKind:
+                                              selectedRole!.assigneeKind,
+                                          id: assigneeId!,
+                                          name: '',
+                                          schoolId: schoolId!,
+                                        ),
+                                      )
+                                    : null;
+
+                                final roleDisplay = audienceType == 'role'
+                                    ? (selectedRole!.isBuiltIn
+                                        ? _roleDisplayName(selectedRole.key)
+                                        : selectedRole.label)
+                                    : '';
+
+                                String? sessionAudienceLabel;
+                                if (audienceType == 'students') {
+                                  final cn = classNameController.text.trim();
+                                  if (cn.isNotEmpty) {
+                                    sessionAudienceLabel = 'Class: $cn';
+                                  }
+                                } else if (audienceMode == 'all') {
+                                  sessionAudienceLabel = 'All $roleDisplay';
+                                } else if (audienceMode == 'single') {
+                                  sessionAudienceLabel =
+                                      '$roleDisplay: ${selectedPerson?.name ?? ''}';
+                                }
+
+                                // Keep teacherId/teacherName populated when
+                                // the audience role is `teacher` so the
+                                // existing teacher dashboard keeps seeing
+                                // these sessions.
+                                final resolvedTeacherId =
+                                    audienceType == 'students'
+                                        ? teacherId
+                                        : (selectedRole?.key == 'teacher' &&
+                                                audienceMode == 'single')
+                                            ? assigneeId
+                                            : null;
+                                final resolvedTeacherName =
+                                    audienceType == 'students'
+                                        ? (selectedTeacher != null &&
+                                                selectedTeacher.name.isNotEmpty
+                                            ? selectedTeacher.name
+                                            : null)
+                                        : (selectedRole?.key == 'teacher' &&
+                                                audienceMode == 'single')
+                                            ? selectedPerson?.name
+                                            : null;
+
                                 final updated = Session(
                                   id: session?.id,
                                   schoolId: schoolId!,
@@ -800,36 +1172,37 @@ class _SessionsScreenState extends State<SessionsScreen> {
                                       lateTimeController.text.trim().isEmpty
                                           ? null
                                           : lateTimeController.text.trim(),
-                                  className:
-                                      audienceType != 'students' ||
-                                              classNameController.text
-                                                  .trim()
-                                                  .isEmpty
-                                          ? null
-                                          : classNameController.text.trim(),
-                                  classId:
-                                      audienceType == 'students'
-                                          ? classId
-                                          : null,
-                                  teacherId:
-                                      audienceMode == 'all_teachers'
-                                          ? null
-                                          : teacherId,
-                                  teacherName:
-                                      (teacher != null &&
-                                              teacher.name.isNotEmpty)
-                                          ? teacher.name
-                                          : null,
+                                  className: audienceType == 'students' &&
+                                          classNameController.text
+                                              .trim()
+                                              .isNotEmpty
+                                      ? classNameController.text.trim()
+                                      : null,
+                                  classId: audienceType == 'students'
+                                      ? classId
+                                      : null,
+                                  teacherId: resolvedTeacherId,
+                                  teacherName: resolvedTeacherName,
                                   audienceType: audienceType,
                                   audienceMode: audienceMode,
-                                  audienceRole:
-                                      audienceMode == 'all_teachers'
-                                          ? 'teacher'
-                                          : null,
+                                  audienceRole: audienceType == 'role'
+                                      ? selectedRole!.key
+                                      : null,
+                                  assigneeKind: audienceType == 'role'
+                                      ? selectedRole!.assigneeKind
+                                      : null,
+                                  assigneeId: audienceType == 'role' &&
+                                          audienceMode == 'single'
+                                      ? assigneeId
+                                      : null,
+                                  assigneeName: audienceType == 'role' &&
+                                          audienceMode == 'single'
+                                      ? selectedPerson?.name
+                                      : null,
                                   audienceLabel:
-                                      audienceLabel.trim().isEmpty
+                                      (sessionAudienceLabel ?? '').trim().isEmpty
                                           ? null
-                                          : audienceLabel,
+                                          : sessionAudienceLabel,
                                 );
                                 if (isEdit) {
                                   await FirebaseService.updateSession(updated);

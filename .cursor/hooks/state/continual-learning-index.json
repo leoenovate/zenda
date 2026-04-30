@@ -1,6 +1,6 @@
-{
+﻿{
   "version": 1,
-  "updatedAt": "2026-04-29T02:50:06.480289Z",
+  "updatedAt": "2026-04-30T09:40:00.0000000Z",
   "transcripts": {
     "11af36dd-ad40-4d53-bdbc-f9e14f4a22d7": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\11af36dd-ad40-4d53-bdbc-f9e14f4a22d7\\11af36dd-ad40-4d53-bdbc-f9e14f4a22d7.jsonl",
@@ -22,9 +22,17 @@
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\3cb7275f-f861-4ffd-806d-424b099f8c8e\\3cb7275f-f861-4ffd-806d-424b099f8c8e.jsonl",
       "mtime": "2026-04-22T16:48:10.7195554Z"
     },
+    "40073aac-8d5c-4ccb-8bc3-a56da807c3c0": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\40073aac-8d5c-4ccb-8bc3-a56da807c3c0\\40073aac-8d5c-4ccb-8bc3-a56da807c3c0.jsonl",
+      "mtime": "2026-04-29T21:36:52.0501844Z"
+    },
     "403d404b-524c-4f32-8760-a259e21889a4": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\403d404b-524c-4f32-8760-a259e21889a4\\403d404b-524c-4f32-8760-a259e21889a4.jsonl",
       "mtime": "2026-04-22T16:55:36.2702414Z"
+    },
+    "4552e129-62c9-4f87-84cf-cfed2b541a5e": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\4552e129-62c9-4f87-84cf-cfed2b541a5e\\4552e129-62c9-4f87-84cf-cfed2b541a5e.jsonl",
+      "mtime": "2026-04-30T09:39:19.2339872Z"
     },
     "555a379c-fe9a-426c-88cf-198bbed7fd6e": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\555a379c-fe9a-426c-88cf-198bbed7fd6e\\555a379c-fe9a-426c-88cf-198bbed7fd6e.jsonl",
@@ -41,6 +49,10 @@
     "6261de6d-de5f-4252-aaf1-75cb1e625dc9": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\6261de6d-de5f-4252-aaf1-75cb1e625dc9\\6261de6d-de5f-4252-aaf1-75cb1e625dc9.jsonl",
       "mtime": "2026-04-29T00:17:45.3992874Z"
+    },
+    "62e3468f-9170-43e6-8c29-c243beadb199": {
+      "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\62e3468f-9170-43e6-8c29-c243beadb199\\62e3468f-9170-43e6-8c29-c243beadb199.jsonl",
+      "mtime": "2026-04-30T09:25:42.8544422Z"
     },
     "6fdbeb1c-bf88-4630-82a6-665f1d9f3904": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\6fdbeb1c-bf88-4630-82a6-665f1d9f3904\\6fdbeb1c-bf88-4630-82a6-665f1d9f3904.jsonl",
@@ -104,11 +116,11 @@
     },
     "e9304866-a526-4b6c-9464-d537b910a07c": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\e9304866-a526-4b6c-9464-d537b910a07c\\e9304866-a526-4b6c-9464-d537b910a07c.jsonl",
-      "mtime": "2026-04-29T02:49:07.2684286Z"
+      "mtime": "2026-04-29T02:53:11.0174097Z"
     },
     "eddd3c55-2efd-43ad-a745-2b1b8db946dd": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\eddd3c55-2efd-43ad-a745-2b1b8db946dd\\eddd3c55-2efd-43ad-a745-2b1b8db946dd.jsonl",
-      "mtime": "2026-04-28T23:58:16.1989661Z"
+      "mtime": "2026-04-30T09:33:58.2333083Z"
     },
     "ee98b98c-f1b9-4b4b-85fd-3c66758e5831": {
       "path": "C:\\Users\\leoco\\.cursor\\projects\\c-i-zenda\\agent-transcripts\\ee98b98c-f1b9-4b4b-85fd-3c66758e5831\\ee98b98c-f1b9-4b4b-85fd-3c66758e5831.jsonl",
