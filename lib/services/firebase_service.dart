@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
 import '../models/message.dart';
@@ -1345,6 +1348,10 @@ class FirebaseService {
     }
   }
 
+  static String newStaffTimeOffDocumentId() {
+    return _firestore.collection('worker_time_off').doc().id;
+  }
+
   // STAFF TIME OFF (workers, teachers, school admins — collection id is legacy)
 
   static Future<List<StaffTimeOff>> getStaffTimeOffs({String? schoolId}) async {
@@ -1369,12 +1376,19 @@ class FirebaseService {
     }
   }
 
-  static Future<String> addStaffTimeOff(StaffTimeOff entry) async {
+  static Future<String> addStaffTimeOff(
+    StaffTimeOff entry, {
+    String? documentId,
+  }) async {
     try {
+      final doc =
+          documentId != null
+              ? _firestore.collection('worker_time_off').doc(documentId)
+              : _firestore.collection('worker_time_off').doc();
       final data = entry.toFirestore();
       data['createdAt'] = FieldValue.serverTimestamp();
-      final ref = await _firestore.collection('worker_time_off').add(data);
-      return ref.id;
+      await doc.set(data);
+      return doc.id;
     } catch (e) {
       throw Exception('Failed to add staff time off: $e');
     }
@@ -1390,18 +1404,87 @@ class FirebaseService {
         data['workerId'] = FieldValue.delete();
         data['workerName'] = FieldValue.delete();
       }
+      if (!entry.hasAttachment) {
+        data['attachmentStoragePath'] = FieldValue.delete();
+        data['attachmentUrl'] = FieldValue.delete();
+        data['attachmentFileName'] = FieldValue.delete();
+      }
       await _firestore.collection('worker_time_off').doc(entry.id).update(data);
     } catch (e) {
       throw Exception('Failed to update staff time off: $e');
     }
   }
 
-  static Future<void> deleteStaffTimeOff(String id) async {
+  static Future<void> deleteStaffTimeOff(StaffTimeOff entry) async {
     try {
-      await _firestore.collection('worker_time_off').doc(id).delete();
+      if (entry.id == null) {
+        throw Exception('Time off ID is required for delete');
+      }
+      await deleteStaffTimeOffAttachment(entry.attachmentStoragePath);
+      await _firestore.collection('worker_time_off').doc(entry.id).delete();
     } catch (e) {
       throw Exception('Failed to delete staff time off: $e');
     }
+  }
+
+  static String _staffTimeOffMimeFromFileName(String fileName) {
+    final ext =
+        fileName.contains('.')
+            ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase()
+            : '';
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'pdf' => 'application/pdf',
+      'doc' => 'application/msword',
+      'docx' =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls' => 'application/vnd.ms-excel',
+      'xlsx' =>
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      _ => 'application/pdf',
+    };
+  }
+
+  static String _sanitizeTimeOffFileName(String name) {
+    var s = name.replaceAll(RegExp(r'[/\\\s]+'), '_').trim();
+    if (s.length > 160) s = s.substring(s.length - 160);
+    if (s.isEmpty) s = 'document';
+    return s;
+  }
+
+  /// Uploads a supporting document; max 10 MB. Returns storage path, download URL, display name.
+  static Future<Map<String, String>> uploadStaffTimeOffAttachment({
+    required String schoolId,
+    required String timeOffDocId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    const maxBytes = 10 * 1024 * 1024;
+    if (bytes.length > maxBytes) {
+      throw Exception('File must be 10 MB or smaller');
+    }
+    final mime = _staffTimeOffMimeFromFileName(fileName);
+    final safe =
+        '${DateTime.now().millisecondsSinceEpoch}_${_sanitizeTimeOffFileName(fileName)}';
+    final storagePath = 'time_off_attachments/$schoolId/$timeOffDocId/$safe';
+    final ref = FirebaseStorage.instance.ref(storagePath);
+    await ref.putData(bytes, SettableMetadata(contentType: mime));
+    final url = await ref.getDownloadURL();
+    return {
+      'storagePath': storagePath,
+      'url': url,
+      'fileName': fileName,
+    };
+  }
+
+  static Future<void> deleteStaffTimeOffAttachment(String? storagePath) async {
+    if (storagePath == null || storagePath.isEmpty) return;
+    try {
+      await FirebaseStorage.instance.ref(storagePath).delete();
+    } catch (_) {}
   }
 
   // ROLES (custom, school-scoped role definitions)

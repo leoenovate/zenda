@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/school.dart';
 import '../../models/user.dart' as app_user;
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 /// Admin-list screen showing every user with `role == 'admin'` for the
@@ -42,11 +43,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
       final users = await FirebaseService.getUsers();
       if (!mounted) return;
       setState(() {
-        _admins = users
-            .where((u) =>
-                (u.role ?? '').toLowerCase() == 'admin' ||
-                (u.role ?? '').toLowerCase() == 'school_admin')
-            .toList();
+        _admins = users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -369,7 +366,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
                             id: admin.id,
                             email: admin.email,
                             name: name,
-                            role: admin.role ?? 'admin',
+                            role: admin.role ?? AuthRoles.admin,
                             schoolId: schoolId ?? admin.schoolId,
                             phone: phone.isEmpty ? null : phone,
                             isActive: isActive,
@@ -381,7 +378,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
                           await FirebaseService.addAdmin(
                             email: email,
                             password: password,
-                            role: 'admin',
+                            role: AuthRoles.admin,
                             name: name,
                             schoolId: schoolId,
                             phone: phone.isEmpty ? null : phone,

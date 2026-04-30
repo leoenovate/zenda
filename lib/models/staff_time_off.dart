@@ -30,7 +30,7 @@ class StaffTimeOff {
     required this.assigneeKind,
     required this.assigneeId,
     required this.assigneeName,
- required this.startDate,
+    required this.startDate,
     required this.endDate,
     required this.type,
     this.notes,

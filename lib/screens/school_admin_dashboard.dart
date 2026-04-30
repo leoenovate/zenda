@@ -16,6 +16,7 @@ import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../services/device_heartbeat_service.dart';
 import '../services/firebase_service.dart';
+import '../services/role_constants.dart';
 import '../utils/responsive_builder.dart';
 import '../widgets/theme/theme_switcher.dart';
 import 'admin/admins_screen.dart';
@@ -127,13 +128,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _parents = results[3] as List<app_parent.Parent>;
         _workers = results[4] as List<Worker>;
         _admins =
-            users
-                .where(
-                  (u) =>
-                      (u.role ?? '').toLowerCase() == 'admin' ||
-                      (u.role ?? '').toLowerCase() == 'school_admin',
-                )
-                .toList();
+            users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
         _devices = results[6] as List<Device>;
         _sessions = results[7] as List<Session>;
         _recentActivity = results[8] as List<Map<String, dynamic>>;

@@ -1,5 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/school.dart';
 import '../../models/staff_time_off.dart';
@@ -7,6 +12,7 @@ import '../../models/teacher.dart';
 import '../../models/user.dart' as app_user;
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 class StaffTimeOffScreen extends StatefulWidget {
@@ -40,15 +46,7 @@ class _TimeOffPerson {
 
   String get compoundKey => '$assigneeKind:$id';
 
-  String get menuLabel {
-    final role = switch (assigneeKind) {
-      'teacher' => 'Teacher',
-      'admin' => 'Administrator',
-      'staff' => 'Staff',
-      _ => 'Worker',
-    };
-    return '$role · $name';
-  }
+  String get menuLabel => '${AuthRoles.kindLabel(assigneeKind)} · $name';
 }
 
 class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
@@ -72,10 +70,8 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
     _load();
   }
 
-  bool _isSchoolAdminUser(app_user.AppUser u) {
-    final r = (u.role ?? '').toLowerCase();
-    return r == 'admin' || r == 'school_admin' || r == 'staff';
-  }
+  bool _isSchoolAdminUser(app_user.AppUser u) =>
+      AuthRoles.isAdminLike(u.role);
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
@@ -371,13 +367,32 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                     fontSize: 12,
                   ),
                 ),
-                if ((e.notes ?? '').trim().isNotEmpty) ...[
+                if (e.hasAttachment) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    e.notes!.trim(),
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
+                  InkWell(
+                    onTap: () => _openAttachmentUrl(e.attachmentUrl!),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.attach_file,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            e.attachmentFileName ?? 'Supporting document',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontSize: 12,
+                              decoration: TextDecoration.underline,
+                              decorationColor: colorScheme.primary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -414,6 +429,70 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openAttachmentUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open attachment')),
+      );
+    }
+  }
+
+  Future<void> _pickSupportingDocument({
+    required void Function(void Function()) setStateDialog,
+    required void Function(Uint8List bytes, String name) onPicked,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const [
+          'pdf',
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'webp',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+        ],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final f = result.files.single;
+      var bytes = f.bytes;
+      if (bytes == null && f.path != null && !kIsWeb) {
+        bytes = await File(f.path!).readAsBytes();
+      }
+      if (bytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not read file')),
+        );
+        return;
+      }
+      const maxBytes = 10 * 1024 * 1024;
+      if (bytes.length > maxBytes) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File must be 10 MB or smaller')),
+        );
+        return;
+      }
+      final name = f.name.trim().isEmpty ? 'document' : f.name.trim();
+      onPicked(bytes, name);
+      setStateDialog(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not pick file: $e')),
+      );
+    }
   }
 
   Future<DateTime?> _pickDate({
@@ -475,6 +554,9 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
     final notesController = TextEditingController(text: existing?.notes ?? '');
     bool isSaving = false;
     final isEdit = existing != null;
+    var attachmentRemoved = false;
+    Uint8List? pendingAttachmentBytes;
+    String? pendingAttachmentName;
 
     showDialog(
       context: context,
@@ -612,6 +694,129 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                       ),
                       decoration: adminInputDecoration('Notes'),
                     ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Supporting document',
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if (pendingAttachmentBytes != null &&
+                        pendingAttachmentName != null)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.insert_drive_file,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: Text(
+                          pendingAttachmentName!,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          'Ready to upload',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: isSaving
+                              ? null
+                              : () {
+                                  pendingAttachmentBytes = null;
+                                  pendingAttachmentName = null;
+                                  setStateDialog(() {});
+                                },
+                        ),
+                      )
+                    else if (!attachmentRemoved &&
+                        (existing?.hasAttachment ?? false))
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.attach_file,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: Text(
+                          existing!.attachmentFileName ??
+                              'Supporting document',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Wrap(
+                          spacing: 4,
+                          children: [
+                            TextButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => _openAttachmentUrl(
+                                        existing.attachmentUrl!,
+                                      ),
+                              child: const Text('Open'),
+                            ),
+                            TextButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => _pickSupportingDocument(
+                                        setStateDialog: setStateDialog,
+                                        onPicked: (bytes, name) {
+                                          pendingAttachmentBytes = bytes;
+                                          pendingAttachmentName = name;
+                                          attachmentRemoved = false;
+                                        },
+                                      ),
+                              child: const Text('Replace'),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: isSaving
+                                  ? null
+                                  : () {
+                                      attachmentRemoved = true;
+                                      pendingAttachmentBytes = null;
+                                      pendingAttachmentName = null;
+                                      setStateDialog(() {});
+                                    },
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        onPressed: isSaving
+                            ? null
+                            : () => _pickSupportingDocument(
+                                  setStateDialog: setStateDialog,
+                                  onPicked: (bytes, name) {
+                                    pendingAttachmentBytes = bytes;
+                                    pendingAttachmentName = name;
+                                    attachmentRemoved = false;
+                                  },
+                                ),
+                        icon: const Icon(Icons.upload_file, size: 18),
+                        label: const Text('Choose file'),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'PDF, images, Word, or Excel · max 10 MB',
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -641,6 +846,52 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                         }
                         setStateDialog(() => isSaving = true);
                         try {
+                          String? docIdForCreate;
+                          if (existing == null &&
+                              pendingAttachmentBytes != null &&
+                              pendingAttachmentName != null) {
+                            docIdForCreate =
+                                FirebaseService.newStaffTimeOffDocumentId();
+                          }
+
+                          String? pathOut;
+                          String? urlOut;
+                          String? nameOut;
+
+                          if (pendingAttachmentBytes != null &&
+                              pendingAttachmentName != null) {
+                            if (existing?.hasAttachment == true) {
+                              await FirebaseService.deleteStaffTimeOffAttachment(
+                                existing!.attachmentStoragePath,
+                              );
+                            }
+                            final timeOffDocId =
+                                existing?.id ?? docIdForCreate!;
+                            final up =
+                                await FirebaseService.uploadStaffTimeOffAttachment(
+                              schoolId: selected.schoolId,
+                              timeOffDocId: timeOffDocId,
+                              bytes: pendingAttachmentBytes!,
+                              fileName: pendingAttachmentName!,
+                            );
+                            pathOut = up['storagePath'];
+                            urlOut = up['url'];
+                            nameOut = up['fileName'];
+                          } else if (attachmentRemoved) {
+                            if (existing?.hasAttachment == true) {
+                              await FirebaseService.deleteStaffTimeOffAttachment(
+                                existing!.attachmentStoragePath,
+                              );
+                            }
+                            pathOut = null;
+                            urlOut = null;
+                            nameOut = null;
+                          } else {
+                            pathOut = existing?.attachmentStoragePath;
+                            urlOut = existing?.attachmentUrl;
+                            nameOut = existing?.attachmentFileName;
+                          }
+
                           final entry = StaffTimeOff(
                             id: existing?.id,
                             schoolId: selected.schoolId,
@@ -655,11 +906,18 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                                 : notesController.text.trim(),
                             status: status,
                             createdAt: existing?.createdAt,
+                            attachmentStoragePath: pathOut,
+                            attachmentUrl: urlOut,
+                            attachmentFileName: nameOut,
                           );
+
                           if (isEdit) {
                             await FirebaseService.updateStaffTimeOff(entry);
                           } else {
-                            await FirebaseService.addStaffTimeOff(entry);
+                            await FirebaseService.addStaffTimeOff(
+                              entry,
+                              documentId: docIdForCreate,
+                            );
                           }
                           if (!dialogCtx.mounted) return;
                           Navigator.pop(dialogCtx);
@@ -722,7 +980,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
             onPressed: () async {
               if (e.id == null) return;
               try {
-                await FirebaseService.deleteStaffTimeOff(e.id!);
+                await FirebaseService.deleteStaffTimeOff(e);
                 if (!dialogCtx.mounted) return;
                 Navigator.pop(dialogCtx);
                 if (!context.mounted) return;
