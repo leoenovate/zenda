@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 class WorkersScreen extends StatefulWidget {
@@ -56,14 +57,40 @@ class _WorkersScreenState extends State<WorkersScreen> {
     }
   }
 
+  /// Roles applicable to workers in [schoolId] (active and `appliesTo`
+  /// includes `worker`).
+  List<Role> _rolesForSchool(String? schoolId) {
+    return _roles
+        .where(
+          (role) =>
+              role.isActive &&
+              role.appliesTo.contains(AuthRoles.kindWorker) &&
+              (schoolId == null || role.schoolId == schoolId),
+        )
+        .toList();
+  }
+
+  /// Display label for [w]'s role: prefers a lookup of `roleId → Role.name`
+  /// in the loaded role list, falls back to the legacy free-form text for
+  /// not-yet-migrated workers.
+  String? _roleLabel(Worker w) {
+    if (w.roleId != null && w.roleId!.isNotEmpty) {
+      for (final role in _roles) {
+        if (role.id == w.roleId) return role.name;
+      }
+    }
+    return w.legacyRoleName;
+  }
+
   List<Worker> get _filtered {
     return _workers.where((w) {
       if (_schoolFilter != 'all' && w.schoolId != _schoolFilter) return false;
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
+        final label = (_roleLabel(w) ?? '').toLowerCase();
         final match =
             w.name.toLowerCase().contains(q) ||
-            (w.role ?? '').toLowerCase().contains(q) ||
+            label.contains(q) ||
             (w.employeeId ?? '').toLowerCase().contains(q);
         if (!match) return false;
       }
@@ -71,46 +98,15 @@ class _WorkersScreenState extends State<WorkersScreen> {
     }).toList();
   }
 
-  List<Role> _rolesForSchool(String? schoolId) {
-    return _roles
-        .where(
-          (role) =>
-              role.isActive && (schoolId == null || role.schoolId == schoolId),
-        )
-        .toList();
-  }
-
-  bool _hasRoleOption(String? roleName, String? schoolId) {
-    if (roleName == null || roleName.isEmpty) return true;
-    return _rolesForSchool(schoolId).any((role) => role.name == roleName);
-  }
-
-  String? _roleDropdownValue(String? roleName, String? schoolId) {
-    if (roleName == null || roleName.isEmpty) return null;
-    return roleName;
-  }
-
-  List<DropdownMenuItem<String?>> _roleDropdownItems(
-    String? selectedRole,
-    String? schoolId,
-  ) {
+  List<DropdownMenuItem<String?>> _roleDropdownItems(String? schoolId) {
     final roles = _rolesForSchool(schoolId);
-    final roleNames = <String>{};
     return [
       const DropdownMenuItem<String?>(
         value: null,
         child: Text('No role selected'),
       ),
       for (final role in roles)
-        if (roleNames.add(role.name))
-          DropdownMenuItem<String?>(value: role.name, child: Text(role.name)),
-      if (selectedRole != null &&
-          selectedRole.isNotEmpty &&
-          !_hasRoleOption(selectedRole, schoolId))
-        DropdownMenuItem<String?>(
-          value: selectedRole,
-          child: Text('$selectedRole (legacy)'),
-        ),
+        DropdownMenuItem<String?>(value: role.id, child: Text(role.name)),
     ];
   }
 
@@ -200,7 +196,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                   [
                     if (widget.showSchoolFilter && widget.schools.length > 1)
                       schoolName,
-                    if (w.role != null) w.role!,
+                    if ((_roleLabel(w) ?? '').isNotEmpty) _roleLabel(w)!,
                     if (w.employeeId != null) 'ID: ${w.employeeId}',
                     if (w.fingerprintData != null) 'Fingerprint on file',
                   ].where((s) => s.isNotEmpty).join(' · '),
@@ -237,13 +233,17 @@ class _WorkersScreenState extends State<WorkersScreen> {
     final phoneController = TextEditingController(text: worker?.phone ?? '');
     final emailController = TextEditingController(text: worker?.email ?? '');
     String? schoolId = worker?.schoolId;
-    String? selectedRole = worker?.role;
+    String? selectedRoleId = worker?.roleId;
     bool isActive = worker?.isActive ?? true;
     bool isSaving = false;
     final isEdit = worker != null;
 
     if (schoolId == null && widget.schools.isNotEmpty) {
       schoolId = widget.schools.first.id;
+    }
+    if (selectedRoleId != null &&
+        !_rolesForSchool(schoolId).any((r) => r.id == selectedRoleId)) {
+      selectedRoleId = null;
     }
 
     showDialog(
@@ -301,11 +301,11 @@ class _WorkersScreenState extends State<WorkersScreen> {
                               onChanged:
                                   (v) => setStateDialog(() {
                                     schoolId = v;
-                                    if (!_hasRoleOption(
-                                      selectedRole,
-                                      schoolId,
-                                    )) {
-                                      selectedRole = null;
+                                    if (selectedRoleId != null &&
+                                        !_rolesForSchool(schoolId).any(
+                                          (r) => r.id == selectedRoleId,
+                                        )) {
+                                      selectedRoleId = null;
                                     }
                                   }),
                             ),
@@ -321,21 +321,18 @@ class _WorkersScreenState extends State<WorkersScreen> {
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String?>(
                             key: ValueKey(
-                              'worker-role-$schoolId-$selectedRole',
+                              'worker-role-$schoolId-$selectedRoleId',
                             ),
-                            initialValue: _roleDropdownValue(
-                              selectedRole,
-                              schoolId,
-                            ),
+                            initialValue: selectedRoleId,
                             decoration: adminInputDecoration('Role'),
                             dropdownColor:
                                 Theme.of(dialogCtx).colorScheme.surface,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
-                            items: _roleDropdownItems(selectedRole, schoolId),
-                            onChanged:
-                                (v) => setStateDialog(() => selectedRole = v),
+                            items: _roleDropdownItems(schoolId),
+                            onChanged: (v) =>
+                                setStateDialog(() => selectedRoleId = v),
                           ),
                           const SizedBox(height: 16),
                           TextField(
@@ -406,7 +403,7 @@ class _WorkersScreenState extends State<WorkersScreen> {
                                     id: worker?.id,
                                     name: nameController.text.trim(),
                                     schoolId: schoolId!,
-                                    role: selectedRole,
+                                    roleId: selectedRoleId,
                                     employeeId:
                                         employeeIdController.text.trim().isEmpty
                                             ? null

@@ -7,6 +7,7 @@ import '../../models/teacher.dart';
 import '../../models/user.dart' as app_user;
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 class SessionsScreen extends StatefulWidget {
@@ -37,12 +38,22 @@ class _RoleOption {
   /// Set for built-in roles so the same option works across schools.
   final bool isBuiltIn;
 
+  /// For custom roles only: the `roles/{id}` doc id used to filter
+  /// `roleId == customRoleId` across all `appliesTo` collections.
+  final String? customRoleId;
+
+  /// For custom roles only: the kinds the role applies to (e.g.
+  /// `[worker, teacher]`). Empty for built-ins.
+  final List<String> appliesTo;
+
   const _RoleOption({
     required this.key,
     required this.label,
     required this.assigneeKind,
     required this.schoolId,
     this.isBuiltIn = false,
+    this.customRoleId,
+    this.appliesTo = const [],
   });
 }
 
@@ -166,16 +177,22 @@ class _SessionsScreenState extends State<SessionsScreen> {
           _RoleOption(
             key: r.name,
             label: r.name,
-            assigneeKind: 'worker',
+            // assigneeKind is a single value used for sessions with
+            // audienceMode == 'single'. For custom roles that span
+            // multiple kinds we store the first kind here; the picker
+            // logic uses [appliesTo] for the full set.
+            assigneeKind: r.appliesTo.isNotEmpty
+                ? r.appliesTo.first
+                : AuthRoles.kindWorker,
             schoolId: schoolId,
+            customRoleId: r.id,
+            appliesTo: r.appliesTo,
           ),
     ];
   }
 
-  bool _isSchoolAdminUser(app_user.AppUser u) {
-    final r = (u.role ?? '').toLowerCase();
-    return r == 'admin' || r == 'school_admin';
-  }
+  bool _isSchoolAdminUser(app_user.AppUser u) =>
+      AuthRoles.isSchoolAdmin(u.role);
 
   /// Returns every person that belongs to [option] in the same school.
   /// For custom roles, this is workers whose `role` field matches the role
@@ -221,7 +238,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
       case 'staff':
         for (final u in _users) {
           if (!u.isActive || u.id == null) continue;
-          if ((u.role ?? '').toLowerCase() != 'staff') continue;
+          if (!AuthRoles.isStaff(u.role)) continue;
           if (u.schoolId != schoolId) continue;
           final name = (u.name != null && u.name!.trim().isNotEmpty)
               ? u.name!.trim()
@@ -251,20 +268,63 @@ class _SessionsScreenState extends State<SessionsScreen> {
         }
         break;
       default:
-        // Custom role: workers whose .role matches the role's name.
-        final target = option.key.trim().toLowerCase();
-        for (final w in _workers) {
-          if (!w.isActive || w.id == null) continue;
-          if (w.schoolId != schoolId) continue;
-          if ((w.role ?? '').trim().toLowerCase() != target) continue;
-          out.add(
-            _RolePerson(
-              assigneeKind: 'worker',
-              id: w.id!,
-              name: w.name,
-              schoolId: w.schoolId,
-            ),
-          );
+        // Custom role: union of every person whose roleId matches across
+        // every kind in option.appliesTo.
+        final roleId = option.customRoleId;
+        if (roleId == null) break;
+        final kinds = option.appliesTo.isNotEmpty
+            ? option.appliesTo
+            : const [AuthRoles.kindWorker];
+        if (kinds.contains(AuthRoles.kindWorker)) {
+          for (final w in _workers) {
+            if (!w.isActive || w.id == null) continue;
+            if (w.schoolId != schoolId) continue;
+            if (w.roleId != roleId) continue;
+            out.add(
+              _RolePerson(
+                assigneeKind: AuthRoles.kindWorker,
+                id: w.id!,
+                name: w.name,
+                schoolId: w.schoolId,
+              ),
+            );
+          }
+        }
+        if (kinds.contains(AuthRoles.kindTeacher)) {
+          for (final t in _teachers) {
+            if (!t.isActive || t.id == null) continue;
+            if (t.schoolId != schoolId) continue;
+            if (t.roleId != roleId) continue;
+            out.add(
+              _RolePerson(
+                assigneeKind: AuthRoles.kindTeacher,
+                id: t.id!,
+                name: t.name,
+                schoolId: t.schoolId,
+              ),
+            );
+          }
+        }
+        if (kinds.contains(AuthRoles.kindAdmin) ||
+            kinds.contains(AuthRoles.kindStaff)) {
+          for (final u in _users) {
+            if (!u.isActive || u.id == null) continue;
+            if (u.schoolId != schoolId) continue;
+            if (u.roleId != roleId) continue;
+            final kind = AuthRoles.kindForUserRole(u.role);
+            if (kind == null || !kinds.contains(kind)) continue;
+            final name = (u.name != null && u.name!.trim().isNotEmpty)
+                ? u.name!.trim()
+                : u.email;
+            out.add(
+              _RolePerson(
+                assigneeKind: kind,
+                id: u.id!,
+                name: name,
+                schoolId: schoolId,
+              ),
+            );
+          }
         }
     }
 
@@ -439,18 +499,11 @@ class _SessionsScreenState extends State<SessionsScreen> {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   String _roleDisplayName(String key) {
-    switch (key.toLowerCase()) {
-      case 'teacher':
-        return 'Teachers';
-      case 'admin':
-        return 'Administrators';
-      case 'staff':
-        return 'Staff accounts';
-      case 'worker':
-        return 'Workers';
-      default:
-        return key;
+    final kind = key.toLowerCase();
+    if (AuthRoles.allKinds.contains(kind)) {
+      return AuthRoles.kindLabelPlural(kind);
     }
+    return key;
   }
 
   String _audienceLabel(Session s) {

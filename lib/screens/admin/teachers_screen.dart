@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
+import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/teacher.dart';
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import '../../widgets/admin/role_dropdown.dart';
 
 class TeachersScreen extends StatefulWidget {
   final List<School> schools;
@@ -23,6 +26,7 @@ class TeachersScreen extends StatefulWidget {
 class _TeachersScreenState extends State<TeachersScreen> {
   bool _isLoading = true;
   List<Teacher> _teachers = [];
+  List<Role> _roles = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
 
@@ -35,10 +39,14 @@ class _TeachersScreenState extends State<TeachersScreen> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final teachers = await FirebaseService.getTeachers();
+      final results = await Future.wait([
+        FirebaseService.getTeachers(),
+        FirebaseService.getRoles(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _teachers = teachers;
+        _teachers = results[0] as List<Teacher>;
+        _roles = results[1] as List<Role>;
         _isLoading = false;
       });
     } catch (e) {
@@ -48,6 +56,15 @@ class _TeachersScreenState extends State<TeachersScreen> {
         SnackBar(content: Text('Error loading teachers: $e')),
       );
     }
+  }
+
+  /// Display label for [t]'s custom role: looks up `roleId → Role.name`.
+  String? _roleLabel(Teacher t) {
+    if (t.roleId == null || t.roleId!.isEmpty) return null;
+    for (final r in _roles) {
+      if (r.id == t.roleId) return r.name;
+    }
+    return null;
   }
 
   List<Teacher> get _filtered {
@@ -141,6 +158,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     if (widget.showSchoolFilter && widget.schools.length > 1)
                       schoolName,
                     if (t.subject != null) t.subject!,
+                    if ((_roleLabel(t) ?? '').isNotEmpty) _roleLabel(t)!,
                     if (t.email != null) t.email!,
                   ].where((s) => s.isNotEmpty).join(' · '),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
@@ -184,12 +202,20 @@ class _TeachersScreenState extends State<TeachersScreen> {
     final subjectController = TextEditingController(text: teacher?.subject ?? '');
     final employeeIdController = TextEditingController(text: teacher?.employeeId ?? '');
     String? schoolId = teacher?.schoolId;
+    String? selectedRoleId = teacher?.roleId;
     bool isActive = teacher?.isActive ?? true;
     bool isSaving = false;
     final isEdit = teacher != null;
 
     if (schoolId == null && widget.schools.isNotEmpty) {
       schoolId = widget.schools.first.id;
+    }
+    if (selectedRoleId != null &&
+        !_roles.any((r) =>
+            r.id == selectedRoleId &&
+            r.appliesTo.contains(AuthRoles.kindTeacher) &&
+            r.schoolId == schoolId)) {
+      selectedRoleId = null;
     }
 
     showDialog(
@@ -255,6 +281,14 @@ class _TeachersScreenState extends State<TeachersScreen> {
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: adminInputDecoration('Employee ID'),
                   ),
+                  const SizedBox(height: 16),
+                  RoleDropdown(
+                    roles: _roles,
+                    kind: AuthRoles.kindTeacher,
+                    schoolId: schoolId,
+                    selectedRoleId: selectedRoleId,
+                    onChanged: (v) => setStateDialog(() => selectedRoleId = v),
+                  ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -300,6 +334,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                           employeeId: employeeIdController.text.trim().isEmpty
                               ? null
                               : employeeIdController.text.trim(),
+                          roleId: selectedRoleId,
                           isActive: isActive,
                           createdAt: teacher?.createdAt,
                         );

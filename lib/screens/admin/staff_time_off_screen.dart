@@ -1,11 +1,12 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/staff_time_off.dart';
 import '../../models/teacher.dart';
@@ -37,25 +38,41 @@ class _TimeOffPerson {
   final String name;
   final String schoolId;
 
+  /// Custom-role display name (looked up from `roles/{id}` via the
+  /// person's `roleId`). Empty if unassigned.
+  final String roleLabel;
+
   const _TimeOffPerson({
     required this.assigneeKind,
     required this.id,
     required this.name,
     required this.schoolId,
+    this.roleLabel = '',
   });
 
   String get compoundKey => '$assigneeKind:$id';
 
-  String get menuLabel => '${AuthRoles.kindLabel(assigneeKind)} · $name';
+  String get menuLabel {
+    final parts = <String>[
+      AuthRoles.kindLabel(assigneeKind),
+      if (roleLabel.isNotEmpty) roleLabel,
+      name,
+    ];
+    return parts.join(' · ');
+  }
 }
 
 class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
   static final _dateFmt = DateFormat.yMMMd();
+  static const int _maxAttachmentRawBytes = 450 * 1024;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = true;
   List<Worker> _workers = [];
   List<Teacher> _teachers = [];
   List<app_user.AppUser> _users = [];
+  List<Role> _roles = [];
   List<StaffTimeOff> _entries = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
@@ -81,6 +98,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
         FirebaseService.getTeachers(),
         FirebaseService.getUsers(),
         FirebaseService.getStaffTimeOffs(),
+        FirebaseService.getRoles(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -88,6 +106,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
         _teachers = results[1] as List<Teacher>;
         _users = results[2] as List<app_user.AppUser>;
         _entries = results[3] as List<StaffTimeOff>;
+        _roles = results[4] as List<Role>;
         _isLoading = false;
       });
     } catch (e) {
@@ -99,8 +118,17 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
     }
   }
 
+  /// Resolves a `roleId` to its custom role name. Returns an empty string
+  /// when the id is null/unknown.
+  String _roleLabelForId(String? roleId) {
+    if (roleId == null || roleId.isEmpty) return '';
+    for (final r in _roles) {
+      if (r.id == roleId) return r.name;
+    }
+    return '';
+  }
+
   List<_TimeOffPerson> get _peopleForSchoolFilter {
-    final kindOrder = ['teacher', 'admin', 'staff', 'worker'];
     final out = <_TimeOffPerson>[];
 
     for (final t in _teachers) {
@@ -108,10 +136,11 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
       if (_schoolFilter != 'all' && t.schoolId != _schoolFilter) continue;
       out.add(
         _TimeOffPerson(
-          assigneeKind: 'teacher',
+          assigneeKind: AuthRoles.kindTeacher,
           id: t.id!,
           name: t.name,
           schoolId: t.schoolId,
+          roleLabel: _roleLabelForId(t.roleId),
         ),
       );
     }
@@ -125,14 +154,15 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
       final displayName = (u.name != null && u.name!.trim().isNotEmpty)
           ? u.name!.trim()
           : u.email;
-      final r = (u.role ?? '').toLowerCase();
-      final assigneeKind = r == 'staff' ? 'staff' : 'admin';
+      final assigneeKind =
+          AuthRoles.kindForUserRole(u.role) ?? AuthRoles.kindAdmin;
       out.add(
         _TimeOffPerson(
           assigneeKind: assigneeKind,
           id: u.id!,
           name: displayName,
           schoolId: sid,
+          roleLabel: _roleLabelForId(u.roleId),
         ),
       );
     }
@@ -142,18 +172,19 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
       if (_schoolFilter != 'all' && w.schoolId != _schoolFilter) continue;
       out.add(
         _TimeOffPerson(
-          assigneeKind: 'worker',
+          assigneeKind: AuthRoles.kindWorker,
           id: w.id!,
           name: w.name,
           schoolId: w.schoolId,
+          roleLabel: _roleLabelForId(w.roleId),
         ),
       );
     }
 
     out.sort((a, b) {
-      final k = kindOrder
+      final k = AuthRoles.allKinds
           .indexOf(a.assigneeKind)
-          .compareTo(kindOrder.indexOf(b.assigneeKind));
+          .compareTo(AuthRoles.allKinds.indexOf(b.assigneeKind));
       if (k != 0) return k;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
@@ -226,12 +257,13 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
       extraFilters: [
         FilterOption(
           value: _roleKindFilter,
-          items: const [
-            DropdownMenuItem(value: 'all', child: Text('All roles')),
-            DropdownMenuItem(value: 'teacher', child: Text('Teachers')),
-            DropdownMenuItem(value: 'admin', child: Text('Administrators')),
-            DropdownMenuItem(value: 'staff', child: Text('Staff accounts')),
-            DropdownMenuItem(value: 'worker', child: Text('Workers')),
+          items: [
+            const DropdownMenuItem(value: 'all', child: Text('All roles')),
+            for (final kind in AuthRoles.allKinds)
+              DropdownMenuItem(
+                value: kind,
+                child: Text(AuthRoles.kindLabelPlural(kind)),
+              ),
           ],
           onChanged: (v) => setState(() => _roleKindFilter = v ?? 'all'),
         ),
@@ -306,12 +338,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
         )
         .name;
 
-    final kindLabel = switch (e.assigneeKind) {
-      'teacher' => 'Teacher',
-      'admin' => 'Administrator',
-      'staff' => 'Staff',
-      _ => 'Worker',
-    };
+    final kindLabel = AuthRoles.kindLabel(e.assigneeKind);
 
     final range = e.startDate == e.endDate
         ? _dateFmt.format(e.startDate)
@@ -370,19 +397,24 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                 if (e.hasAttachment) ...[
                   const SizedBox(height: 6),
                   InkWell(
-                    onTap: () => _openAttachmentUrl(e.attachmentUrl!),
+                    onTap: () => _openStaffAttachment(e),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.attach_file,
+                          e.hasBase64Attachment
+                              ? Icons.image_outlined
+                              : Icons.attach_file,
                           size: 16,
                           color: colorScheme.primary,
                         ),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            e.attachmentFileName ?? 'Supporting document',
+                            e.attachmentFileName ??
+                                (e.hasBase64Attachment
+                                    ? 'Supporting image'
+                                    : 'Supporting document'),
                             style: TextStyle(
                               color: colorScheme.primary,
                               fontSize: 12,
@@ -431,6 +463,48 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
     );
   }
 
+  void _openStaffAttachment(StaffTimeOff e) {
+    if (e.hasBase64Attachment && e.attachmentBase64 != null) {
+      _showBase64ImagePreview(e.attachmentBase64!, title: e.attachmentFileName);
+    } else if (e.attachmentUrl != null && e.attachmentUrl!.isNotEmpty) {
+      _openAttachmentUrl(e.attachmentUrl!);
+    }
+  }
+
+  void _showBase64ImagePreview(String base64, {String? title}) {
+    Uint8List bytes;
+    try {
+      bytes = base64Decode(base64);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not display image')),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title ?? 'Supporting image'),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4,
+            child: Image.memory(bytes, fit: BoxFit.contain),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openAttachmentUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
@@ -442,55 +516,62 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
     }
   }
 
-  Future<void> _pickSupportingDocument({
+  String _imageMimeFromFileName(String name) {
+    final ext =
+        name.contains('.')
+            ? name.substring(name.lastIndexOf('.') + 1).toLowerCase()
+            : '';
+    return switch (ext) {
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+  }
+
+  Future<void> _pickSupportingImage({
     required void Function(void Function()) setStateDialog,
     required void Function(Uint8List bytes, String name) onPicked,
   }) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const [
-          'pdf',
-          'jpg',
-          'jpeg',
-          'png',
-          'gif',
-          'webp',
-          'doc',
-          'docx',
-          'xls',
-          'xlsx',
-        ],
-        withData: true,
+      final xFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 82,
       );
-      if (result == null || result.files.isEmpty) return;
-      final f = result.files.single;
-      var bytes = f.bytes;
-      if (bytes == null && f.path != null && !kIsWeb) {
-        bytes = await File(f.path!).readAsBytes();
-      }
-      if (bytes == null) {
+      if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
+      if (bytes.length > _maxAttachmentRawBytes) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not read file')),
+          SnackBar(
+            content: Text(
+              'Image is too large for Firestore (max '
+              '${(_maxAttachmentRawBytes / 1024).round()} KB). '
+              'Choose a smaller photo.',
+            ),
+          ),
         );
         return;
       }
-      const maxBytes = 10 * 1024 * 1024;
-      if (bytes.length > maxBytes) {
+      final encLen = base64Encode(bytes).length;
+      if (encLen > 950000) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File must be 10 MB or smaller')),
+          const SnackBar(
+            content: Text('Encoded image exceeds safe Firestore document size'),
+          ),
         );
         return;
       }
-      final name = f.name.trim().isEmpty ? 'document' : f.name.trim();
+      var name = xFile.name.trim();
+      if (name.isEmpty) name = 'photo.jpg';
       onPicked(bytes, name);
       setStateDialog(() {});
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not pick file: $e')),
+        SnackBar(content: Text('Could not pick image: $e')),
       );
     }
   }
@@ -698,7 +779,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Supporting document',
+                        'Supporting image',
                         style: TextStyle(
                           color:
                               Theme.of(context).colorScheme.onSurfaceVariant,
@@ -712,7 +793,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          Icons.insert_drive_file,
+                          Icons.add_photo_alternate_outlined,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         title: Text(
@@ -720,7 +801,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          'Ready to upload',
+                          'Will be saved in Firestore (Base64)',
                           style: TextStyle(
                             color: Theme.of(context)
                                 .colorScheme
@@ -744,12 +825,16 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(
-                          Icons.attach_file,
+                          existing!.hasBase64Attachment
+                              ? Icons.image_outlined
+                              : Icons.attach_file,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         title: Text(
-                          existing!.attachmentFileName ??
-                              'Supporting document',
+                          existing.attachmentFileName ??
+                              (existing.hasBase64Attachment
+                                  ? 'Supporting image'
+                                  : 'Supporting document'),
                           overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Wrap(
@@ -758,15 +843,27 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                             TextButton(
                               onPressed: isSaving
                                   ? null
-                                  : () => _openAttachmentUrl(
-                                        existing.attachmentUrl!,
-                                      ),
-                              child: const Text('Open'),
+                                  : () {
+                                      if (existing.hasBase64Attachment) {
+                                        _showBase64ImagePreview(
+                                          existing.attachmentBase64!,
+                                          title: existing.attachmentFileName,
+                                        );
+                                      } else if (existing.attachmentUrl !=
+                                          null) {
+                                        _openAttachmentUrl(
+                                          existing.attachmentUrl!,
+                                        );
+                                      }
+                                    },
+                              child: Text(
+                                existing.hasBase64Attachment ? 'View' : 'Open',
+                              ),
                             ),
                             TextButton(
                               onPressed: isSaving
                                   ? null
-                                  : () => _pickSupportingDocument(
+                                  : () => _pickSupportingImage(
                                         setStateDialog: setStateDialog,
                                         onPicked: (bytes, name) {
                                           pendingAttachmentBytes = bytes;
@@ -794,7 +891,7 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                       OutlinedButton.icon(
                         onPressed: isSaving
                             ? null
-                            : () => _pickSupportingDocument(
+                            : () => _pickSupportingImage(
                                   setStateDialog: setStateDialog,
                                   onPicked: (bytes, name) {
                                     pendingAttachmentBytes = bytes;
@@ -802,13 +899,15 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                                     attachmentRemoved = false;
                                   },
                                 ),
-                        icon: const Icon(Icons.upload_file, size: 18),
-                        label: const Text('Choose file'),
+                        icon: const Icon(Icons.add_photo_alternate_outlined,
+                            size: 18),
+                        label: const Text('Choose image'),
                       ),
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        'PDF, images, Word, or Excel · max 10 MB',
+                        'JPEG, PNG, GIF, WebP · stored in Firestore · max '
+                        '${(_maxAttachmentRawBytes / 1024).round()} KB',
                         style: TextStyle(
                           color: Theme.of(context)
                               .colorScheme
@@ -846,50 +945,45 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                         }
                         setStateDialog(() => isSaving = true);
                         try {
-                          String? docIdForCreate;
-                          if (existing == null &&
-                              pendingAttachmentBytes != null &&
-                              pendingAttachmentName != null) {
-                            docIdForCreate =
-                                FirebaseService.newStaffTimeOffDocumentId();
-                          }
-
+                          String? b64Out;
+                          String? mimeOut;
+                          String? nameOut;
                           String? pathOut;
                           String? urlOut;
-                          String? nameOut;
 
                           if (pendingAttachmentBytes != null &&
                               pendingAttachmentName != null) {
-                            if (existing?.hasAttachment == true) {
-                              await FirebaseService.deleteStaffTimeOffAttachment(
+                            if (existing?.hasLegacyStorageAttachment == true) {
+                              await FirebaseService
+                                  .deleteLegacyStaffTimeOffStorage(
                                 existing!.attachmentStoragePath,
                               );
                             }
-                            final timeOffDocId =
-                                existing?.id ?? docIdForCreate!;
-                            final up =
-                                await FirebaseService.uploadStaffTimeOffAttachment(
-                              schoolId: selected.schoolId,
-                              timeOffDocId: timeOffDocId,
-                              bytes: pendingAttachmentBytes!,
-                              fileName: pendingAttachmentName!,
+                            b64Out = base64Encode(pendingAttachmentBytes!);
+                            mimeOut = _imageMimeFromFileName(
+                              pendingAttachmentName!,
                             );
-                            pathOut = up['storagePath'];
-                            urlOut = up['url'];
-                            nameOut = up['fileName'];
-                          } else if (attachmentRemoved) {
-                            if (existing?.hasAttachment == true) {
-                              await FirebaseService.deleteStaffTimeOffAttachment(
-                                existing!.attachmentStoragePath,
-                              );
-                            }
+                            nameOut = pendingAttachmentName;
                             pathOut = null;
                             urlOut = null;
+                          } else if (attachmentRemoved) {
+                            if (existing?.hasLegacyStorageAttachment == true) {
+                              await FirebaseService
+                                  .deleteLegacyStaffTimeOffStorage(
+                                existing!.attachmentStoragePath,
+                              );
+                            }
+                            b64Out = null;
+                            mimeOut = null;
                             nameOut = null;
+                            pathOut = null;
+                            urlOut = null;
                           } else {
+                            b64Out = existing?.attachmentBase64;
+                            mimeOut = existing?.attachmentContentType;
+                            nameOut = existing?.attachmentFileName;
                             pathOut = existing?.attachmentStoragePath;
                             urlOut = existing?.attachmentUrl;
-                            nameOut = existing?.attachmentFileName;
                           }
 
                           final entry = StaffTimeOff(
@@ -906,18 +1000,17 @@ class _StaffTimeOffScreenState extends State<StaffTimeOffScreen> {
                                 : notesController.text.trim(),
                             status: status,
                             createdAt: existing?.createdAt,
+                            attachmentBase64: b64Out,
+                            attachmentContentType: mimeOut,
+                            attachmentFileName: nameOut,
                             attachmentStoragePath: pathOut,
                             attachmentUrl: urlOut,
-                            attachmentFileName: nameOut,
                           );
 
                           if (isEdit) {
                             await FirebaseService.updateStaffTimeOff(entry);
                           } else {
-                            await FirebaseService.addStaffTimeOff(
-                              entry,
-                              documentId: docIdForCreate,
-                            );
+                            await FirebaseService.addStaffTimeOff(entry);
                           }
                           if (!dialogCtx.mounted) return;
                           Navigator.pop(dialogCtx);

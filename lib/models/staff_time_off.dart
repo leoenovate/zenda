@@ -6,6 +6,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Stored in `worker_time_off` for historical reasons; documents include
 /// `assigneeKind` / `assigneeId` / `assigneeName`, with legacy `workerId` /
 /// `workerName` mirrored when [assigneeKind] is `worker`.
+///
+/// Supporting **images** may be stored as Base64 in [attachmentBase64]
+/// (Firestore document size limit 1 MiB — keep images small).
+/// Older rows may still use [attachmentStoragePath] + [attachmentUrl].
 class StaffTimeOff {
   final String? id;
   final String schoolId;
@@ -19,7 +23,11 @@ class StaffTimeOff {
   final String status;
   final DateTime? createdAt;
 
-  /// Firebase Storage path (for delete/replace). Download URL in [attachmentUrl].
+  /// Inline image (Base64). Prefer this for new records.
+  final String? attachmentBase64;
+  final String? attachmentContentType;
+
+  /// Legacy: Firebase Storage (read-only for old data).
   final String? attachmentStoragePath;
   final String? attachmentUrl;
   final String? attachmentFileName;
@@ -36,16 +44,23 @@ class StaffTimeOff {
     this.notes,
     this.status = 'approved',
     this.createdAt,
+    this.attachmentBase64,
+    this.attachmentContentType,
     this.attachmentStoragePath,
     this.attachmentUrl,
     this.attachmentFileName,
   });
 
-  bool get hasAttachment =>
+  bool get hasBase64Attachment =>
+      attachmentBase64 != null && attachmentBase64!.trim().isNotEmpty;
+
+  bool get hasLegacyStorageAttachment =>
       attachmentStoragePath != null &&
       attachmentStoragePath!.isNotEmpty &&
       attachmentUrl != null &&
       attachmentUrl!.isNotEmpty;
+
+  bool get hasAttachment => hasBase64Attachment || hasLegacyStorageAttachment;
 
   static DateTime _dateOnlyFrom(dynamic v) {
     final d = _parseDate(v);
@@ -90,6 +105,8 @@ class StaffTimeOff {
       notes: data['notes'] as String?,
       status: data['status'] ?? 'approved',
       createdAt: _parseDate(data['createdAt']),
+      attachmentBase64: data['attachmentBase64'] as String?,
+      attachmentContentType: data['attachmentContentType'] as String?,
       attachmentStoragePath: data['attachmentStoragePath'] as String?,
       attachmentUrl: data['attachmentUrl'] as String?,
       attachmentFileName: data['attachmentFileName'] as String?,
@@ -111,14 +128,26 @@ class StaffTimeOff {
       'type': type,
       'status': status,
       if (notes != null && notes!.trim().isNotEmpty) 'notes': notes!.trim(),
-      if (hasAttachment) ...{
-        'attachmentStoragePath': attachmentStoragePath,
-        'attachmentUrl': attachmentUrl,
-        if (attachmentFileName != null &&
-            attachmentFileName!.trim().isNotEmpty)
-          'attachmentFileName': attachmentFileName!.trim(),
-      },
     };
+    if (hasBase64Attachment) {
+      m['attachmentBase64'] = attachmentBase64;
+      m['attachmentContentType'] =
+          (attachmentContentType != null &&
+                  attachmentContentType!.trim().isNotEmpty)
+              ? attachmentContentType!.trim()
+              : 'image/jpeg';
+      if (attachmentFileName != null &&
+          attachmentFileName!.trim().isNotEmpty) {
+        m['attachmentFileName'] = attachmentFileName!.trim();
+      }
+    } else if (hasLegacyStorageAttachment) {
+      m['attachmentStoragePath'] = attachmentStoragePath;
+      m['attachmentUrl'] = attachmentUrl;
+      if (attachmentFileName != null &&
+          attachmentFileName!.trim().isNotEmpty) {
+        m['attachmentFileName'] = attachmentFileName!.trim();
+      }
+    }
     if (assigneeKind == 'worker') {
       m['workerId'] = assigneeId;
       m['workerName'] = assigneeName;

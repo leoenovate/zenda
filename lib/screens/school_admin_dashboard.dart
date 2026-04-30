@@ -54,9 +54,9 @@ enum _Section {
   rolesAdmins,
   rolesTeachers,
   rolesParents,
-  rolesWorkers,
   rolesStudents,
   rolesCustom,
+  rolesUnassigned,
 }
 
 class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
@@ -72,6 +72,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   List<app_parent.Parent> _parents = [];
   List<Worker> _workers = [];
   List<app_user.AppUser> _admins = [];
+  List<app_user.AppUser> _users = [];
   List<Role> _customRoles = [];
   List<Device> _devices = [];
   List<Session> _sessions = [];
@@ -127,6 +128,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _teachers = results[2] as List<Teacher>;
         _parents = results[3] as List<app_parent.Parent>;
         _workers = results[4] as List<Worker>;
+        _users = users;
         _admins =
             users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
         _devices = results[6] as List<Device>;
@@ -722,9 +724,58 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  /// Children populated dynamically from the loaded dataset. Built-in
-  /// categories with zero records are hidden; custom roles are shown by name
-  /// so new roles like "Cleaner" appear directly in the sidebar.
+  /// Counts every person across all `appliesTo` collections whose
+  /// `roleId` equals [roleId] (or whose `roleId` is null when [roleId]
+  /// itself is null — the Unassigned bucket).
+  int _countAssignedToRole(String? roleId, List<String> appliesTo) {
+    var n = 0;
+    if (appliesTo.contains(AuthRoles.kindWorker)) {
+      for (final w in _workers) {
+        if (roleId == null) {
+          if ((w.roleId == null) || w.roleId!.isEmpty) n++;
+        } else if (w.roleId == roleId) {
+          n++;
+        }
+      }
+    }
+    if (appliesTo.contains(AuthRoles.kindTeacher)) {
+      for (final t in _teachers) {
+        if (roleId == null) {
+          if ((t.roleId == null) || t.roleId!.isEmpty) n++;
+        } else if (t.roleId == roleId) {
+          n++;
+        }
+      }
+    }
+    final usersInScope = _adminLikeUsers;
+    if (appliesTo.contains(AuthRoles.kindAdmin) ||
+        appliesTo.contains(AuthRoles.kindStaff)) {
+      for (final u in usersInScope) {
+        final kind = AuthRoles.kindForUserRole(u.role);
+        if (kind == null) continue;
+        if (!appliesTo.contains(kind)) continue;
+        if (roleId == null) {
+          if ((u.roleId == null) || u.roleId!.isEmpty) n++;
+        } else if (u.roleId == roleId) {
+          n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  /// Admin-like users that participate in the role system: school admins
+  /// and generic staff. (System owners and teachers don't show up here;
+  /// teachers come from the `teachers/` collection.)
+  List<app_user.AppUser> get _adminLikeUsers => _users
+      .where((u) => AuthRoles.isAdminLike(u.role))
+      .toList();
+
+  /// Children populated dynamically from the loaded dataset. The "user
+  /// kind" buckets (Admins / Teachers / Parents / Students) map to
+  /// distinct Firestore collections and are kept hardcoded here.
+  /// Custom roles are appended after, plus an Unassigned bucket for
+  /// people without a roleId.
   List<_RoleEntry> _roleEntries() {
     final entries = [
       _RoleEntry(
@@ -746,12 +797,6 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _Section.rolesParents,
       ),
       _RoleEntry(
-        Icons.engineering,
-        'Workers',
-        _workers.length,
-        _Section.rolesWorkers,
-      ),
-      _RoleEntry(
         Icons.school,
         'Students',
         _students.length,
@@ -759,16 +804,13 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
       ),
     ];
 
-    for (final role in _customRoles) {
-      final roleNameLower = role.name.trim().toLowerCase();
-      final assigned =
-          _workers
-              .where(
-                (w) =>
-                    w.schoolId == role.schoolId &&
-                    (w.role ?? '').trim().toLowerCase() == roleNameLower,
-              )
-              .length;
+    final schoolId = _school?.id;
+    final scopedRoles = _customRoles
+        .where((r) => schoolId == null || r.schoolId == schoolId)
+        .toList();
+
+    for (final role in scopedRoles) {
+      final assigned = _countAssignedToRole(role.id, role.appliesTo);
       entries.add(
         _RoleEntry(
           Icons.badge_outlined,
@@ -780,6 +822,31 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         ),
       );
     }
+
+    // Unassigned bucket. Aggregates across every kind covered by *any*
+    // active role in this school, plus workers (since workers are the
+    // historical baseline). This makes the sum-rule predictable: every
+    // worker shows up in exactly one row.
+    final unassignedAppliesTo = <String>{AuthRoles.kindWorker};
+    for (final r in scopedRoles) {
+      if (!r.isActive) continue;
+      unassignedAppliesTo.addAll(r.appliesTo);
+    }
+    final unassignedKinds = [
+      for (final k in AuthRoles.allKinds)
+        if (unassignedAppliesTo.contains(k)) k,
+    ];
+    final unassignedCount =
+        _countAssignedToRole(null, unassignedKinds);
+    entries.add(
+      _RoleEntry(
+        Icons.help_outline,
+        'Unassigned',
+        unassignedCount,
+        _Section.rolesUnassigned,
+        alwaysShow: true,
+      ),
+    );
 
     return entries;
   }
@@ -1273,12 +1340,6 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onDataChanged: _loadData,
           showSchoolFilter: false,
         );
-      case _Section.rolesWorkers:
-        return WorkersScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-        );
       case _Section.rolesStudents:
         return StudentsScreen(
           schools: schools,
@@ -1306,6 +1367,33 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           titleOverride: 'Roles',
           subtitleOverride:
               'Define additional staff role labels for your school',
+        );
+      case _Section.rolesUnassigned:
+        // Synthesize a virtual "Unassigned" Role with id == null so
+        // RoleEmployeesScreen knows to filter for people whose roleId is
+        // null. The appliesTo set is the union of every active role's
+        // appliesTo plus workers (the historical baseline).
+        final appliesToSet = <String>{AuthRoles.kindWorker};
+        for (final r in _customRoles) {
+          if (!r.isActive) continue;
+          if (_school?.id != null && r.schoolId != _school!.id) continue;
+          appliesToSet.addAll(r.appliesTo);
+        }
+        final orderedAppliesTo = [
+          for (final k in AuthRoles.allKinds)
+            if (appliesToSet.contains(k)) k,
+        ];
+        final unassignedRole = Role(
+          name: 'Unassigned',
+          schoolId: _school?.id ?? '',
+          appliesTo: orderedAppliesTo,
+        );
+        return RoleEmployeesScreen(
+          key: const ValueKey('role-unassigned'),
+          role: unassignedRole,
+          allRoles: _customRoles,
+          schools: schools,
+          onDataChanged: _loadData,
         );
     }
   }

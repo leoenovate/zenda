@@ -7,7 +7,19 @@ class Worker {
   final String name;
   final String schoolId;
   final String? employeeId;
-  final String? role;
+
+  /// Legacy free-form role label (e.g. `'Cleaner'`, `'Nurse'`). Preserved
+  /// for read-side backward compatibility with documents written before
+  /// the `roleId` migration; new writes should always set [roleId] and
+  /// leave this field cleared. The migration helper
+  /// `FirebaseService.migrateRoleStringsToRoleIds` rewrites legacy values
+  /// into proper `roles/{id}` references.
+  final String? legacyRoleName;
+
+  /// Foreign key into `roles/{id}` (custom role assignment). May be null
+  /// for unassigned workers.
+  final String? roleId;
+
   final String? phone;
   final String? email;
   final String? fingerprintData;
@@ -20,7 +32,8 @@ class Worker {
     required this.name,
     required this.schoolId,
     this.employeeId,
-    this.role,
+    this.legacyRoleName,
+    this.roleId,
     this.phone,
     this.email,
     this.fingerprintData,
@@ -49,7 +62,8 @@ class Worker {
       name: data['name'] ?? '',
       schoolId: data['schoolId'] ?? '',
       employeeId: data['employeeId'],
-      role: data['role'],
+      legacyRoleName: data['role'] as String?,
+      roleId: data['roleId'] as String?,
       phone: data['phone'],
       email: data['email'],
       fingerprintData: data['fingerprintData'],
@@ -64,13 +78,49 @@ class Worker {
       'name': name,
       'schoolId': schoolId,
       if (employeeId != null) 'employeeId': employeeId,
-      if (role != null) 'role': role,
+      if (roleId != null) 'roleId': roleId,
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
       if (fingerprintData != null) 'fingerprintData': fingerprintData,
-      if (fingerprintTimestamp != null) 'fingerprintTimestamp': fingerprintTimestamp,
+      if (fingerprintTimestamp != null)
+        'fingerprintTimestamp': fingerprintTimestamp,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
     };
+  }
+
+  /// Backward-compatible alias for [legacyRoleName]. Existing screens that
+  /// still display the legacy free-form role text use this; they should be
+  /// migrated to look up `roleId → Role.name` instead.
+  String? get role => legacyRoleName;
+
+  Worker copyWith({
+    String? id,
+    String? name,
+    String? schoolId,
+    String? employeeId,
+    String? legacyRoleName,
+    String? roleId,
+    String? phone,
+    String? email,
+    String? fingerprintData,
+    String? fingerprintTimestamp,
+    bool? isActive,
+    DateTime? createdAt,
+  }) {
+    return Worker(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      schoolId: schoolId ?? this.schoolId,
+      employeeId: employeeId ?? this.employeeId,
+      legacyRoleName: legacyRoleName ?? this.legacyRoleName,
+      roleId: roleId ?? this.roleId,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      fingerprintData: fingerprintData ?? this.fingerprintData,
+      fingerprintTimestamp: fingerprintTimestamp ?? this.fingerprintTimestamp,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }

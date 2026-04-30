@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/user.dart' as app_user;
 import '../../services/firebase_service.dart';
 import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import '../../widgets/admin/role_dropdown.dart';
 
 /// Admin-list screen showing every user with `role == 'admin'` for the
 /// current scope (the school admin's `schoolId`, courtesy of
@@ -28,6 +30,7 @@ class AdminsScreen extends StatefulWidget {
 class _AdminsScreenState extends State<AdminsScreen> {
   bool _isLoading = true;
   List<app_user.AppUser> _admins = [];
+  List<Role> _roles = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
 
@@ -40,10 +43,15 @@ class _AdminsScreenState extends State<AdminsScreen> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final users = await FirebaseService.getUsers();
+      final results = await Future.wait([
+        FirebaseService.getUsers(),
+        FirebaseService.getRoles(),
+      ]);
       if (!mounted) return;
+      final users = results[0] as List<app_user.AppUser>;
       setState(() {
         _admins = users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
+        _roles = results[1] as List<Role>;
         _isLoading = false;
       });
     } catch (e) {
@@ -53,6 +61,14 @@ class _AdminsScreenState extends State<AdminsScreen> {
         SnackBar(content: Text('Error loading admins: $e')),
       );
     }
+  }
+
+  String? _roleLabel(app_user.AppUser u) {
+    if (u.roleId == null || u.roleId!.isEmpty) return null;
+    for (final r in _roles) {
+      if (r.id == u.roleId) return r.name;
+    }
+    return null;
   }
 
   List<app_user.AppUser> get _filtered {
@@ -153,6 +169,8 @@ class _AdminsScreenState extends State<AdminsScreen> {
                   [
                     admin.email,
                     schoolName,
+                    if ((_roleLabel(admin) ?? '').isNotEmpty)
+                      _roleLabel(admin)!,
                     if (admin.phone != null && admin.phone!.isNotEmpty)
                       admin.phone!,
                     if (!admin.isActive) 'Inactive',
@@ -221,12 +239,20 @@ class _AdminsScreenState extends State<AdminsScreen> {
     final phoneController = TextEditingController(text: admin?.phone ?? '');
     final passwordController = TextEditingController();
     String? schoolId = admin?.schoolId;
+    String? selectedRoleId = admin?.roleId;
     bool isActive = admin?.isActive ?? true;
     bool isSaving = false;
     final isEdit = admin != null;
 
     if (schoolId == null && widget.schools.isNotEmpty) {
       schoolId = widget.schools.first.id;
+    }
+    if (selectedRoleId != null &&
+        !_roles.any((r) =>
+            r.id == selectedRoleId &&
+            r.appliesTo.contains(AuthRoles.kindAdmin) &&
+            r.schoolId == schoolId)) {
+      selectedRoleId = null;
     }
 
     showDialog(
@@ -299,9 +325,25 @@ class _AdminsScreenState extends State<AdminsScreen> {
                                 child: Text(s.name),
                               ))
                           .toList(),
-                      onChanged: (v) => setStateDialog(() => schoolId = v),
+                      onChanged: (v) => setStateDialog(() {
+                        schoolId = v;
+                        if (selectedRoleId != null &&
+                            !_roles.any((r) =>
+                                r.id == selectedRoleId &&
+                                r.schoolId == schoolId)) {
+                          selectedRoleId = null;
+                        }
+                      }),
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  RoleDropdown(
+                    roles: _roles,
+                    kind: AuthRoles.kindAdmin,
+                    schoolId: schoolId,
+                    selectedRoleId: selectedRoleId,
+                    onChanged: (v) => setStateDialog(() => selectedRoleId = v),
+                  ),
                   if (isEdit) ...[
                     const SizedBox(height: 12),
                     SwitchListTile(
@@ -369,6 +411,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
                             role: admin.role ?? AuthRoles.admin,
                             schoolId: schoolId ?? admin.schoolId,
                             phone: phone.isEmpty ? null : phone,
+                            roleId: selectedRoleId,
                             isActive: isActive,
                             createdAt: admin.createdAt,
                             lastLogin: admin.lastLogin,
@@ -382,6 +425,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
                             name: name,
                             schoolId: schoolId,
                             phone: phone.isEmpty ? null : phone,
+                            roleId: selectedRoleId,
                           );
                         }
                         if (!mounted) return;

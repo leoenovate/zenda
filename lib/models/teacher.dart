@@ -9,6 +9,11 @@ class Teacher {
   final String? subject;
   final String? classId;
   final String? employeeId;
+
+  /// Foreign key into `roles/{id}` (custom role assignment). May be null
+  /// for teachers without a custom-role label.
+  final String? roleId;
+
   final bool isActive;
   final DateTime? createdAt;
 
@@ -21,6 +26,7 @@ class Teacher {
     this.subject,
     this.classId,
     this.employeeId,
+    this.roleId,
     this.isActive = true,
     this.createdAt,
   });
@@ -49,6 +55,7 @@ class Teacher {
       subject: data['subject'],
       classId: data['classId'],
       employeeId: data['employeeId'],
+      roleId: data['roleId'] as String?,
       isActive: data['isActive'] ?? true,
       createdAt: _parseDate(data['createdAt']),
     );
@@ -63,8 +70,37 @@ class Teacher {
       if (subject != null) 'subject': subject,
       if (classId != null) 'classId': classId,
       if (employeeId != null) 'employeeId': employeeId,
+      if (roleId != null) 'roleId': roleId,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
     };
+  }
+
+  Teacher copyWith({
+    String? id,
+    String? name,
+    String? schoolId,
+    String? email,
+    String? phone,
+    String? subject,
+    String? classId,
+    String? employeeId,
+    String? roleId,
+    bool? isActive,
+    DateTime? createdAt,
+  }) {
+    return Teacher(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      schoolId: schoolId ?? this.schoolId,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      subject: subject ?? this.subject,
+      classId: classId ?? this.classId,
+      employeeId: employeeId ?? this.employeeId,
+      roleId: roleId ?? this.roleId,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }

@@ -7,6 +7,11 @@ class AppUser {
   final String? role; // "admin" | "teacher" | "system_owner" | "staff"
   final String? schoolId;
   final String? phone;
+
+  /// Foreign key into `roles/{id}` (custom role label, e.g. "I.T Officer").
+  /// Only meaningful for `staff` / `admin` users; null otherwise.
+  final String? roleId;
+
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? lastLogin;
@@ -18,6 +23,7 @@ class AppUser {
     this.role,
     this.schoolId,
     this.phone,
+    this.roleId,
     this.isActive = true,
     this.createdAt,
     this.lastLogin,
@@ -26,7 +32,7 @@ class AppUser {
   // Helper function to parse date from Firestore (handles both Timestamp and ISO string)
   static DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
-    
+
     if (dateValue is Timestamp) {
       return dateValue.toDate();
     } else if (dateValue is String) {
@@ -39,7 +45,7 @@ class AppUser {
     } else if (dateValue is DateTime) {
       return dateValue;
     }
-    
+
     return null;
   }
 
@@ -51,6 +57,7 @@ class AppUser {
       role: data['role'],
       schoolId: data['schoolId'],
       phone: data['phone'],
+      roleId: data['roleId'] as String?,
       isActive: data['isActive'] ?? true,
       createdAt: _parseDate(data['createdAt']),
       lastLogin: _parseDate(data['lastLogin']),
@@ -64,10 +71,36 @@ class AppUser {
       if (role != null) 'role': role,
       if (schoolId != null) 'schoolId': schoolId,
       if (phone != null) 'phone': phone,
+      if (roleId != null) 'roleId': roleId,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
       if (lastLogin != null) 'lastLogin': lastLogin,
     };
   }
-}
 
+  AppUser copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? role,
+    String? schoolId,
+    String? phone,
+    String? roleId,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? lastLogin,
+  }) {
+    return AppUser(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      schoolId: schoolId ?? this.schoolId,
+      phone: phone ?? this.phone,
+      roleId: roleId ?? this.roleId,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      lastLogin: lastLogin ?? this.lastLogin,
+    );
+  }
+}

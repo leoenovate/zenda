@@ -9,6 +9,7 @@ import '../models/session.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
+import '../services/role_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 import '../utils/responsive_builder.dart';
@@ -1320,9 +1321,65 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             Colors.teal,
             _runPeriodsMigration,
           ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            Icons.assignment_ind_outlined,
+            'Migrate worker roles',
+            Colors.deepPurple,
+            _runWorkerRolesMigration,
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _runWorkerRolesMigration() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Migrate worker roles'),
+        content: const Text(
+          'Promote legacy free-form role labels on workers (e.g. "Nurse", '
+          '"Administrator") into proper Role records and set every worker\'s '
+          'roleId field. Safe to run more than once.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Run'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Running role migration...')),
+    );
+    try {
+      final summary = await FirebaseService.migrateRoleStringsToRoleIds();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Created ${summary['rolesCreated']} role(s), '
+            'migrated ${summary['workersMigrated']} worker(s), '
+            'skipped ${summary['workersSkipped']}.',
+          ),
+        ),
+      );
+      await _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Role migration failed: $e')),
+      );
+    }
   }
 
   Future<void> _runPeriodsMigration() async {
@@ -2836,7 +2893,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final emailController = TextEditingController(text: admin?.email ?? '');
     final phoneController = TextEditingController(text: admin?.phone ?? '');
     final passwordController = TextEditingController();
-    String role = admin?.role ?? 'admin';
+    String role = admin?.role ?? AuthRoles.admin;
     bool isActive = admin?.isActive ?? true;
     bool isSaving = false;
     final isEdit = admin != null;
@@ -2930,20 +2987,21 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                           ),
                           items: const [
                             DropdownMenuItem(
-                              value: 'admin',
+                              value: AuthRoles.admin,
                               child: Text('School Admin'),
                             ),
                             DropdownMenuItem(
-                              value: 'teacher',
+                              value: AuthRoles.teacher,
                               child: Text('Teacher'),
                             ),
                             DropdownMenuItem(
-                              value: 'staff',
+                              value: AuthRoles.staff,
                               child: Text('Staff'),
                             ),
                           ],
-                          onChanged:
-                              (v) => setStateDialog(() => role = v ?? 'admin'),
+                          onChanged: (v) => setStateDialog(
+                            () => role = v ?? AuthRoles.admin,
+                          ),
                         ),
                         if (isEdit) ...[
                           const SizedBox(height: 12),

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -688,6 +686,7 @@ class FirebaseService {
     String? name,
     String? schoolId,
     String? phone,
+    String? roleId,
   }) async {
     try {
       // Create Firebase Auth account using a secondary app so we don't clobber
@@ -708,6 +707,7 @@ class FirebaseService {
         'role': role,
         if (schoolId != null) 'schoolId': schoolId,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (roleId != null && roleId.isNotEmpty) 'roleId': roleId,
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -736,10 +736,11 @@ class FirebaseService {
       if (user.id == null) {
         throw Exception('User ID is required for update');
       }
-      await _firestore
-          .collection('users')
-          .doc(user.id)
-          .update(user.toFirestore());
+      final data = user.toFirestore();
+      // Explicit null handling so the form can clear optional fields.
+      if (user.roleId == null) data['roleId'] = FieldValue.delete();
+      if (user.phone == null) data['phone'] = FieldValue.delete();
+      await _firestore.collection('users').doc(user.id).update(data);
     } catch (e) {
       throw Exception('Failed to update admin: $e');
     }
@@ -895,10 +896,14 @@ class FirebaseService {
       if (teacher.id == null) {
         throw Exception('Teacher ID is required for update');
       }
-      await _firestore
-          .collection('teachers')
-          .doc(teacher.id)
-          .update(teacher.toFirestore());
+      final data = teacher.toFirestore();
+      // Explicit null handling so the form can clear optional fields.
+      if (teacher.roleId == null) data['roleId'] = FieldValue.delete();
+      if (teacher.email == null) data['email'] = FieldValue.delete();
+      if (teacher.phone == null) data['phone'] = FieldValue.delete();
+      if (teacher.subject == null) data['subject'] = FieldValue.delete();
+      if (teacher.employeeId == null) data['employeeId'] = FieldValue.delete();
+      await _firestore.collection('teachers').doc(teacher.id).update(data);
     } catch (e) {
       throw Exception('Failed to update teacher: $e');
     }
@@ -1331,10 +1336,18 @@ class FirebaseService {
       if (worker.id == null) {
         throw Exception('Worker ID is required for update');
       }
-      await _firestore
-          .collection('workers')
-          .doc(worker.id)
-          .update(worker.toFirestore());
+      final data = worker.toFirestore();
+      // Explicit null handling: clear roleId / employeeId / phone / email
+      // when the form leaves them blank, so updates don't keep stale values.
+      if (worker.roleId == null) data['roleId'] = FieldValue.delete();
+      if (worker.employeeId == null) data['employeeId'] = FieldValue.delete();
+      if (worker.phone == null) data['phone'] = FieldValue.delete();
+      if (worker.email == null) data['email'] = FieldValue.delete();
+      // Once a worker is edited, the legacy free-form role text is
+      // superseded by roleId. Clear it so reads no longer fall back to
+      // the stale string.
+      data['role'] = FieldValue.delete();
+      await _firestore.collection('workers').doc(worker.id).update(data);
     } catch (e) {
       throw Exception('Failed to update worker: $e');
     }
@@ -1347,12 +1360,6 @@ class FirebaseService {
       throw Exception('Failed to delete worker: $e');
     }
   }
-
-  static String newStaffTimeOffDocumentId() {
-    return _firestore.collection('worker_time_off').doc().id;
-  }
-
-  // STAFF TIME OFF (workers, teachers, school admins — collection id is legacy)
 
   static Future<List<StaffTimeOff>> getStaffTimeOffs({String? schoolId}) async {
     try {
@@ -1376,15 +1383,9 @@ class FirebaseService {
     }
   }
 
-  static Future<String> addStaffTimeOff(
-    StaffTimeOff entry, {
-    String? documentId,
-  }) async {
+  static Future<String> addStaffTimeOff(StaffTimeOff entry) async {
     try {
-      final doc =
-          documentId != null
-              ? _firestore.collection('worker_time_off').doc(documentId)
-              : _firestore.collection('worker_time_off').doc();
+      final doc = _firestore.collection('worker_time_off').doc();
       final data = entry.toFirestore();
       data['createdAt'] = FieldValue.serverTimestamp();
       await doc.set(data);
@@ -1408,6 +1409,14 @@ class FirebaseService {
         data['attachmentStoragePath'] = FieldValue.delete();
         data['attachmentUrl'] = FieldValue.delete();
         data['attachmentFileName'] = FieldValue.delete();
+        data['attachmentBase64'] = FieldValue.delete();
+        data['attachmentContentType'] = FieldValue.delete();
+      } else if (entry.hasBase64Attachment) {
+        data['attachmentStoragePath'] = FieldValue.delete();
+        data['attachmentUrl'] = FieldValue.delete();
+      } else if (entry.hasLegacyStorageAttachment) {
+        data['attachmentBase64'] = FieldValue.delete();
+        data['attachmentContentType'] = FieldValue.delete();
       }
       await _firestore.collection('worker_time_off').doc(entry.id).update(data);
     } catch (e) {
@@ -1415,76 +1424,23 @@ class FirebaseService {
     }
   }
 
+  static Future<void> deleteLegacyStaffTimeOffStorage(String? storagePath) async {
+    if (storagePath == null || storagePath.isEmpty) return;
+    try {
+      await FirebaseStorage.instance.ref(storagePath).delete();
+    } catch (_) {}
+  }
+
   static Future<void> deleteStaffTimeOff(StaffTimeOff entry) async {
     try {
       if (entry.id == null) {
         throw Exception('Time off ID is required for delete');
       }
-      await deleteStaffTimeOffAttachment(entry.attachmentStoragePath);
+      await deleteLegacyStaffTimeOffStorage(entry.attachmentStoragePath);
       await _firestore.collection('worker_time_off').doc(entry.id).delete();
     } catch (e) {
       throw Exception('Failed to delete staff time off: $e');
     }
-  }
-
-  static String _staffTimeOffMimeFromFileName(String fileName) {
-    final ext =
-        fileName.contains('.')
-            ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase()
-            : '';
-    return switch (ext) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'gif' => 'image/gif',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'xls' => 'application/vnd.ms-excel',
-      'xlsx' =>
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      _ => 'application/pdf',
-    };
-  }
-
-  static String _sanitizeTimeOffFileName(String name) {
-    var s = name.replaceAll(RegExp(r'[/\\\s]+'), '_').trim();
-    if (s.length > 160) s = s.substring(s.length - 160);
-    if (s.isEmpty) s = 'document';
-    return s;
-  }
-
-  /// Uploads a supporting document; max 10 MB. Returns storage path, download URL, display name.
-  static Future<Map<String, String>> uploadStaffTimeOffAttachment({
-    required String schoolId,
-    required String timeOffDocId,
-    required Uint8List bytes,
-    required String fileName,
-  }) async {
-    const maxBytes = 10 * 1024 * 1024;
-    if (bytes.length > maxBytes) {
-      throw Exception('File must be 10 MB or smaller');
-    }
-    final mime = _staffTimeOffMimeFromFileName(fileName);
-    final safe =
-        '${DateTime.now().millisecondsSinceEpoch}_${_sanitizeTimeOffFileName(fileName)}';
-    final storagePath = 'time_off_attachments/$schoolId/$timeOffDocId/$safe';
-    final ref = FirebaseStorage.instance.ref(storagePath);
-    await ref.putData(bytes, SettableMetadata(contentType: mime));
-    final url = await ref.getDownloadURL();
-    return {
-      'storagePath': storagePath,
-      'url': url,
-      'fileName': fileName,
-    };
-  }
-
-  static Future<void> deleteStaffTimeOffAttachment(String? storagePath) async {
-    if (storagePath == null || storagePath.isEmpty) return;
-    try {
-      await FirebaseStorage.instance.ref(storagePath).delete();
-    } catch (_) {}
   }
 
   // ROLES (custom, school-scoped role definitions)
@@ -1540,73 +1496,198 @@ class FirebaseService {
     }
   }
 
-  /// Sets `worker.role` to [roleName] for every worker in [workerIds].
-  /// Pass an empty/null [roleName] to clear the role assignment.
-  static Future<void> setWorkersRole({
-    required List<String> workerIds,
-    required String? roleName,
+  /// Returns every active role for [schoolId] whose `appliesTo` array
+  /// contains [kind]. Defaults to the current session's school via
+  /// `_scoped`.
+  static Future<List<Role>> getRolesByApplyTo(
+    String kind, {
+    String? schoolId,
   }) async {
-    if (workerIds.isEmpty) return;
-    try {
-      final batch = _firestore.batch();
-      final value = (roleName == null || roleName.isEmpty) ? null : roleName;
-      for (final id in workerIds) {
-        batch.update(_firestore.collection('workers').doc(id), {'role': value});
-      }
-      await batch.commit();
-    } catch (e) {
-      throw Exception('Failed to update worker roles: $e');
+    final all = await getRoles(schoolId: schoolId);
+    return all
+        .where((r) => r.isActive && r.appliesTo.contains(kind.toLowerCase()))
+        .toList();
+  }
+
+  /// Resolves the Firestore collection that backs a given `assigneeKind`
+  /// value. Returns null for unknown kinds.
+  static String? _collectionForKind(String? kind) {
+    switch ((kind ?? '').toLowerCase()) {
+      case 'worker':
+        return 'workers';
+      case 'teacher':
+        return 'teachers';
+      case 'admin':
+      case 'staff':
+        return 'users';
+      default:
+        return null;
     }
   }
 
-  /// Renames every worker whose `role` matches [oldName] to [newName].
-  /// Scoped to the current school unless [schoolId] is provided. Returns
-  /// the number of records updated.
-  static Future<int> renameWorkersRole({
-    required String oldName,
-    required String newName,
-    String? schoolId,
+  /// Sets `roleId` on every person identified by [ids] in the collection
+  /// matching [kind] (`worker`, `teacher`, `admin` or `staff`). Pass null
+  /// or empty [roleId] to clear the assignment.
+  static Future<void> setPersonsRole({
+    required String kind,
+    required List<String> ids,
+    required String? roleId,
   }) async {
+    if (ids.isEmpty) return;
+    final collection = _collectionForKind(kind);
+    if (collection == null) {
+      throw Exception('Unknown role kind: $kind');
+    }
     try {
-      final q = _scoped(
-        _firestore.collection('workers'),
-        explicitSchoolId: schoolId,
-      ).where('role', isEqualTo: oldName);
-      final snap = await q.get();
-      if (snap.docs.isEmpty) return 0;
       final batch = _firestore.batch();
-      for (final d in snap.docs) {
-        batch.update(d.reference, {'role': newName});
+      final clear = roleId == null || roleId.isEmpty;
+      for (final id in ids) {
+        final ref = _firestore.collection(collection).doc(id);
+        if (clear) {
+          batch.update(ref, {'roleId': FieldValue.delete()});
+        } else {
+          batch.update(ref, {'roleId': roleId});
+        }
       }
       await batch.commit();
-      return snap.docs.length;
     } catch (e) {
-      throw Exception('Failed to rename worker roles: $e');
+      throw Exception('Failed to update role assignments: $e');
     }
   }
 
-  /// Clears every worker whose `role` matches [roleName] (sets to null).
-  /// Scoped to the current school unless [schoolId] is provided. Returns
-  /// the number of records updated.
-  static Future<int> clearWorkersRole({
-    required String roleName,
+  /// Clears `roleId` on every person currently assigned to [roleId] across
+  /// every collection that the role's [appliesTo] covers. Returns the
+  /// total number of records updated.
+  static Future<int> clearRoleAssignments({
+    required String roleId,
+    required List<String> appliesTo,
     String? schoolId,
   }) async {
+    if (roleId.isEmpty || appliesTo.isEmpty) return 0;
+    var total = 0;
     try {
-      final q = _scoped(
+      for (final kind in appliesTo) {
+        final collection = _collectionForKind(kind);
+        if (collection == null) continue;
+        final snap = await _scoped(
+          _firestore.collection(collection),
+          explicitSchoolId: schoolId,
+        ).where('roleId', isEqualTo: roleId).get();
+        if (snap.docs.isEmpty) continue;
+        final batch = _firestore.batch();
+        for (final d in snap.docs) {
+          batch.update(d.reference, {'roleId': FieldValue.delete()});
+        }
+        await batch.commit();
+        total += snap.docs.length;
+      }
+      return total;
+    } catch (e) {
+      throw Exception('Failed to clear role assignments: $e');
+    }
+  }
+
+  /// One-time migration that promotes legacy free-form `workers/{id}.role`
+  /// strings into proper `roles/{id}` references. For every distinct
+  /// `(schoolId, role)` combination not already represented in the roles
+  /// collection, a new active Role doc is created (preserving the original
+  /// capitalization). Then every worker is rewritten to set
+  /// `roleId = matchedRoleId` and clear the legacy `role` text.
+  ///
+  /// Pass [schoolId] to migrate a single school (typical for school-admin
+  /// callers); omit it to migrate every school in one pass (system
+  /// owners).
+  ///
+  /// Returns a summary keyed by `rolesCreated`, `workersMigrated`,
+  /// `workersSkipped`.
+  static Future<Map<String, int>> migrateRoleStringsToRoleIds({
+    String? schoolId,
+  }) async {
+    var rolesCreated = 0;
+    var workersMigrated = 0;
+    var workersSkipped = 0;
+
+    try {
+      // Load every role in one go (or scoped to the school).
+      final existingRoles = await getRoles(schoolId: schoolId);
+      // (schoolId, lowercaseName) → Role
+      final roleIndex = <String, Role>{};
+      for (final r in existingRoles) {
+        roleIndex['${r.schoolId}::${r.name.trim().toLowerCase()}'] = r;
+      }
+
+      // Load every worker that still has a legacy role string.
+      final workersQuery = _scoped(
         _firestore.collection('workers'),
         explicitSchoolId: schoolId,
-      ).where('role', isEqualTo: roleName);
-      final snap = await q.get();
-      if (snap.docs.isEmpty) return 0;
-      final batch = _firestore.batch();
-      for (final d in snap.docs) {
-        batch.update(d.reference, {'role': null});
+      );
+      final workersSnap = await workersQuery.get();
+
+      // First pass: ensure a Role doc exists for every distinct legacy
+      // value. We do this in serial so concurrent migration calls don't
+      // race to create duplicates.
+      for (final doc in workersSnap.docs) {
+        final data = doc.data();
+        final legacy = (data['role'] as String?)?.trim() ?? '';
+        if (legacy.isEmpty) continue;
+        final docSchoolId = (data['schoolId'] as String?) ?? '';
+        if (docSchoolId.isEmpty) continue;
+        final key = '$docSchoolId::${legacy.toLowerCase()}';
+        if (roleIndex.containsKey(key)) continue;
+        final created = Role(
+          name: legacy,
+          schoolId: docSchoolId,
+          appliesTo: const ['worker'],
+        );
+        final newId = await addRole(created);
+        roleIndex[key] = created.copyWith(id: newId);
+        rolesCreated++;
       }
-      await batch.commit();
-      return snap.docs.length;
+
+      // Second pass: write roleId / clear legacy role on every worker.
+      // Firestore batch limit is 500; chunk to be safe.
+      const chunk = 400;
+      final docs = workersSnap.docs;
+      for (var i = 0; i < docs.length; i += chunk) {
+        final slice = docs.sublist(i, (i + chunk).clamp(0, docs.length));
+        final batch = _firestore.batch();
+        for (final doc in slice) {
+          final data = doc.data();
+          final legacy = (data['role'] as String?)?.trim() ?? '';
+          final docSchoolId = (data['schoolId'] as String?) ?? '';
+          final hasRoleId = (data['roleId'] as String?)?.isNotEmpty ?? false;
+
+          if (legacy.isEmpty && !hasRoleId) {
+            workersSkipped++;
+            continue;
+          }
+          if (legacy.isEmpty && hasRoleId) {
+            // Already migrated — nothing to do.
+            workersSkipped++;
+            continue;
+          }
+          final key = '$docSchoolId::${legacy.toLowerCase()}';
+          final role = roleIndex[key];
+          if (role == null || role.id == null) {
+            workersSkipped++;
+            continue;
+          }
+          batch.update(doc.reference, {
+            'roleId': role.id,
+            'role': FieldValue.delete(),
+          });
+          workersMigrated++;
+        }
+        await batch.commit();
+      }
+
+      return {
+        'rolesCreated': rolesCreated,
+        'workersMigrated': workersMigrated,
+        'workersSkipped': workersSkipped,
+      };
     } catch (e) {
-      throw Exception('Failed to clear worker roles: $e');
+      throw Exception('Failed to migrate worker roles: $e');
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../services/firebase_service.dart';
+import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 /// Admin-list screen for managing custom role definitions for a school.
@@ -239,6 +240,9 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
     );
     String? schoolId = role?.schoolId;
     String? color = role?.color ?? _palette.first;
+    final Set<String> appliesTo = {
+      ...(role?.appliesTo ?? const [AuthRoles.kindWorker]),
+    };
     bool isActive = role?.isActive ?? true;
     bool isSaving = false;
     final isEdit = role != null;
@@ -339,6 +343,38 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                 ),
                             ],
                           ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Applies to',
+                            style: TextStyle(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final kind in AuthRoles.allKinds)
+                                FilterChip(
+                                  label: Text(
+                                    AuthRoles.kindLabelPlural(kind),
+                                  ),
+                                  selected: appliesTo.contains(kind),
+                                  onSelected: (v) => setStateDialog(() {
+                                    if (v) {
+                                      appliesTo.add(kind);
+                                    } else if (appliesTo.length > 1) {
+                                      appliesTo.remove(kind);
+                                    }
+                                  }),
+                                ),
+                            ],
+                          ),
                           if (isEdit) ...[
                             const SizedBox(height: 8),
                             SwitchListTile(
@@ -396,9 +432,22 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                   );
                                   return;
                                 }
+                                if (appliesTo.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Pick at least one role kind',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
                                 setStateDialog(() => isSaving = true);
                                 try {
-                                  int renamedWorkers = 0;
+                                  final orderedAppliesTo = [
+                                    for (final k in AuthRoles.allKinds)
+                                      if (appliesTo.contains(k)) k,
+                                  ];
                                   if (isEdit) {
                                     final updated = role.copyWith(
                                       name: name,
@@ -408,17 +457,10 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                               : description,
                                       schoolId: schoolId,
                                       color: color,
+                                      appliesTo: orderedAppliesTo,
                                       isActive: isActive,
                                     );
                                     await FirebaseService.updateRole(updated);
-                                    if (role.name != name) {
-                                      renamedWorkers =
-                                          await FirebaseService.renameWorkersRole(
-                                            oldName: role.name,
-                                            newName: name,
-                                            schoolId: schoolId ?? role.schoolId,
-                                          );
-                                    }
                                   } else {
                                     await FirebaseService.addRole(
                                       Role(
@@ -429,19 +471,14 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                                 : description,
                                         schoolId: schoolId!,
                                         color: color,
+                                        appliesTo: orderedAppliesTo,
                                       ),
                                     );
                                   }
                                   if (!mounted) return;
                                   Navigator.pop(dialogCtx);
                                   final msg =
-                                      isEdit
-                                          ? (renamedWorkers > 0
-                                              ? 'Role updated · '
-                                                  '$renamedWorkers ${renamedWorkers == 1 ? 'employee' : 'employees'} '
-                                                  'reassigned'
-                                              : 'Role updated')
-                                          : 'Role created';
+                                      isEdit ? 'Role updated' : 'Role created';
                                   ScaffoldMessenger.of(
                                     context,
                                   ).showSnackBar(SnackBar(content: Text(msg)));
@@ -496,10 +533,12 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                     return;
                   }
                   try {
-                    final cleared = await FirebaseService.clearWorkersRole(
-                      roleName: role.name,
-                      schoolId: role.schoolId,
-                    );
+                    final cleared =
+                        await FirebaseService.clearRoleAssignments(
+                          roleId: role.id!,
+                          appliesTo: role.appliesTo,
+                          schoolId: role.schoolId,
+                        );
                     await FirebaseService.deleteRole(role.id!);
                     if (!mounted) return;
                     Navigator.pop(dialogCtx);
