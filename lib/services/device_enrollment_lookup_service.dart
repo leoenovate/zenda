@@ -1,5 +1,4 @@
 import '../models/device.dart';
-import '../models/device_enrollment.dart';
 import 'firebase_service.dart';
 
 /// One slot on one device that holds a particular cardId.
@@ -15,17 +14,16 @@ class DeviceEnrollmentInfo {
   });
 }
 
-/// In-memory index of every fingerprint slot across the current
-/// school's devices, keyed by the normalized `cardId` programmed in
-/// each slot.
+/// In-memory index of every fingerprint slot across the current school's
+/// devices, keyed by the normalized `cardId` field on each
+/// `device_enrollments/{deviceId}_{slotId}` Firestore document.
 ///
-/// Built by [fetch], which reads the `device_enrollments` Firestore
-/// collection (school-scoped via `FirebaseService._scoped`) — a single
-/// query that returns rows for every device, instead of an HTTP fan-out
-/// across each device's API endpoint. The Flutter app writes to that
-/// same collection on every successful enroll, so this lookup reflects
-/// the live state without depending on the api-v2 server's MQTT-driven
-/// SQLite mirror (which can stall on Render's free tier).
+/// Built by [fetch], which performs a single school-scoped Firestore
+/// query (no per-device HTTP fanout). The api-v2 server's
+/// `/api/users/:deviceId` endpoint is not consulted here because that
+/// snapshot can collapse around whatever the device firmware most
+/// recently echoed back via `/status`, which would silently hide
+/// enrollments that are still real.
 ///
 /// Consumers (admin list screens) compare a person's cardId candidates
 /// (`employeeId`, then the document `id`) — the same fallback used by
@@ -42,8 +40,8 @@ class DeviceEnrollmentLookup {
   bool get isEmpty => _byCardId.isEmpty;
 
   /// Returns matching enrollments for the first non-empty cardId
-  /// candidate found in [candidates]. Comparison is case-insensitive
-  /// and ignores surrounding whitespace.
+  /// candidate found in [candidates]. Comparison is case-insensitive and
+  /// ignores surrounding whitespace.
   List<DeviceEnrollmentInfo> findEnrollments(Iterable<String?> candidates) {
     for (final raw in candidates) {
       final key = _normalize(raw);
@@ -60,41 +58,38 @@ class DeviceEnrollmentLookup {
   static String _normalize(String? value) =>
       (value ?? '').trim().toLowerCase();
 
-  /// Reads `device_enrollments` from Firestore (school-scoped) and
-  /// indexes every row by normalized `cardId`. The [devices] list is
-  /// only used to resolve human-readable labels for tooltips — we
-  /// already query Firestore once for the entire school, so passing a
-  /// subset of devices won't change which enrollments are returned.
+  /// Loads every persisted enrollment for the current school and
+  /// returns a populated lookup. Devices passed in [devices] are used
+  /// only to resolve a friendly label per `deviceId`; missing labels
+  /// fall back to the raw deviceId from the Firestore document.
   static Future<DeviceEnrollmentLookup> fetch(Iterable<Device> devices) async {
-    final List<DeviceEnrollment> enrollments;
     try {
-      enrollments = await FirebaseService.getDeviceEnrollments();
+      final enrollments = await FirebaseService.getDeviceEnrollments();
+      if (enrollments.isEmpty) return const DeviceEnrollmentLookup.empty();
+
+      final labels = <String, String>{};
+      for (final d in devices) {
+        if (d.deviceId.trim().isEmpty) continue;
+        final raw = (d.deviceName ?? '').trim();
+        labels[d.deviceId] = raw.isEmpty ? d.deviceId : raw;
+      }
+
+      final byCardId = <String, List<DeviceEnrollmentInfo>>{};
+      for (final e in enrollments) {
+        final key = _normalize(e.cardId);
+        if (key.isEmpty) continue;
+        final label = labels[e.deviceId] ?? e.deviceId;
+        (byCardId[key] ??= <DeviceEnrollmentInfo>[]).add(
+          DeviceEnrollmentInfo(
+            deviceId: e.deviceId,
+            deviceLabel: label,
+            slotId: e.slotId,
+          ),
+        );
+      }
+      return DeviceEnrollmentLookup._(byCardId);
     } catch (_) {
       return const DeviceEnrollmentLookup.empty();
     }
-    if (enrollments.isEmpty) return const DeviceEnrollmentLookup.empty();
-
-    final labelByDeviceId = <String, String>{};
-    for (final device in devices) {
-      final id = device.deviceId;
-      if (id.isEmpty) continue;
-      final rawName = (device.deviceName ?? '').trim();
-      labelByDeviceId[id] = rawName.isEmpty ? id : rawName;
-    }
-
-    final byCardId = <String, List<DeviceEnrollmentInfo>>{};
-    for (final enrollment in enrollments) {
-      final key = _normalize(enrollment.cardId);
-      if (key.isEmpty) continue;
-      final label = labelByDeviceId[enrollment.deviceId] ?? enrollment.deviceId;
-      (byCardId[key] ??= <DeviceEnrollmentInfo>[]).add(
-        DeviceEnrollmentInfo(
-          deviceId: enrollment.deviceId,
-          deviceLabel: label,
-          slotId: enrollment.slotId,
-        ),
-      );
-    }
-    return DeviceEnrollmentLookup._(byCardId);
   }
 }

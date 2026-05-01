@@ -77,7 +77,7 @@ class DeviceHeartbeat {
 
 class DeviceHeartbeatService {
   static const String baseUrl = 'https://zenda.spura.app';
-  static const Duration freshnessWindow = Duration(seconds: 30);
+  static const Duration freshnessWindow = Duration(seconds: 35);
   static const Duration requestTimeout = Duration(seconds: 8);
 
   static Future<Map<String, DeviceHeartbeat>> fetchHeartbeats(

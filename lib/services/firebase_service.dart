@@ -24,14 +24,12 @@ class FirebaseService {
   static const String _collection = 'students';
   static const String _messagesCollection = 'messages';
 
-  /// Apply a `schoolId` filter to [q] unless the caller is a system owner or
-  /// no session is established yet (so listing works during bootstrap).
+  /// Optional `schoolId` filter for collections whose rules allow broad admin
+  /// reads without `sameSchool` on every doc (e.g. `users`, `parents`).
   ///
-  /// System owners see all data across schools. Everyone else only sees
-  /// records that belong to their own school. If a session exists but the
-  /// user has no schoolId (e.g. an unassigned admin), the query is left
-  /// unfiltered — this keeps the UI functional while the owner completes
-  /// provisioning.
+  /// Non–system-owners with a session school still filter when possible.
+  /// When there is no school on the session, the query stays unfiltered — fine
+  /// only where Firestore rules do not require per-document school checks.
   static Query<Map<String, dynamic>> _scoped(
     Query<Map<String, dynamic>> q, {
     String? explicitSchoolId,
@@ -48,6 +46,51 @@ class FirebaseService {
       return q;
     }
     return q.where('schoolId', isEqualTo: schoolId);
+  }
+
+  /// School-bound collections (`devices`, `students`, …) deny unscoped list
+  /// reads for non-owners in Firestore rules. Always filter by school, or skip
+  /// the query when the session has no school (empty result).
+  static Query<Map<String, dynamic>>? _scopedSchool(
+    Query<Map<String, dynamic>> q, {
+    String? explicitSchoolId,
+  }) {
+    if (explicitSchoolId != null) {
+      return q.where('schoolId', isEqualTo: explicitSchoolId);
+    }
+    final session = AuthService.currentSession;
+    if (session == null || session.role == UserRole.systemOwner) {
+      return q;
+    }
+    final schoolId = session.schoolId;
+    if (schoolId == null || schoolId.isEmpty) {
+      return null;
+    }
+    return q.where('schoolId', isEqualTo: schoolId);
+  }
+
+  static Future<QuerySnapshot<Map<String, dynamic>>> _getWithAuthRetry(
+    Query<Map<String, dynamic>> query,
+  ) async {
+    try {
+      return await query.get();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      return query.get();
+    }
+  }
+
+  static Future<DocumentSnapshot<Map<String, dynamic>>> _getDocWithAuthRetry(
+    DocumentReference<Map<String, dynamic>> doc,
+  ) async {
+    try {
+      return await doc.get();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      return doc.get();
+    }
   }
 
   // Add a new student
@@ -79,8 +122,9 @@ class FirebaseService {
 
     Future<List<Student>> attemptGetStudents() async {
       try {
-        final QuerySnapshot snapshot =
-            await _scoped(_firestore.collection(_collection)).get();
+        final studentsQuery = _scopedSchool(_firestore.collection(_collection));
+        if (studentsQuery == null) return [];
+        final QuerySnapshot snapshot = await studentsQuery.get();
         return snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           return Student(
@@ -565,8 +609,20 @@ class FirebaseService {
   // Get all schools
   static Future<List<School>> getSchools() async {
     try {
+      final session = AuthService.currentSession;
+      if (session != null && session.role != UserRole.systemOwner) {
+        final schoolId = session.schoolId;
+        if (schoolId == null || schoolId.isEmpty) return [];
+
+        final doc = await _getDocWithAuthRetry(
+          _firestore.collection('schools').doc(schoolId),
+        );
+        if (!doc.exists || doc.data() == null) return [];
+        return [School.fromFirestore(doc.data()!, doc.id)];
+      }
+
       final QuerySnapshot snapshot =
-          await _firestore.collection('schools').get();
+          await _getWithAuthRetry(_firestore.collection('schools'));
       return snapshot.docs.map((doc) {
         return School.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -613,8 +669,9 @@ class FirebaseService {
   // Get all devices
   static Future<List<Device>> getDevices() async {
     try {
-      final QuerySnapshot snapshot =
-          await _scoped(_firestore.collection('devices')).get();
+      final q = _scopedSchool(_firestore.collection('devices'));
+      if (q == null) return [];
+      final QuerySnapshot snapshot = await _getWithAuthRetry(q);
       return snapshot.docs.map((doc) {
         return Device.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -676,13 +733,13 @@ class FirebaseService {
     String? deviceId,
   }) async {
     try {
-      Query<Map<String, dynamic>> q = _scoped(
-        _firestore.collection('device_enrollments'),
-      );
+      final base = _scopedSchool(_firestore.collection('device_enrollments'));
+      if (base == null) return [];
+      Query<Map<String, dynamic>> q = base;
       if (deviceId != null && deviceId.isNotEmpty) {
         q = q.where('deviceId', isEqualTo: deviceId);
       }
-      final snapshot = await q.get();
+      final snapshot = await _getWithAuthRetry(q);
       final results = snapshot.docs
           .map((doc) => DeviceEnrollment.fromFirestore(doc.data(), doc.id))
           .toList();
@@ -696,7 +753,9 @@ class FirebaseService {
   /// Upserts a single enrollment record. Always uses the deterministic
   /// `${deviceId}_${slotId}` doc id so subsequent enrolls at the same
   /// slot replace the previous holder cleanly.
-  static Future<void> upsertDeviceEnrollment(DeviceEnrollment enrollment) async {
+  static Future<void> upsertDeviceEnrollment(
+    DeviceEnrollment enrollment,
+  ) async {
     try {
       final docId = DeviceEnrollment.makeDocId(
         enrollment.deviceId,
@@ -872,10 +931,11 @@ class FirebaseService {
   // Get sessions scoped to the current user / given school.
   static Future<List<Session>> getSessions({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('sessions'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       final sessions =
           snap.docs.map((d) => Session.fromFirestore(d.data(), d.id)).toList()
@@ -957,10 +1017,11 @@ class FirebaseService {
 
   static Future<List<Teacher>> getTeachers({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('teachers'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       return snap.docs
           .map((d) => Teacher.fromFirestore(d.data(), d.id))
@@ -1011,10 +1072,11 @@ class FirebaseService {
 
   static Future<List<ClassGroup>> getClasses({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('classes'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       return snap.docs
           .map((d) => ClassGroup.fromFirestore(d.data(), d.id))
@@ -1397,10 +1459,11 @@ class FirebaseService {
 
   static Future<List<Worker>> getWorkers({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('workers'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       return snap.docs
           .map((d) => Worker.fromFirestore(d.data(), d.id))
@@ -1453,10 +1516,11 @@ class FirebaseService {
 
   static Future<List<StaffTimeOff>> getStaffTimeOffs({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('worker_time_off'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       final list =
           snap.docs
@@ -1537,10 +1601,11 @@ class FirebaseService {
 
   static Future<List<Role>> getRoles({String? schoolId}) async {
     try {
-      final q = _scoped(
+      final q = _scopedSchool(
         _firestore.collection('roles'),
         explicitSchoolId: schoolId,
       );
+      if (q == null) return [];
       final snap = await q.get();
       final roles =
           snap.docs.map((d) => Role.fromFirestore(d.data(), d.id)).toList();
@@ -1659,10 +1724,13 @@ class FirebaseService {
       for (final kind in appliesTo) {
         final collection = _collectionForKind(kind);
         if (collection == null) continue;
-        final snap = await _scoped(
+        final base = _scopedSchool(
           _firestore.collection(collection),
           explicitSchoolId: schoolId,
-        ).where('roleId', isEqualTo: roleId).get();
+        );
+        if (base == null) continue;
+        final snap =
+            await base.where('roleId', isEqualTo: roleId).get();
         if (snap.docs.isEmpty) continue;
         final batch = _firestore.batch();
         for (final d in snap.docs) {
@@ -1707,10 +1775,17 @@ class FirebaseService {
       }
 
       // Load every worker that still has a legacy role string.
-      final workersQuery = _scoped(
+      final workersQuery = _scopedSchool(
         _firestore.collection('workers'),
         explicitSchoolId: schoolId,
       );
+      if (workersQuery == null) {
+        return {
+          'rolesCreated': rolesCreated,
+          'workersMigrated': workersMigrated,
+          'workersSkipped': workersSkipped,
+        };
+      }
       final workersSnap = await workersQuery.get();
 
       // First pass: ensure a Role doc exists for every distinct legacy

@@ -54,17 +54,27 @@ class _ReportsViewState extends State<ReportsView> {
     });
 
     try {
+      final currentSession =
+          AuthService.currentSession ?? await AuthService.restoreSession();
+      final isOwner = currentSession?.role == UserRole.systemOwner;
+      final scopedSchoolId = isOwner ? null : currentSession?.schoolId;
+
+      if (!isOwner && (scopedSchoolId == null || scopedSchoolId.isEmpty)) {
+        throw Exception(
+          'This account is not assigned to a school. Ask the system owner to set a schoolId on your user profile.',
+        );
+      }
+
       final coreResults = await Future.wait([
         FirebaseService.getStudents(),
-        FirebaseService.getSessions(),
+        FirebaseService.getSessions(schoolId: scopedSchoolId),
       ]);
 
       final students = coreResults[0] as List<Student>;
       final sessions = coreResults[1] as List<Session>;
 
       List<School> schools = const [];
-      final currentSession = AuthService.currentSession;
-      if (currentSession?.role == UserRole.systemOwner) {
+      if (isOwner) {
         try {
           schools = await FirebaseService.getSchools();
         } catch (_) {

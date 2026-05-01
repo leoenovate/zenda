@@ -6,6 +6,7 @@ import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/session.dart';
 import '../../models/session_attendee.dart';
+import '../../models/session_date_override.dart';
 import '../../models/teacher.dart';
 import '../../models/user.dart' as app_user;
 import '../../models/worker.dart';
@@ -690,10 +691,21 @@ class _SessionsScreenState extends State<SessionsScreen> {
         a.compoundKey: a,
     };
 
+    final overrides = <String, SessionDateOverride>{
+      for (final o in session?.dateOverrides ??
+          const <SessionDateOverride>[])
+        o.dateKey: o,
+    };
+
     bool isActive = session?.isActive ?? true;
     bool isSaving = false;
     bool showIndividualPicker = false;
     String individualSearch = '';
+    bool showDayCustomization = overrides.isNotEmpty;
+    DateTime calendarMonth = DateTime(
+      (session?.date ?? DateTime.now()).year,
+      (session?.date ?? DateTime.now()).month,
+    );
     final isEdit = session != null;
 
     showDialog(
@@ -1011,6 +1023,33 @@ class _SessionsScreenState extends State<SessionsScreen> {
                             onChanged: (v) => setStateDialog(
                                 () => recurrence = v ?? 'none'),
                           ),
+                          if (isMultiDay || recurrence != 'none') ...[
+                            const SizedBox(height: 16),
+                            _customizationPanel(
+                              dialogCtx: dialogCtx,
+                              startDate: startDate,
+                              endDate: isMultiDay ? endDate : startDate,
+                              recurrence: recurrence,
+                              baseStartTime: _formatHHmm(startTimeOfDay),
+                              baseEndTime: _formatHHmm(endTimeOfDay),
+                              baseLateTime: _formatHHmm(lateTimeOfDay),
+                              overrides: overrides,
+                              calendarMonth: calendarMonth,
+                              show: showDayCustomization,
+                              onToggleShow: (v) => setStateDialog(
+                                  () => showDayCustomization = v),
+                              onMonthChanged: (m) =>
+                                  setStateDialog(() => calendarMonth = m),
+                              onOverrideChanged: (key, ov) =>
+                                  setStateDialog(() {
+                                if (ov == null || !ov.hasCustomization) {
+                                  overrides.remove(key);
+                                } else {
+                                  overrides[key] = ov;
+                                }
+                              }),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1103,6 +1142,9 @@ class _SessionsScreenState extends State<SessionsScreen> {
                             classesForSchool: classesForSchool,
                             audienceRoles: selectedRoles.toList(),
                             attendees: selectedAttendees.values.toList(),
+                            dateOverrides: overrides.values
+                                .where((o) => o.hasCustomization)
+                                .toList(),
                           );
                           if (isEdit) {
                             await FirebaseService.updateSession(updated);
@@ -1161,6 +1203,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required List<ClassGroup> classesForSchool,
     required List<String> audienceRoles,
     required List<SessionAttendee> attendees,
+    List<SessionDateOverride> dateOverrides = const [],
   }) {
     // Resolve class display names from the loaded list.
     final classNames = <String>[];
@@ -1270,6 +1313,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
       audienceLabel: summary.isEmpty ? null : summary,
       audienceRoles: audienceRoles,
       attendees: attendees,
+      dateOverrides: dateOverrides,
     );
   }
 
@@ -1983,6 +2027,595 @@ class _SessionsScreenState extends State<SessionsScreen> {
             child: const Text('Delete'),
           ),
         ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-day customization (calendar + override editor)
+  // ---------------------------------------------------------------------------
+
+  /// Returns the concrete dates inside `[startDate, endDate]` (inclusive,
+  /// date-only) on which the session occurs, given [recurrence]. Used by
+  /// the calendar to highlight session days and to bound how many cells
+  /// can be customised.
+  Set<String> _occurrenceKeys({
+    required DateTime startDate,
+    required DateTime endDate,
+    required String recurrence,
+  }) {
+    final start =
+        DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    final keys = <String>{};
+    if (end.isBefore(start)) return keys;
+
+    if (recurrence == 'none' || recurrence.isEmpty) {
+      var cursor = start;
+      while (!cursor.isAfter(end)) {
+        keys.add(SessionDateOverride.formatDateKey(cursor));
+        cursor = cursor.add(const Duration(days: 1));
+      }
+      return keys;
+    }
+
+    var cursor = start;
+    var safety = 0;
+    while (!cursor.isAfter(end) && safety < 2000) {
+      keys.add(SessionDateOverride.formatDateKey(cursor));
+      switch (recurrence) {
+        case 'daily':
+          cursor = cursor.add(const Duration(days: 1));
+          break;
+        case 'weekly':
+          cursor = cursor.add(const Duration(days: 7));
+          break;
+        case 'monthly':
+          cursor = DateTime(cursor.year, cursor.month + 1, cursor.day);
+          break;
+        case 'yearly':
+          cursor = DateTime(cursor.year + 1, cursor.month, cursor.day);
+          break;
+        default:
+          cursor = end.add(const Duration(days: 1));
+      }
+      safety++;
+    }
+    return keys;
+  }
+
+  /// Collapsible calendar that lets the admin skip individual occurrences
+  /// or override their start/end/late times.
+  Widget _customizationPanel({
+    required BuildContext dialogCtx,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String recurrence,
+    required String baseStartTime,
+    required String baseEndTime,
+    required String baseLateTime,
+    required Map<String, SessionDateOverride> overrides,
+    required DateTime calendarMonth,
+    required bool show,
+    required ValueChanged<bool> onToggleShow,
+    required ValueChanged<DateTime> onMonthChanged,
+    required void Function(String key, SessionDateOverride? ov)
+        onOverrideChanged,
+  }) {
+    final colorScheme = Theme.of(dialogCtx).colorScheme;
+    final occurrenceKeys = _occurrenceKeys(
+      startDate: startDate,
+      endDate: endDate,
+      recurrence: recurrence,
+    );
+    final skipped = overrides.values.where((o) => o.excluded).length;
+    final tweaked = overrides.values
+        .where((o) => !o.excluded && o.hasCustomization)
+        .length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => onToggleShow(!show),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month_outlined,
+                      size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Customize specific days',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            '${occurrenceKeys.length} '
+                                '${occurrenceKeys.length == 1 ? 'occurrence' : 'occurrences'}',
+                            if (skipped > 0)
+                              '$skipped skipped'
+                            else
+                              null,
+                            if (tweaked > 0)
+                              '$tweaked with custom times'
+                            else
+                              null,
+                          ].whereType<String>().join(' · '),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    show
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (show) ...[
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: _calendarBody(
+                dialogCtx: dialogCtx,
+                startDate: startDate,
+                endDate: endDate,
+                occurrenceKeys: occurrenceKeys,
+                overrides: overrides,
+                calendarMonth: calendarMonth,
+                baseStartTime: baseStartTime,
+                baseEndTime: baseEndTime,
+                baseLateTime: baseLateTime,
+                onMonthChanged: onMonthChanged,
+                onOverrideChanged: onOverrideChanged,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _calendarBody({
+    required BuildContext dialogCtx,
+    required DateTime startDate,
+    required DateTime endDate,
+    required Set<String> occurrenceKeys,
+    required Map<String, SessionDateOverride> overrides,
+    required DateTime calendarMonth,
+    required String baseStartTime,
+    required String baseEndTime,
+    required String baseLateTime,
+    required ValueChanged<DateTime> onMonthChanged,
+    required void Function(String key, SessionDateOverride? ov)
+        onOverrideChanged,
+  }) {
+    final colorScheme = Theme.of(dialogCtx).colorScheme;
+    final monthStart =
+        DateTime(calendarMonth.year, calendarMonth.month, 1);
+    // Sunday=0 ... Saturday=6 (weekday is 1..7 Mon..Sun in Dart, normalize
+    // so the calendar grid starts on Monday).
+    final firstWeekday = monthStart.weekday; // 1=Mon..7=Sun
+    final daysInMonth =
+        DateTime(calendarMonth.year, calendarMonth.month + 1, 0).day;
+
+    final cells = <Widget>[];
+    // Leading blanks so day-1 lines up under its weekday header.
+    for (var i = 1; i < firstWeekday; i++) {
+      cells.add(const SizedBox.shrink());
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      final day = DateTime(calendarMonth.year, calendarMonth.month, d);
+      cells.add(_calendarCell(
+        dialogCtx: dialogCtx,
+        day: day,
+        occurrenceKeys: occurrenceKeys,
+        overrides: overrides,
+        baseStartTime: baseStartTime,
+        baseEndTime: baseEndTime,
+        baseLateTime: baseLateTime,
+        onOverrideChanged: onOverrideChanged,
+      ));
+    }
+
+    final monthLabel = DateFormat.yMMMM().format(calendarMonth);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => onMonthChanged(
+                DateTime(calendarMonth.year, calendarMonth.month - 1),
+              ),
+              icon: const Icon(Icons.chevron_left),
+              tooltip: 'Previous month',
+            ),
+            Expanded(
+              child: Text(
+                monthLabel,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => onMonthChanged(
+                DateTime(calendarMonth.year, calendarMonth.month + 1),
+              ),
+              icon: const Icon(Icons.chevron_right),
+              tooltip: 'Next month',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            for (final w in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+              Expanded(
+                child: Center(
+                  child: Text(
+                    w,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          childAspectRatio: 1,
+          children: cells,
+        ),
+        const SizedBox(height: 12),
+        _calendarLegend(dialogCtx),
+      ],
+    );
+  }
+
+  Widget _calendarCell({
+    required BuildContext dialogCtx,
+    required DateTime day,
+    required Set<String> occurrenceKeys,
+    required Map<String, SessionDateOverride> overrides,
+    required String baseStartTime,
+    required String baseEndTime,
+    required String baseLateTime,
+    required void Function(String key, SessionDateOverride? ov)
+        onOverrideChanged,
+  }) {
+    final colorScheme = Theme.of(dialogCtx).colorScheme;
+    final key = SessionDateOverride.formatDateKey(day);
+    final isOccurrence = occurrenceKeys.contains(key);
+    final ov = overrides[key];
+    final excluded = ov?.excluded ?? false;
+    final hasTimeOverride = ov != null &&
+        !ov.excluded &&
+        ((ov.startTime?.isNotEmpty ?? false) ||
+            (ov.endTime?.isNotEmpty ?? false) ||
+            (ov.lateTime?.isNotEmpty ?? false));
+
+    Color bg;
+    Color fg;
+    if (!isOccurrence) {
+      bg = Colors.transparent;
+      fg = colorScheme.onSurface.withValues(alpha: 0.35);
+    } else if (excluded) {
+      bg = colorScheme.errorContainer.withValues(alpha: 0.6);
+      fg = colorScheme.onErrorContainer;
+    } else if (hasTimeOverride) {
+      bg = colorScheme.tertiaryContainer.withValues(alpha: 0.7);
+      fg = colorScheme.onTertiaryContainer;
+    } else {
+      bg = colorScheme.primaryContainer.withValues(alpha: 0.5);
+      fg = colorScheme.onPrimaryContainer;
+    }
+
+    return Tooltip(
+      message: isOccurrence
+          ? (excluded
+              ? 'Skipped'
+              : (hasTimeOverride
+                  ? 'Custom times for this day'
+                  : 'Default session day'))
+          : 'Not a session day',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: !isOccurrence
+            ? null
+            : () => _editDayOverride(
+                  dialogCtx,
+                  day: day,
+                  current: ov,
+                  baseStartTime: baseStartTime,
+                  baseEndTime: baseEndTime,
+                  baseLateTime: baseLateTime,
+                  onSave: (next) => onOverrideChanged(key, next),
+                ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                '${day.day}',
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w600,
+                  decoration:
+                      excluded ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              if (hasTimeOverride)
+                Positioned(
+                  bottom: 4,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: colorScheme.tertiary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _calendarLegend(BuildContext ctx) {
+    final colorScheme = Theme.of(ctx).colorScheme;
+    Widget swatch(Color c, String label) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: c,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        swatch(colorScheme.primaryContainer.withValues(alpha: 0.5),
+            'Session day'),
+        swatch(colorScheme.tertiaryContainer.withValues(alpha: 0.7),
+            'Custom times'),
+        swatch(colorScheme.errorContainer.withValues(alpha: 0.6), 'Skipped'),
+      ],
+    );
+  }
+
+  /// Per-day editor: skip switch + start/end/late time pickers + reset.
+  Future<void> _editDayOverride(
+    BuildContext dialogCtx, {
+    required DateTime day,
+    required SessionDateOverride? current,
+    required String baseStartTime,
+    required String baseEndTime,
+    required String baseLateTime,
+    required ValueChanged<SessionDateOverride?> onSave,
+  }) async {
+    bool skip = current?.excluded ?? false;
+    TimeOfDay? startOv = _parseHHmm(current?.startTime);
+    TimeOfDay? endOv = _parseHHmm(current?.endTime);
+    TimeOfDay? lateOv = _parseHHmm(current?.lateTime);
+    final baseStart = _parseHHmm(baseStartTime);
+    final baseEnd = _parseHHmm(baseEndTime);
+    final baseLate = _parseHHmm(baseLateTime);
+
+    await showDialog<void>(
+      context: dialogCtx,
+      builder: (innerCtx) => StatefulBuilder(
+        builder: (innerCtx, setInner) {
+          final colorScheme = Theme.of(innerCtx).colorScheme;
+
+          String fmt(TimeOfDay? ov, TimeOfDay? base) {
+            if (ov != null) return '${ov.format(innerCtx)} (custom)';
+            if (base != null) return '${base.format(innerCtx)} (default)';
+            return 'Pick a time';
+          }
+
+          return AlertDialog(
+            backgroundColor: colorScheme.surface,
+            title: Text(
+              DateFormat('EEE, MMM d, y').format(day),
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
+            content: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: skip,
+                    activeColor: colorScheme.error,
+                    title: Text(
+                      'Skip this day',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                    subtitle: Text(
+                      'No attendance window will be opened.',
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                    onChanged: (v) => setInner(() => skip = v),
+                  ),
+                  if (!skip) ...[
+                    const SizedBox(height: 8),
+                    _scheduleTile(
+                      context: innerCtx,
+                      icon: Icons.play_arrow_outlined,
+                      label: 'Starts at',
+                      value: fmt(startOv, baseStart),
+                      onTap: () async {
+                        final t = await _pickTime(
+                          innerCtx,
+                          initial: startOv ??
+                              baseStart ??
+                              const TimeOfDay(hour: 8, minute: 0),
+                          helpText: 'Start time for this day',
+                        );
+                        if (t != null) setInner(() => startOv = t);
+                      },
+                      onClear: startOv == null
+                          ? null
+                          : () => setInner(() => startOv = null),
+                    ),
+                    const SizedBox(height: 8),
+                    _scheduleTile(
+                      context: innerCtx,
+                      icon: Icons.stop_outlined,
+                      label: 'Ends at',
+                      value: fmt(endOv, baseEnd),
+                      onTap: () async {
+                        final t = await _pickTime(
+                          innerCtx,
+                          initial: endOv ??
+                              baseEnd ??
+                              const TimeOfDay(hour: 17, minute: 0),
+                          helpText: 'End time for this day',
+                        );
+                        if (t != null) setInner(() => endOv = t);
+                      },
+                      onClear: endOv == null
+                          ? null
+                          : () => setInner(() => endOv = null),
+                    ),
+                    const SizedBox(height: 8),
+                    _scheduleTile(
+                      context: innerCtx,
+                      icon: Icons.timer_outlined,
+                      label: 'Late threshold',
+                      value: fmt(lateOv, baseLate),
+                      onTap: () async {
+                        final t = await _pickTime(
+                          innerCtx,
+                          initial: lateOv ??
+                              baseLate ??
+                              const TimeOfDay(hour: 9, minute: 0),
+                          helpText: 'Late threshold for this day',
+                        );
+                        if (t != null) setInner(() => lateOv = t);
+                      },
+                      onClear: lateOv == null
+                          ? null
+                          : () => setInner(() => lateOv = null),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  onSave(null);
+                  Navigator.pop(innerCtx);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
+                child: const Text('Reset to default'),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.pop(innerCtx),
+                child: Text(
+                  'Cancel',
+                  style:
+                      TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final next = SessionDateOverride(
+                    date: DateTime(day.year, day.month, day.day),
+                    excluded: skip,
+                    startTime: skip ? null : _formatHHmm(startOv),
+                    endTime: skip ? null : _formatHHmm(endOv),
+                    lateTime: skip ? null : _formatHHmm(lateOv),
+                  );
+                  onSave(next.hasCustomization ? next : null);
+                  Navigator.pop(innerCtx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

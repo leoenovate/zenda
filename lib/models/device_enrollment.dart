@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// One row in the `device_enrollments` Firestore collection.
 ///
 /// This collection is the system of record for "which employee is
-/// programmed at which slot on which device". It replaces the old
-/// roundtrip through `GET /api/users/:deviceId` so the Flutter app
-/// no longer has to wait for the api-v2 server (and its sleeping
-/// Render dyno) to reflect MQTT pushes from the device.
+/// programmed at which slot on which device". The Flutter app writes
+/// here as soon as the device firmware confirms a successful enroll,
+/// so the list survives api-v2 server restarts and doesn't depend on
+/// the device firmware ever publishing `/status` again.
 ///
 /// Document id is deterministic — `${deviceId}_${slotId}` — so writes
 /// are idempotent upserts and there's no risk of duplicates if the
@@ -17,9 +17,9 @@ class DeviceEnrollment {
   final String deviceId;
   final String schoolId;
 
-  /// Slot index on the fingerprint device, 1..200. Stored as `userId`
-  /// in the document for backward compatibility with the api-v2
-  /// server's existing writes.
+  /// Slot index on the fingerprint device, 1..200. Stored as both
+  /// `slotId` (Flutter-friendly) and `userId` (legacy api-v2 name) so a
+  /// document round-trips cleanly regardless of which side authored it.
   final int slotId;
 
   final String name;
@@ -93,5 +93,29 @@ class DeviceEnrollment {
       if (enrolledAt != null) 'enrolledAt': enrolledAt,
       'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+
+  DeviceEnrollment copyWith({
+    String? id,
+    String? deviceId,
+    String? schoolId,
+    int? slotId,
+    String? name,
+    String? cardId,
+    String? phone,
+    DateTime? enrolledAt,
+    DateTime? updatedAt,
+  }) {
+    return DeviceEnrollment(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      schoolId: schoolId ?? this.schoolId,
+      slotId: slotId ?? this.slotId,
+      name: name ?? this.name,
+      cardId: cardId ?? this.cardId,
+      phone: phone ?? this.phone,
+      enrolledAt: enrolledAt ?? this.enrolledAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }

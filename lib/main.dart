@@ -217,36 +217,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
             targetScreen = const LoginScreen();
           }
         }
-      } else if (role == UserRole.systemOwner) {
-        AuthService.setSession(
-          AuthSession(
-            role: role,
-            email: stored['email'] as String?,
-            uid: stored['uid'] as String?,
-            schoolId: stored['schoolId'] as String?,
-          ),
-        );
-        targetScreen = const SystemOwnerDashboard();
-      } else if (role == UserRole.teacher) {
-        AuthService.setSession(
-          AuthSession(
-            role: role,
-            email: stored['email'] as String?,
-            uid: stored['uid'] as String?,
-            schoolId: stored['schoolId'] as String?,
-          ),
-        );
-        targetScreen = const TeacherDashboardScreen();
       } else {
-        AuthService.setSession(
-          AuthSession(
-            role: role,
-            email: stored['email'] as String?,
-            uid: stored['uid'] as String?,
-            schoolId: stored['schoolId'] as String?,
-          ),
-        );
-        targetScreen = const SchoolAdminDashboard();
+        // Admin/teacher/owner dashboards read protected Firestore data.
+        // Never restore them from SharedPreferences alone: a cached session
+        // can outlive Firebase Auth, leaving request.auth == null and causing
+        // permission-denied errors on devices/sessions/students. If
+        // AuthService.restoreSession() failed above, force a real sign-in.
+        await AuthStorageService.clearStoredLogin();
+        targetScreen = const LoginScreen();
       }
 
       if (mounted) {

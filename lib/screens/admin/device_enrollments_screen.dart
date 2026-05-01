@@ -12,11 +12,12 @@ import '../../services/zenda_device_api_service.dart';
 ///
 /// Reads the canonical enrolled-users list from the
 /// `device_enrollments` Firestore collection (school-scoped via
-/// `FirebaseService._scoped`) and uses the api-v2 server only as a
-/// MQTT relay for enroll / delete / clear commands. Persistence is
-/// done in Firestore as soon as the device confirms an enroll, so the
-/// list survives api-v2 server restarts and doesn't depend on the
-/// device firmware ever publishing `/status`.
+/// `FirebaseService._scopedSchool`) and uses the api-v2 server only
+/// as a MQTT relay for enroll / delete / clear commands. Persistence
+/// is done in Firestore as soon as the device confirms an enroll, so
+/// the list survives api-v2 server restarts and never collapses around
+/// whatever the device firmware happens to have most-recently echoed
+/// back via `/status`.
 class DeviceEnrollmentsScreen extends StatefulWidget {
   final Device device;
   final School? school;
@@ -50,6 +51,9 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     super.initState();
     _load();
   }
+
+  String get _schoolId =>
+      widget.device.schoolId ?? widget.school?.id ?? '';
 
   Future<void> _load() async {
     setState(() {
@@ -121,8 +125,8 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     try {
       // Best-effort MQTT delete. We always remove the Firestore record
       // even if the device is offline — the local DB is the source of
-      // truth, the device will pick up the change on the next clear /
-      // re-enroll cycle.
+      // truth, and the device will pick up the change on the next
+      // clear / re-enroll cycle.
       try {
         await ZendaDeviceApiService.postDelete(
           deviceId: widget.device.deviceId,
@@ -188,7 +192,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
 
   Future<void> _openEnrollDialog() async {
     final usedSlots = _enrollments.map((e) => e.slotId).toSet();
-    final schoolId = widget.device.schoolId ?? widget.school?.id ?? '';
+    final schoolId = _schoolId;
     setState(() => _isEnrolling = true);
     final result = await showDialog<DeviceEnrollment>(
       context: context,
@@ -207,9 +211,9 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     if (!mounted) return;
     setState(() => _isEnrolling = false);
     if (result != null) {
-      // The dialog already wrote the record to Firestore as soon as the
-      // device confirmed enrollment, so the next list refresh is just
-      // a re-read.
+      // The dialog already wrote the record to Firestore as soon as
+      // the device confirmed enrollment, so the next list refresh is
+      // just a re-read.
       await _load();
     }
   }
@@ -487,7 +491,8 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
             separatorBuilder:
                 (_, __) =>
                     Divider(height: 1, color: colorScheme.outlineVariant),
-            itemBuilder: (_, i) => _buildUserRow(_enrollments[i], colorScheme),
+            itemBuilder:
+                (_, i) => _buildUserRow(_enrollments[i], colorScheme),
           ),
         ],
       ),
@@ -500,7 +505,6 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
         deviceName.isEmpty
             ? widget.device.deviceId
             : '${widget.device.deviceId} · $deviceName';
-    final phone = enrollment.phone ?? '';
 
     return Padding(
       key: ValueKey('enrolled-${enrollment.slotId}'),
@@ -543,7 +547,7 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  enrollment.name,
+                  enrollment.name.isEmpty ? 'Unknown' : enrollment.name,
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 14,
@@ -564,7 +568,10 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
                 ),
                 _EnrollmentField(
                   label: 'Phone',
-                  value: phone.isEmpty ? '—' : phone,
+                  value:
+                      (enrollment.phone ?? '').isEmpty
+                          ? '—'
+                          : enrollment.phone!,
                 ),
                 _EnrollmentField(
                   label: 'Device',
@@ -734,6 +741,14 @@ class _EnrollDialogState extends State<_EnrollDialog> {
       );
       return;
     }
+    if (widget.schoolId.isEmpty) {
+      setState(
+        () =>
+            _statusMessage =
+                'This device is not linked to a school. Open the device record and assign it before enrolling users.',
+      );
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -751,16 +766,24 @@ class _EnrollDialogState extends State<_EnrollDialog> {
       if (!mounted) return;
       setState(() {
         _statusMessage =
-            'Command sent. Place finger on the device to complete enrollment.';
+            'Command sent. Place the same finger on the device twice when prompted.';
       });
-      await _pollEnrollmentStatus(slot);
+      final confirmed = await _pollEnrollmentStatus(slot);
       if (!mounted) return;
+      if (!confirmed) {
+        setState(() {
+          _isSubmitting = false;
+          _statusMessage =
+              'Enrollment was not confirmed yet. If the device is still asking for '
+              'the second scan, finish it and try Refresh after the dialog closes.';
+        });
+        return;
+      }
 
-      // Persist to Firestore — this is the source of truth for the
-      // device_enrollments collection. We do it here rather than
-      // relying on the api-v2 server's MQTT-driven mirror because the
-      // server can be asleep on Render's free tier and miss the
-      // device's `/enrollment success` ack.
+      // Persist to Firestore as the system of record so the next
+      // enroll picks the next free slot — even if the api-v2
+      // server's `/api/users/:deviceId` snapshot has collapsed
+      // around the most recent enrollment.
       final enrollment = DeviceEnrollment(
         deviceId: widget.deviceId,
         schoolId: widget.schoolId,
@@ -770,7 +793,17 @@ class _EnrollDialogState extends State<_EnrollDialog> {
         phone: participant.phone.isEmpty ? null : participant.phone,
         enrolledAt: DateTime.now(),
       );
-      await FirebaseService.upsertDeviceEnrollment(enrollment);
+      try {
+        await FirebaseService.upsertDeviceEnrollment(enrollment);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isSubmitting = false;
+          _statusMessage =
+              'Enrolled on the device but failed to save the record: $e';
+        });
+        return;
+      }
       if (!mounted) return;
       Navigator.pop(context, enrollment);
     } catch (e) {
@@ -782,25 +815,47 @@ class _EnrollDialogState extends State<_EnrollDialog> {
     }
   }
 
-  Future<void> _pollEnrollmentStatus(int slot) async {
-    for (var i = 0; i < 5; i++) {
+  /// Polls the api-v2 server for an enrollment confirmation. The device
+  /// enrollment flow needs two finger placements, so keep the dialog in
+  /// a waiting state long enough for both scans instead of re-sending
+  /// the enroll command after the first pass.
+  Future<bool> _pollEnrollmentStatus(int slot) async {
+    const maxAttempts = 90;
+    for (var i = 0; i < maxAttempts; i++) {
       await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
+      if (!mounted) return false;
       try {
         final status = await ZendaDeviceApiService.getEnrollmentStatus(
           deviceId: widget.deviceId,
           enrollmentId: slot,
         );
-        if (!mounted) return;
+        if (!mounted) return false;
         if (status.found) {
           setState(() {
-            _statusMessage =
-                'Status: ${status.status}${status.step != null ? ' (step ${status.step})' : ''}';
+            _statusMessage = _formatEnrollmentStatus(status);
           });
-          if (status.success) return;
+          if (status.success) return true;
+        } else if (i == 10 && mounted) {
+          setState(() {
+            _statusMessage =
+                'Waiting for the device. Place the same finger twice when prompted.';
+          });
         }
       } catch (_) {}
     }
+    return false;
+  }
+
+  String _formatEnrollmentStatus(EnrollmentStatus status) {
+    if (status.success) return 'Enrollment confirmed.';
+    final message = (status.message ?? '').trim();
+    if (message.isNotEmpty) return message;
+    final step = status.step;
+    if (step == null) return 'Waiting for the second fingerprint scan...';
+    if (step <= 1) {
+      return 'First scan received. Place the same finger again to finish enrollment.';
+    }
+    return 'Waiting for device confirmation (step $step)...';
   }
 
   @override
@@ -864,7 +919,7 @@ class _EnrollDialogState extends State<_EnrollDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context, null),
           child: const Text('Cancel'),
         ),
         FilledButton(

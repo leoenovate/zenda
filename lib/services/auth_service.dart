@@ -15,6 +15,72 @@ enum UserRole {
   systemOwner,
 }
 
+/// Reads `schoolId` from Firebase Auth custom claims (mirrored by Cloud Functions).
+String? _schoolIdFromClaims(Map<String, dynamic>? claims) {
+  if (claims == null) return null;
+  final raw = claims['schoolId'];
+  if (raw is String && raw.isNotEmpty) return raw;
+  return null;
+}
+
+String? _roleFromClaims(Map<String, dynamic>? claims) {
+  if (claims == null) return null;
+  final raw = claims['role'];
+  if (raw is String && raw.isNotEmpty) return raw;
+  return null;
+}
+
+/// Force-refresh Firebase Auth custom claims before protected dashboards run.
+///
+/// Firestore rules for school-scoped collections accept custom claims
+/// (`role`, `schoolId`) and only fall back to `users/{uid}` for older tokens.
+/// In production we observed scoped reads failing until the token carried
+/// claims, so real admin sign-in/restore should not proceed with a stale ID
+/// token. If claims are missing or stale, touching the user's doc triggers
+/// `syncClaimsOnUserWrite`, then we poll a few short refreshes.
+Future<void> _ensureClaimsSynced(
+  User user, {
+  required String role,
+  required String? schoolId,
+  DocumentReference<Map<String, dynamic>>? userRef,
+}) async {
+  if (role == 'parent') return;
+
+  var requestedSync = false;
+  for (var attempt = 0; attempt < 6; attempt++) {
+    try {
+      final token = await user.getIdTokenResult(true);
+      final claims = token.claims;
+      final claimRole = _roleFromClaims(claims);
+      final claimSchoolId = _schoolIdFromClaims(claims);
+      final roleMatches = claimRole == role;
+      final schoolMatches =
+          schoolId == null || schoolId.isEmpty || claimSchoolId == schoolId;
+      if (roleMatches && schoolMatches) return;
+
+      if (!requestedSync && userRef != null) {
+        requestedSync = true;
+        await userRef.update({
+          'claimsRefreshRequestedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {
+      // Keep polling; restore/sign-in should still use Firestore profile data
+      // if claims cannot be refreshed immediately.
+    }
+    await Future.delayed(Duration(milliseconds: 250 * (attempt + 1)));
+  }
+}
+
+Future<String?> _resolveSchoolId(User user, String? fromFirestore) async {
+  try {
+    final token = await user.getIdTokenResult(true);
+    return _schoolIdFromClaims(token.claims) ?? fromFirestore;
+  } catch (_) {
+    return fromFirestore;
+  }
+}
+
 UserRole? _parseUserRole(String? role) {
   switch (role) {
     case 'system_owner':
@@ -77,7 +143,7 @@ class AuthSession {
 ///    parents collections).
 ///  - Resolving the caller's role and schoolId from the `users/{uid}` doc.
 ///  - Exposing the current session for school-scoped queries elsewhere in
-///    the app (see FirebaseService._scoped).
+///    the app (see FirebaseService._scopedSchool / _scoped).
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -114,11 +180,21 @@ class AuthService {
       final data = doc.data() ?? {};
       final role = _parseUserRole(data['role'] as String?);
       if (role == null) return null;
+      final schoolId = await _resolveSchoolId(
+        user,
+        data['schoolId'] as String?,
+      );
+      await _ensureClaimsSynced(
+        user,
+        role: userRoleToFirestore(role),
+        schoolId: schoolId,
+        userRef: doc.reference,
+      );
       _current = AuthSession(
         role: role,
         uid: user.uid,
         email: user.email,
-        schoolId: data['schoolId'] as String?,
+        schoolId: schoolId,
         name: data['name'] as String?,
       );
       return _current;
@@ -149,7 +225,9 @@ class AuthService {
       UserRole? role;
       String? schoolId;
       String? name;
+      DocumentReference<Map<String, dynamic>>? userRef;
       if (doc.exists) {
+        userRef = doc.reference;
         final data = doc.data() ?? {};
         if (data['isActive'] == false) {
           await _auth.signOut();
@@ -167,32 +245,13 @@ class AuthService {
         throw Exception('User record is missing a role');
       }
 
-      if (!doc.exists) {
-        // Bootstrap: create the users/{uid} doc so Firestore rules can
-        // resolve the role for every subsequent query. Without this,
-        // `userDoc().role` evaluates to null in rules and admin queries
-        // fail with permission-denied even though the caller is
-        // authenticated. The `syncClaimsOnUserWrite` Cloud Function
-        // mirrors the role/schoolId fields into custom claims after
-        // the write, so the next request uses the fast claim path.
-        await doc.reference.set(
-          {
-            'email': trimmedEmail,
-            'role': userRoleToFirestore(role),
-            if (schoolId != null) 'schoolId': schoolId,
-            if (name != null) 'name': name,
-            'isActive': true,
-            'createdAt': FieldValue.serverTimestamp(),
-            'lastLogin': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-        // Force a refresh so any newly-set custom claim is picked up
-        // by subsequent Firestore requests in this session.
-        try {
-          await cred.user!.getIdToken(true);
-        } catch (_) {}
-      }
+      schoolId = await _resolveSchoolId(cred.user!, schoolId);
+      await _ensureClaimsSynced(
+        cred.user!,
+        role: userRoleToFirestore(role),
+        schoolId: schoolId,
+        userRef: userRef,
+      );
 
       _current = AuthSession(
         role: role,

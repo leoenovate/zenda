@@ -7,8 +7,9 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userDocExists() {
+      return signedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function userRole() {
@@ -16,20 +17,24 @@ service cloud.firestore {
       // fall back to the role field stored on the users/{uid} doc.
       return request.auth.token.role != null
           ? request.auth.token.role
-          : userDoc().role;
+          : (userDocExists()
+              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+              : null);
     }
 
     function userSchool() {
       return request.auth.token.schoolId != null
           ? request.auth.token.schoolId
-          : userDoc().schoolId;
+          : (userDocExists()
+              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId
+              : null);
     }
 
     function isOwner() { return signedIn() && userRole() == 'system_owner'; }
 
     // Any admin seat: system owner, school admin, teacher, or generic staff.
     function isAdmin() {
-      return signedIn() && userRole() in ['system_owner', 'admin', 'school_admin', 'teacher', 'staff'];
+      return signedIn() && userRole() != null && userRole() in ['system_owner', 'admin', 'school_admin', 'teacher', 'staff'];
     }
 
     function sameSchool(data) {
@@ -48,14 +53,8 @@ service cloud.firestore {
     match /users/{uid} {
       // Users can always read their own profile; admins can read roster.
       allow read:   if signedIn() && (request.auth.uid == uid || isAdmin());
-      // System owner can create any user. Bootstrap path: a signed-in
-      // user may self-register their own users/{uid} doc so that roles
-      // resolve via `userDoc().role` on first login (otherwise rules
-      // can't see their role and every admin query is denied). The
-      // syncClaimsOnUserWrite Cloud Function mirrors `role`/`schoolId`
-      // into custom claims as soon as the doc is written.
-      allow create: if isOwner() ||
-                     (signedIn() && request.auth.uid == uid);
+      // Only owners and the user themselves may update a user doc.
+      allow create: if isOwner();
       allow update: if isOwner() || request.auth.uid == uid;
       allow delete: if isOwner();
     }

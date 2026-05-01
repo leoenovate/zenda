@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'session_attendee.dart';
+import 'session_date_override.dart';
 
 /// A configurable attendance window. The audience can mix:
 ///
@@ -86,6 +87,10 @@ class Session {
   /// [classIds].
   final List<SessionAttendee> attendees;
 
+  /// Per-day customizations: skip a specific day or replace its
+  /// start/end/late times. Indexed by `YYYY-MM-DD` in the UI.
+  final List<SessionDateOverride> dateOverrides;
+
   const Session({
     this.id,
     required this.schoolId,
@@ -112,6 +117,7 @@ class Session {
     this.audienceLabel,
     this.audienceRoles = const [],
     this.attendees = const [],
+    this.dateOverrides = const [],
   }) : endDate = endDate ?? date;
 
   bool get isMultiDay =>
@@ -120,6 +126,32 @@ class Session {
       endDate.day != date.day;
 
   bool get isRecurring => recurrence != 'none' && recurrence.isNotEmpty;
+
+  /// Lookup an override for [day] (date-only). Returns null when there
+  /// is no per-day customization.
+  SessionDateOverride? overrideFor(DateTime day) {
+    final key = SessionDateOverride.formatDateKey(day);
+    for (final o in dateOverrides) {
+      if (o.dateKey == key) return o;
+    }
+    return null;
+  }
+
+  /// True when [day] has been explicitly skipped by the admin.
+  bool isSkipped(DateTime day) => overrideFor(day)?.excluded ?? false;
+
+  /// Effective `(startTime, endTime, lateTime)` for [day], applying any
+  /// per-day overrides on top of the session-level defaults. Returns
+  /// nulls for any field that is unset.
+  ({String? startTime, String? endTime, String? lateTime})
+      effectiveTimesFor(DateTime day) {
+    final ov = overrideFor(day);
+    return (
+      startTime: ov?.startTime ?? startTime,
+      endTime: ov?.endTime ?? endTime,
+      lateTime: ov?.lateTime ?? lateTime,
+    );
+  }
 
   static DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
@@ -178,6 +210,22 @@ class Session {
             ),
           )
           .where((a) => a.id.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
+  static List<SessionDateOverride> _overrideList(dynamic value) {
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map(
+            (m) => SessionDateOverride.fromMap(
+              m.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .where((o) =>
+              o.date.millisecondsSinceEpoch > 0 && o.hasCustomization)
           .toList();
     }
     return const [];
@@ -289,6 +337,7 @@ class Session {
       audienceLabel: _optionalString(data['audienceLabel']),
       audienceRoles: audienceRoles,
       attendees: attendees,
+      dateOverrides: _overrideList(data['dateOverrides']),
     );
   }
 
@@ -319,6 +368,9 @@ class Session {
       if (audienceRoles.isNotEmpty) 'audienceRoles': audienceRoles,
       if (attendees.isNotEmpty)
         'attendees': attendees.map((a) => a.toMap()).toList(),
+      if (dateOverrides.isNotEmpty)
+        'dateOverrides':
+            dateOverrides.where((o) => o.hasCustomization).map((o) => o.toMap()).toList(),
     };
     return m;
   }
