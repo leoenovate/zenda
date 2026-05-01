@@ -44,92 +44,153 @@ class AdminListScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final padding = context.isMobile
-        ? const EdgeInsets.all(16)
-        : const EdgeInsets.all(24);
+    final isMobile = context.isMobile;
+    final padding =
+        context.isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24);
+    final actionButtons = <Widget>[
+      if (headerExtras != null) headerExtras!,
+      if (onAddPressed != null)
+        ElevatedButton.icon(
+          onPressed: onAddPressed,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text(addButtonLabel ?? 'Add'),
+        ),
+    ];
 
     return SingleChildScrollView(
       padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (headerExtras != null) headerExtras!,
-              if (onAddPressed != null) ...[
-                if (headerExtras != null) const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: onAddPressed,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(addButtonLabel ?? 'Add'),
-                ),
-              ],
-            ],
-          ),
+          _buildHeader(context, colorScheme, actionButtons, isMobile),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: searchHint,
-                    prefixIcon: const Icon(Icons.search),
-                  ),
-                  onChanged: onSearchChanged,
-                ),
-              ),
-              if (showSchoolFilter) ...[
-                const SizedBox(width: 12),
-                _buildDropdown(
-                  context: context,
-                  value: schoolFilter,
-                  items: [
-                    const DropdownMenuItem(
-                        value: 'all', child: Text('All schools')),
-                    ...schools.map((s) => DropdownMenuItem(
-                        value: s.id ?? 'all', child: Text(s.name))),
-                  ],
-                  onChanged: (v) => onSchoolFilterChanged(v ?? 'all'),
-                ),
-              ],
-              for (final f in extraFilters) ...[
-                const SizedBox(width: 12),
-                _buildDropdown(
-                  context: context,
-                  value: f.value,
-                  items: f.items,
-                  onChanged: f.onChanged,
-                ),
-              ],
-            ],
-          ),
+          _buildFilters(context, isMobile),
           const SizedBox(height: 20),
           listContent,
         ],
       ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<Widget> actionButtons,
+    bool isMobile,
+  ) {
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          titleBlock,
+          if (actionButtons.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < actionButtons.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  actionButtons[i],
+                ],
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: titleBlock),
+        if (actionButtons.isNotEmpty) ...[
+          const SizedBox(width: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: actionButtons,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFilters(BuildContext context, bool isMobile) {
+    final searchField = TextField(
+      decoration: InputDecoration(
+        hintText: searchHint,
+        prefixIcon: const Icon(Icons.search),
+      ),
+      onChanged: onSearchChanged,
+    );
+    final filters = <Widget>[
+      if (showSchoolFilter)
+        _buildDropdown(
+          context: context,
+          value: schoolFilter,
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem(value: 'all', child: Text('All schools')),
+            ...schools.map(
+              (s) => DropdownMenuItem(
+                value: s.id ?? 'all',
+                child: Text(s.name, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: (v) => onSchoolFilterChanged(v ?? 'all'),
+        ),
+      for (final f in extraFilters)
+        _buildDropdown(
+          context: context,
+          value: f.value,
+          isExpanded: true,
+          items: f.items,
+          onChanged: f.onChanged,
+        ),
+    ];
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          searchField,
+          for (final filter in filters) ...[const SizedBox(height: 12), filter],
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: searchField),
+        for (final filter in filters) ...[
+          const SizedBox(width: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: filter,
+          ),
+        ],
+      ],
     );
   }
 
@@ -138,6 +199,7 @@ class AdminListScaffold extends StatelessWidget {
     required String value,
     required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
+    bool isExpanded = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
@@ -151,6 +213,7 @@ class AdminListScaffold extends StatelessWidget {
         value: value,
         items: items,
         onChanged: onChanged,
+        isExpanded: isExpanded,
         underline: const SizedBox.shrink(),
         dropdownColor: colorScheme.surface,
         style: TextStyle(color: colorScheme.onSurface, fontSize: 14),
@@ -193,8 +256,7 @@ class AdminListCard extends StatelessWidget {
 class AdminEmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
-  const AdminEmptyState(
-      {super.key, required this.icon, required this.message});
+  const AdminEmptyState({super.key, required this.icon, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -213,8 +275,7 @@ class AdminEmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             message,
-            style: TextStyle(
-                color: colorScheme.onSurfaceVariant, fontSize: 15),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 15),
           ),
         ],
       ),
@@ -225,7 +286,5 @@ class AdminEmptyState extends StatelessWidget {
 /// Standard form-field decoration used across admin dialogs. Style comes
 /// from `Theme.of(context).inputDecorationTheme`, so only labelText is set.
 InputDecoration adminInputDecoration(String label, {bool required = false}) {
-  return InputDecoration(
-    labelText: required ? '$label *' : label,
-  );
+  return InputDecoration(labelText: required ? '$label *' : label);
 }

@@ -128,8 +128,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _parents = results[3] as List<app_parent.Parent>;
         _workers = results[4] as List<Worker>;
         _users = users;
-        _admins =
-            users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
+        _admins = users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
         _devices = results[6] as List<Device>;
         _sessions = results[7] as List<Session>;
         _recentActivity = results[8] as List<Map<String, dynamic>>;
@@ -766,9 +765,8 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   /// Admin-like users that participate in the role system: school admins
   /// and generic staff. (System owners and teachers don't show up here;
   /// teachers come from the `teachers/` collection.)
-  List<app_user.AppUser> get _adminLikeUsers => _users
-      .where((u) => AuthRoles.isAdminLike(u.role))
-      .toList();
+  List<app_user.AppUser> get _adminLikeUsers =>
+      _users.where((u) => AuthRoles.isAdminLike(u.role)).toList();
 
   /// Children populated dynamically from the loaded dataset. The "user
   /// kind" buckets (Admins / Teachers / Parents / Students) map to
@@ -804,9 +802,10 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     ];
 
     final schoolId = _school?.id;
-    final scopedRoles = _customRoles
-        .where((r) => schoolId == null || r.schoolId == schoolId)
-        .toList();
+    final scopedRoles =
+        _customRoles
+            .where((r) => schoolId == null || r.schoolId == schoolId)
+            .toList();
 
     for (final role in scopedRoles) {
       final assigned = _countAssignedToRole(role.id, role.appliesTo);
@@ -835,8 +834,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
       for (final k in AuthRoles.allKinds)
         if (unassignedAppliesTo.contains(k)) k,
     ];
-    final unassignedCount =
-        _countAssignedToRole(null, unassignedKinds);
+    final unassignedCount = _countAssignedToRole(null, unassignedKinds);
     entries.add(
       _RoleEntry(
         Icons.help_outline,
@@ -2195,6 +2193,7 @@ class _DevicesViewState extends State<_DevicesView> {
             viewportConstraints.maxHeight.isFinite
                 ? viewportConstraints.maxHeight
                 : 0.0;
+        final isMobile = viewportConstraints.maxWidth < ScreenSize.mobile;
         return SingleChildScrollView(
           padding: padding,
           child: ConstrainedBox(
@@ -2204,128 +2203,16 @@ class _DevicesViewState extends State<_DevicesView> {
               mainAxisAlignment: MainAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Devices',
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Fingerprint scanners and attendance terminals for ${widget.school?.name ?? 'your school'}',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showFormDialog(),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Device'),
-                    ),
-                  ],
-                ),
+                _buildHeader(colorScheme, isMobile),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'Search by name, ID, or location...',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        onChanged: widget.onSearchChanged,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        border: Border.all(color: colorScheme.outlineVariant),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: widget.statusFilter,
-                        underline: const SizedBox.shrink(),
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'all',
-                            child: Text('All statuses'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'active',
-                            child: Text('Active'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'offline',
-                            child: Text('Offline'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'maintenance',
-                            child: Text('Maintenance'),
-                          ),
-                        ],
-                        onChanged:
-                            (v) => widget.onStatusFilterChanged(v ?? 'all'),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildFilters(colorScheme, isMobile),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _statCard(
-                        Colors.green,
-                        Icons.check_circle,
-                        '$active',
-                        'Active',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _statCard(
-                        Colors.red,
-                        Icons.error_outline,
-                        '$offline',
-                        'Offline',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _statCard(
-                        Colors.orange,
-                        Icons.build_circle,
-                        '$maintenance',
-                        'Maintenance',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _statCard(
-                        colorScheme.primary,
-                        Icons.devices_other,
-                        '${widget.devices.length}',
-                        'Total',
-                      ),
-                    ),
-                  ],
+                _buildStatsGrid(
+                  colorScheme: colorScheme,
+                  isMobile: isMobile,
+                  active: active,
+                  offline: offline,
+                  maintenance: maintenance,
                 ),
                 const SizedBox(height: 20),
                 if (filtered.isEmpty)
@@ -2377,6 +2264,151 @@ class _DevicesViewState extends State<_DevicesView> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(ColorScheme colorScheme, bool isMobile) {
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Devices',
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Fingerprint scanners and attendance terminals for ${widget.school?.name ?? 'your school'}',
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+        ),
+      ],
+    );
+
+    final addButton = ElevatedButton.icon(
+      onPressed: () => _showFormDialog(),
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text('Add Device'),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [titleBlock, const SizedBox(height: 14), addButton],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: titleBlock),
+        const SizedBox(width: 16),
+        addButton,
+      ],
+    );
+  }
+
+  Widget _buildFilters(ColorScheme colorScheme, bool isMobile) {
+    final search = TextField(
+      decoration: const InputDecoration(
+        hintText: 'Search by name, ID, or location...',
+        prefixIcon: Icon(Icons.search),
+      ),
+      onChanged: widget.onSearchChanged,
+    );
+    final dropdown = _statusDropdown(colorScheme, isExpanded: isMobile);
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [search, const SizedBox(height: 12), dropdown],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: search),
+        const SizedBox(width: 12),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 190),
+          child: dropdown,
+        ),
+      ],
+    );
+  }
+
+  Widget _statusDropdown(ColorScheme colorScheme, {required bool isExpanded}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButton<String>(
+        value: widget.statusFilter,
+        isExpanded: isExpanded,
+        underline: const SizedBox.shrink(),
+        style: TextStyle(color: colorScheme.onSurface, fontSize: 14),
+        items: const [
+          DropdownMenuItem(value: 'all', child: Text('All statuses')),
+          DropdownMenuItem(value: 'active', child: Text('Active')),
+          DropdownMenuItem(value: 'offline', child: Text('Offline')),
+          DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
+        ],
+        onChanged: (v) => widget.onStatusFilterChanged(v ?? 'all'),
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid({
+    required ColorScheme colorScheme,
+    required bool isMobile,
+    required int active,
+    required int offline,
+    required int maintenance,
+  }) {
+    final cards = [
+      _statCard(Colors.green, Icons.check_circle, '$active', 'Active'),
+      _statCard(Colors.red, Icons.error_outline, '$offline', 'Offline'),
+      _statCard(
+        Colors.orange,
+        Icons.build_circle,
+        '$maintenance',
+        'Maintenance',
+      ),
+      _statCard(
+        colorScheme.primary,
+        Icons.devices_other,
+        '${widget.devices.length}',
+        'Total',
+      ),
+    ];
+
+    if (!isMobile) {
+      return Row(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 12),
+            Expanded(child: cards[i]),
+          ],
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = ((constraints.maxWidth - 12) / 2).clamp(0.0, 220.0);
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final card in cards) SizedBox(width: width, child: card),
+          ],
         );
       },
     );
@@ -2435,6 +2467,7 @@ class _DevicesViewState extends State<_DevicesView> {
 
   Widget _buildRow(Device device) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isMobile = context.isMobile;
     final heartbeat = _heartbeatFor(device);
     final status = _effectiveStatus(device);
     Color statusColor;
@@ -2466,95 +2499,174 @@ class _DevicesViewState extends State<_DevicesView> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child:
+          isMobile
+              ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _deviceIcon(statusColor),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _deviceText(
+                          colorScheme,
+                          title: hasName ? device.deviceName! : device.deviceId,
+                          subtitle: subtitleParts.join(' · '),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _statusPill(statusColor, status),
+                      TextButton.icon(
+                        onPressed: () => _openEnrollments(device),
+                        icon: const Icon(Icons.fingerprint, size: 16),
+                        label: const Text('Enrollments'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: const Size(0, 32),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Edit device',
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => _showFormDialog(device: device),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete device',
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
+                        onPressed: () => _confirmDelete(device),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+              : Row(
+                children: [
+                  _deviceIcon(statusColor),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _deviceText(
+                      colorScheme,
+                      title: hasName ? device.deviceName! : device.deviceId,
+                      subtitle: subtitleParts.join(' · '),
+                    ),
+                  ),
+                  _statusPill(statusColor, status),
+                  TextButton.icon(
+                    onPressed: () => _openEnrollments(device),
+                    icon: const Icon(Icons.fingerprint, size: 16),
+                    label: const Text('Manage enrollments'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => _showFormDialog(device: device),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => _confirmDelete(device),
+                  ),
+                ],
+              ),
+    );
+  }
+
+  Widget _deviceIcon(Color statusColor) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(Icons.fingerprint, color: statusColor, size: 20),
+    );
+  }
+
+  Widget _deviceText(
+    ColorScheme colorScheme, {
+    required String title,
+    required String subtitle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _statusPill(Color statusColor, String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.fingerprint, color: statusColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  hasName ? device.deviceName! : device.deviceId,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitleParts.join(' · '),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+              color: statusColor,
+              shape: BoxShape.circle,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
+          const SizedBox(width: 6),
+          Text(
+            status.toUpperCase(),
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 10.5,
+              letterSpacing: 0.3,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  status.toUpperCase(),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.5,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () => _openEnrollments(device),
-            icon: const Icon(Icons.fingerprint, size: 16),
-            label: const Text('Manage enrollments'),
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              minimumSize: const Size(0, 32),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.edit_outlined,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () => _showFormDialog(device: device),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-            onPressed: () => _confirmDelete(device),
           ),
         ],
       ),

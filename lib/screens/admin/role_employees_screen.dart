@@ -91,8 +91,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   bool _isLoading = true;
   List<_Person> _people = [];
   String _searchQuery = '';
-  DeviceEnrollmentLookup _enrollments =
-      const DeviceEnrollmentLookup.empty();
+  DeviceEnrollmentLookup _enrollments = const DeviceEnrollmentLookup.empty();
 
   bool get _isUnassignedBucket => widget.role.id == null;
 
@@ -198,7 +197,9 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
       final sid = u.schoolId;
       if (sid == null || sid.isEmpty) continue;
       final displayName =
-          (u.name != null && u.name!.trim().isNotEmpty) ? u.name!.trim() : u.email;
+          (u.name != null && u.name!.trim().isNotEmpty)
+              ? u.name!.trim()
+              : u.email;
       out.add(
         _Person(
           kind: kind,
@@ -224,24 +225,26 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     final roleSchoolId = widget.role.schoolId;
     final appliesTo = widget.role.appliesTo;
     return _people.where((p) {
-      if (p.schoolId != roleSchoolId) return false;
-      if (!appliesTo.contains(p.kind)) return false;
-      final matchesRole = _isUnassignedBucket
-          ? (p.roleId == null || p.roleId!.isEmpty)
-          : p.roleId == widget.role.id;
-      if (!matchesRole) return false;
-      if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        final match = p.name.toLowerCase().contains(q) ||
-            (p.subtitle ?? '').toLowerCase().contains(q);
-        if (!match) return false;
-      }
-      return true;
-    }).toList()
+        if (p.schoolId != roleSchoolId) return false;
+        if (!appliesTo.contains(p.kind)) return false;
+        final matchesRole =
+            _isUnassignedBucket
+                ? (p.roleId == null || p.roleId!.isEmpty)
+                : p.roleId == widget.role.id;
+        if (!matchesRole) return false;
+        if (_searchQuery.isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          final match =
+              p.name.toLowerCase().contains(q) ||
+              (p.subtitle ?? '').toLowerCase().contains(q);
+          if (!match) return false;
+        }
+        return true;
+      }).toList()
       ..sort((a, b) {
-        final k = AuthRoles.allKinds.indexOf(a.kind).compareTo(
-              AuthRoles.allKinds.indexOf(b.kind),
-            );
+        final k = AuthRoles.allKinds
+            .indexOf(a.kind)
+            .compareTo(AuthRoles.allKinds.indexOf(b.kind));
         if (k != 0) return k;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
@@ -255,21 +258,23 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
 
     final filtered = _assigned;
     final desc = widget.role.description;
-    final headerExtras = _isUnassignedBucket
-        ? null
-        : OutlinedButton.icon(
-            onPressed: _openEditRoleDialog,
-            icon: const Icon(Icons.edit, size: 18),
-            label: const Text('Edit role'),
-          );
+    final headerExtras =
+        _isUnassignedBucket
+            ? null
+            : OutlinedButton.icon(
+              onPressed: _openEditRoleDialog,
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('Edit role'),
+            );
 
     return AdminListScaffold(
       title: widget.role.name,
-      subtitle: _isUnassignedBucket
-          ? 'People without a custom role assigned'
-          : ((desc != null && desc.isNotEmpty)
-              ? desc
-              : 'Manage employees assigned to this role'),
+      subtitle:
+          _isUnassignedBucket
+              ? 'People without a custom role assigned'
+              : ((desc != null && desc.isNotEmpty)
+                  ? desc
+                  : 'Manage employees assigned to this role'),
       searchHint: 'Search assigned employees...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
@@ -280,25 +285,28 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
       addButtonLabel: 'Add employee',
       onAddPressed: _openAddDialog,
       headerExtras: headerExtras,
-      listContent: filtered.isEmpty
-          ? AdminEmptyState(
-              icon: Icons.engineering_outlined,
-              message: _isUnassignedBucket
-                  ? 'Everyone has a custom role assigned.'
-                  : 'No employees assigned to this role yet',
-            )
-          : AdminListCard(
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: Theme.of(context).colorScheme.outlineVariant,
+      listContent:
+          filtered.isEmpty
+              ? AdminEmptyState(
+                icon: Icons.engineering_outlined,
+                message:
+                    _isUnassignedBucket
+                        ? 'Everyone has a custom role assigned.'
+                        : 'No employees assigned to this role yet',
+              )
+              : AdminListCard(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder:
+                      (_, __) => Divider(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                  itemBuilder: (_, i) => _buildAssignedRow(filtered[i]),
                 ),
-                itemBuilder: (_, i) => _buildAssignedRow(filtered[i]),
               ),
-            ),
     );
   }
 
@@ -308,9 +316,17 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
 
   Widget _buildAssignedRow(_Person p) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isMobile = MediaQuery.of(context).size.width < 650;
+    final hits = _enrollments.findEnrollments(p.cardCandidates);
+    final subtitle = [
+      AuthRoles.kindLabel(p.kind),
+      if ((p.subtitle ?? '').isNotEmpty) p.subtitle!,
+    ].where((s) => s.isNotEmpty).join(' · ');
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             backgroundColor: colorScheme.primary.withOpacity(0.15),
@@ -335,31 +351,34 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  [
-                    AuthRoles.kindLabel(p.kind),
-                    if ((p.subtitle ?? '').isNotEmpty) p.subtitle!,
-                  ].where((s) => s.isNotEmpty).join(' · '),
+                  subtitle,
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
+                  maxLines: isMobile ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                if (isMobile && hits.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: EnrolledBadge(enrollments: hits),
+                  ),
+                ],
               ],
             ),
           ),
-          Builder(
-            builder: (_) {
-              final hits = _enrollments.findEnrollments(p.cardCandidates);
-              if (hits.isEmpty) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: EnrolledBadge(enrollments: hits),
-              );
-            },
-          ),
+          if (!isMobile && hits.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, right: 8),
+              child: EnrolledBadge(enrollments: hits),
+            ),
           PopupMenuButton<_RowAction>(
             tooltip: 'More',
             icon: Icon(
@@ -377,36 +396,37 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                   break;
               }
             },
-            itemBuilder: (_) => [
-              PopupMenuItem<_RowAction>(
-                value: _RowAction.move,
-                child: Row(
-                  children: const [
-                    Icon(Icons.swap_horiz, size: 18),
-                    SizedBox(width: 8),
-                    Text('Move to another role'),
-                  ],
-                ),
-              ),
-              if (!_isUnassignedBucket)
-                PopupMenuItem<_RowAction>(
-                  value: _RowAction.remove,
-                  child: Row(
-                    children: const [
-                      Icon(
-                        Icons.person_remove_outlined,
-                        size: 18,
-                        color: Colors.red,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Remove from this role',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ],
+            itemBuilder:
+                (_) => [
+                  PopupMenuItem<_RowAction>(
+                    value: _RowAction.move,
+                    child: Row(
+                      children: const [
+                        Icon(Icons.swap_horiz, size: 18),
+                        SizedBox(width: 8),
+                        Text('Move to another role'),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+                  if (!_isUnassignedBucket)
+                    PopupMenuItem<_RowAction>(
+                      value: _RowAction.remove,
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.person_remove_outlined,
+                            size: 18,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Remove from this role',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
           ),
         ],
       ),
@@ -421,29 +441,29 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   /// in the same school whose kind is covered by `role.appliesTo` and
   /// who is not already in this role.
   Future<void> _openAddDialog() async {
-    final available = _people
-        .where(
-          (p) =>
-              p.schoolId == widget.role.schoolId &&
-              widget.role.appliesTo.contains(p.kind) &&
-              p.roleId != widget.role.id,
-        )
-        .toList()
-      ..sort((a, b) {
-        final k = AuthRoles.allKinds.indexOf(a.kind).compareTo(
-              AuthRoles.allKinds.indexOf(b.kind),
-            );
-        if (k != 0) return k;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+    final available =
+        _people
+            .where(
+              (p) =>
+                  p.schoolId == widget.role.schoolId &&
+                  widget.role.appliesTo.contains(p.kind) &&
+                  p.roleId != widget.role.id,
+            )
+            .toList()
+          ..sort((a, b) {
+            final k = AuthRoles.allKinds
+                .indexOf(a.kind)
+                .compareTo(AuthRoles.allKinds.indexOf(b.kind));
+            if (k != 0) return k;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
 
     if (available.isEmpty) {
-      final msg = _isUnassignedBucket
-          ? 'No assigned people to unassign'
-          : 'Every eligible person is already assigned';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
+      final msg =
+          _isUnassignedBucket
+              ? 'No assigned people to unassign'
+              : 'Every eligible person is already assigned';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       return;
     }
 
@@ -464,200 +484,210 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          final colorScheme = Theme.of(dialogCtx).colorScheme;
-          final filtered = available.where((p) {
-            if (query.isEmpty) return true;
-            final q = query.toLowerCase();
-            return p.name.toLowerCase().contains(q) ||
-                (p.subtitle ?? '').toLowerCase().contains(q);
-          }).toList();
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              final filtered =
+                  available.where((p) {
+                    if (query.isEmpty) return true;
+                    final q = query.toLowerCase();
+                    return p.name.toLowerCase().contains(q) ||
+                        (p.subtitle ?? '').toLowerCase().contains(q);
+                  }).toList();
 
-          final dialogTitle = _isUnassignedBucket
-              ? 'Unassign people from their roles'
-              : 'Add employees to ${widget.role.name}';
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text(
-              dialogTitle,
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-            content: SizedBox(
-              width: 460,
-              height: 480,
-              child: Column(
-                children: [
-                  TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search by name, ID, email or phone...',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (v) =>
-                        setStateDialog(() => query = v.trim()),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No matching employees',
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) => Divider(
-                              height: 1,
-                              color: colorScheme.outlineVariant,
-                            ),
-                            itemBuilder: (_, i) {
-                              final p = filtered[i];
-                              final key = compoundKey(p);
-                              final hasOtherRole = p.roleId != null &&
-                                  p.roleId!.isNotEmpty &&
-                                  p.roleId != widget.role.id;
-                              final isSelected = selected.contains(key);
-                              return CheckboxListTile(
-                                value: isSelected,
-                                onChanged: (v) {
-                                  setStateDialog(() {
-                                    if (v == true) {
-                                      selected.add(key);
-                                    } else {
-                                      selected.remove(key);
-                                    }
-                                  });
-                                },
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  p.name,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  [
-                                    AuthRoles.kindLabel(p.kind),
-                                    'Currently: ${currentRoleNameForPerson(p)}',
-                                  ].join(' · '),
-                                  style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                secondary: hasOtherRole
-                                    ? Tooltip(
-                                        message:
-                                            'Will be moved from ${currentRoleNameForPerson(p)}',
-                                        child: const Icon(
-                                          Icons.swap_horiz,
-                                          size: 18,
-                                          color: Colors.orange,
-                                        ),
-                                      )
-                                    : null,
-                              );
-                            },
-                          ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${selected.length} selected',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
+              final dialogTitle =
+                  _isUnassignedBucket
+                      ? 'Unassign people from their roles'
+                      : 'Add employees to ${widget.role.name}';
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  dialogTitle,
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 460,
+                  height: 480,
+                  child: Column(
+                    children: [
+                      TextField(
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          hintText: 'Search by name, ID, email or phone...',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged:
+                            (v) => setStateDialog(() => query = v.trim()),
                       ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child:
+                            filtered.isEmpty
+                                ? Center(
+                                  child: Text(
+                                    'No matching employees',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                                : ListView.separated(
+                                  itemCount: filtered.length,
+                                  separatorBuilder:
+                                      (_, __) => Divider(
+                                        height: 1,
+                                        color: colorScheme.outlineVariant,
+                                      ),
+                                  itemBuilder: (_, i) {
+                                    final p = filtered[i];
+                                    final key = compoundKey(p);
+                                    final hasOtherRole =
+                                        p.roleId != null &&
+                                        p.roleId!.isNotEmpty &&
+                                        p.roleId != widget.role.id;
+                                    final isSelected = selected.contains(key);
+                                    return CheckboxListTile(
+                                      value: isSelected,
+                                      onChanged: (v) {
+                                        setStateDialog(() {
+                                          if (v == true) {
+                                            selected.add(key);
+                                          } else {
+                                            selected.remove(key);
+                                          }
+                                        });
+                                      },
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      title: Text(
+                                        p.name,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        [
+                                          AuthRoles.kindLabel(p.kind),
+                                          'Currently: ${currentRoleNameForPerson(p)}',
+                                        ].join(' · '),
+                                        style: TextStyle(
+                                          color: colorScheme.onSurfaceVariant,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      secondary:
+                                          hasOtherRole
+                                              ? Tooltip(
+                                                message:
+                                                    'Will be moved from ${currentRoleNameForPerson(p)}',
+                                                child: const Icon(
+                                                  Icons.swap_horiz,
+                                                  size: 18,
+                                                  color: Colors.orange,
+                                                ),
+                                              )
+                                              : null,
+                                    );
+                                  },
+                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${selected.length} selected',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        (isSaving || selected.isEmpty)
+                            ? null
+                            : () async {
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                // Group selected ids by kind so we hit the
+                                // right collection per batch.
+                                final byKind = <String, List<String>>{};
+                                for (final key in selected) {
+                                  final colon = key.indexOf(':');
+                                  if (colon < 0) continue;
+                                  final kind = key.substring(0, colon);
+                                  final id = key.substring(colon + 1);
+                                  (byKind[kind] ??= <String>[]).add(id);
+                                }
+                                for (final entry in byKind.entries) {
+                                  await FirebaseService.setPersonsRole(
+                                    kind: entry.key,
+                                    ids: entry.value,
+                                    roleId: widget.role.id,
+                                  );
+                                }
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                final personLabel =
+                                    selected.length == 1 ? 'person' : 'people';
+                                final msg =
+                                    _isUnassignedBucket
+                                        ? 'Unassigned ${selected.length} $personLabel'
+                                        : 'Assigned ${selected.length} $personLabel '
+                                            'to ${widget.role.name}';
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(SnackBar(content: Text(msg)));
+                                await _load();
+                                widget.onDataChanged?.call();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      isSaving
+                          ? 'Saving...'
+                          : (selected.isEmpty
+                              ? 'Add'
+                              : 'Add ${selected.length}'),
                     ),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: (isSaving || selected.isEmpty)
-                    ? null
-                    : () async {
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          // Group selected ids by kind so we hit the
-                          // right collection per batch.
-                          final byKind = <String, List<String>>{};
-                          for (final key in selected) {
-                            final colon = key.indexOf(':');
-                            if (colon < 0) continue;
-                            final kind = key.substring(0, colon);
-                            final id = key.substring(colon + 1);
-                            (byKind[kind] ??= <String>[]).add(id);
-                          }
-                          for (final entry in byKind.entries) {
-                            await FirebaseService.setPersonsRole(
-                              kind: entry.key,
-                              ids: entry.value,
-                              roleId: widget.role.id,
-                            );
-                          }
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          final personLabel =
-                              selected.length == 1 ? 'person' : 'people';
-                          final msg = _isUnassignedBucket
-                              ? 'Unassigned ${selected.length} $personLabel'
-                              : 'Assigned ${selected.length} $personLabel '
-                                  'to ${widget.role.name}';
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(msg)),
-                          );
-                          await _load();
-                          widget.onDataChanged?.call();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(
-                  isSaving
-                      ? 'Saving...'
-                      : (selected.isEmpty
-                          ? 'Add'
-                          : 'Add ${selected.length}'),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+              );
+            },
+          ),
     );
   }
 
   Future<void> _openMoveDialog(_Person person) async {
     // Move targets: every other role for this school whose appliesTo
     // covers the person's kind, plus a synthetic "Unassigned" option.
-    final targetRoles = widget.allRoles
-        .where(
-          (r) =>
-              r.id != widget.role.id &&
-              r.schoolId == widget.role.schoolId &&
-              r.isActive &&
-              r.appliesTo.contains(person.kind),
-        )
-        .toList();
+    final targetRoles =
+        widget.allRoles
+            .where(
+              (r) =>
+                  r.id != widget.role.id &&
+                  r.schoolId == widget.role.schoolId &&
+                  r.isActive &&
+                  r.appliesTo.contains(person.kind),
+            )
+            .toList();
 
     String? targetRoleId; // null => Unassigned
     bool selectedUnassigned = _isUnassignedBucket ? false : false;
@@ -665,119 +695,129 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
 
     await showDialog<void>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          final colorScheme = Theme.of(dialogCtx).colorScheme;
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text(
-              'Move ${person.name}',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _isUnassignedBucket
-                        ? 'Currently unassigned'
-                        : 'Currently in ${widget.role.name}',
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (targetRoles.isEmpty && _isUnassignedBucket)
-                    Text(
-                      'No other roles defined yet for this kind.',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    )
-                  else
-                    DropdownButtonFormField<String?>(
-                      initialValue: selectedUnassigned ? '__unassigned' : targetRoleId,
-                      decoration: const InputDecoration(
-                        labelText: 'Move to',
-                      ),
-                      items: [
-                        if (!_isUnassignedBucket)
-                          const DropdownMenuItem<String?>(
-                            value: '__unassigned',
-                            child: Text('Unassigned'),
-                          ),
-                        for (final r in targetRoles)
-                          DropdownMenuItem<String?>(
-                            value: r.id,
-                            child: Text(r.name),
-                          ),
-                      ],
-                      onChanged: (v) => setStateDialog(() {
-                        if (v == '__unassigned') {
-                          selectedUnassigned = true;
-                          targetRoleId = null;
-                        } else {
-                          selectedUnassigned = false;
-                          targetRoleId = v;
-                        }
-                      }),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: (isSaving ||
-                        (targetRoleId == null && !selectedUnassigned))
-                    ? null
-                    : () async {
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          await FirebaseService.setPersonsRole(
-                            kind: person.kind,
-                            ids: [person.id],
-                            roleId: selectedUnassigned ? null : targetRoleId,
-                          );
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          final destLabel = selectedUnassigned
-                              ? 'Unassigned'
-                              : (targetRoles
-                                      .where((r) => r.id == targetRoleId)
-                                      .map((r) => r.name)
-                                      .firstOrNull ??
-                                  'role');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '${person.name} moved to $destLabel',
-                              ),
-                            ),
-                          );
-                          await _load();
-                          widget.onDataChanged?.call();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  'Move ${person.name}',
+                  style: TextStyle(color: colorScheme.onSurface),
                 ),
-                child: Text(isSaving ? 'Saving...' : 'Apply'),
-              ),
-            ],
-          );
-        },
-      ),
+                content: SizedBox(
+                  width: 360,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isUnassignedBucket
+                            ? 'Currently unassigned'
+                            : 'Currently in ${widget.role.name}',
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (targetRoles.isEmpty && _isUnassignedBucket)
+                        Text(
+                          'No other roles defined yet for this kind.',
+                          style: TextStyle(color: colorScheme.onSurface),
+                        )
+                      else
+                        DropdownButtonFormField<String?>(
+                          initialValue:
+                              selectedUnassigned
+                                  ? '__unassigned'
+                                  : targetRoleId,
+                          decoration: const InputDecoration(
+                            labelText: 'Move to',
+                          ),
+                          items: [
+                            if (!_isUnassignedBucket)
+                              const DropdownMenuItem<String?>(
+                                value: '__unassigned',
+                                child: Text('Unassigned'),
+                              ),
+                            for (final r in targetRoles)
+                              DropdownMenuItem<String?>(
+                                value: r.id,
+                                child: Text(r.name),
+                              ),
+                          ],
+                          onChanged:
+                              (v) => setStateDialog(() {
+                                if (v == '__unassigned') {
+                                  selectedUnassigned = true;
+                                  targetRoleId = null;
+                                } else {
+                                  selectedUnassigned = false;
+                                  targetRoleId = v;
+                                }
+                              }),
+                        ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        (isSaving ||
+                                (targetRoleId == null && !selectedUnassigned))
+                            ? null
+                            : () async {
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                await FirebaseService.setPersonsRole(
+                                  kind: person.kind,
+                                  ids: [person.id],
+                                  roleId:
+                                      selectedUnassigned ? null : targetRoleId,
+                                );
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                final destLabel =
+                                    selectedUnassigned
+                                        ? 'Unassigned'
+                                        : (targetRoles
+                                                .where(
+                                                  (r) => r.id == targetRoleId,
+                                                )
+                                                .map((r) => r.name)
+                                                .firstOrNull ??
+                                            'role');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '${person.name} moved to $destLabel',
+                                    ),
+                                  ),
+                                );
+                                await _load();
+                                widget.onDataChanged?.call();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(isSaving ? 'Saving...' : 'Apply'),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -799,210 +839,218 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          final colorScheme = Theme.of(dialogCtx).colorScheme;
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text(
-              'Edit role',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: adminInputDecoration(
-                        'Role name',
-                        required: true,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descriptionController,
-                      maxLines: 2,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: adminInputDecoration('Description'),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Color',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  'Edit role',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 420,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final hex in _kRoleColorPalette)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () => setStateDialog(() => color = hex),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: _parseHexColor(hex) ?? Colors.grey,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: color == hex
-                                      ? colorScheme.onSurface
-                                      : Colors.transparent,
-                                  width: 2,
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          style: TextStyle(color: colorScheme.onSurface),
+                          decoration: adminInputDecoration(
+                            'Role name',
+                            required: true,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: descriptionController,
+                          maxLines: 2,
+                          style: TextStyle(color: colorScheme.onSurface),
+                          decoration: adminInputDecoration('Description'),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Color',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final hex in _kRoleColorPalette)
+                              InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () => setStateDialog(() => color = hex),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: _parseHexColor(hex) ?? Colors.grey,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color:
+                                          color == hex
+                                              ? colorScheme.onSurface
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child:
+                                      color == hex
+                                          ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 18,
+                                          )
+                                          : null,
                                 ),
                               ),
-                              child: color == hex
-                                  ? const Icon(
-                                      Icons.check,
-                                      color: Colors.white,
-                                      size: 18,
-                                    )
-                                  : null,
-                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Applies to',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final kind in AuthRoles.allKinds)
+                              FilterChip(
+                                label: Text(AuthRoles.kindLabelPlural(kind)),
+                                selected: appliesTo.contains(kind),
+                                onSelected:
+                                    (v) => setStateDialog(() {
+                                      if (v) {
+                                        appliesTo.add(kind);
+                                      } else if (appliesTo.length > 1) {
+                                        appliesTo.remove(kind);
+                                      }
+                                    }),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: isActive,
+                          activeColor: colorScheme.primary,
+                          title: Text(
+                            'Active',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onChanged: (v) => setStateDialog(() => isActive = v),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Applies to',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () {
+                              Navigator.pop(dialogCtx);
+                              _confirmDeleteRole();
+                            },
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Delete'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final kind in AuthRoles.allKinds)
-                          FilterChip(
-                            label: Text(AuthRoles.kindLabelPlural(kind)),
-                            selected: appliesTo.contains(kind),
-                            onSelected: (v) => setStateDialog(() {
-                              if (v) {
-                                appliesTo.add(kind);
-                              } else if (appliesTo.length > 1) {
-                                appliesTo.remove(kind);
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              final name = nameController.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Role name is required'),
+                                  ),
+                                );
+                                return;
                               }
-                            }),
-                          ),
-                      ],
+                              if (role.id == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Role is missing an id'),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (appliesTo.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Pick at least one role kind',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                final description =
+                                    descriptionController.text.trim();
+                                final orderedAppliesTo = [
+                                  for (final k in AuthRoles.allKinds)
+                                    if (appliesTo.contains(k)) k,
+                                ];
+                                final updated = role.copyWith(
+                                  name: name,
+                                  description:
+                                      description.isEmpty ? null : description,
+                                  color: color,
+                                  appliesTo: orderedAppliesTo,
+                                  isActive: isActive,
+                                );
+                                await FirebaseService.updateRole(updated);
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Role updated')),
+                                );
+                                await _load();
+                                widget.onDataChanged?.call();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
                     ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: isActive,
-                      activeColor: colorScheme.primary,
-                      title: Text(
-                        'Active',
-                        style: TextStyle(color: colorScheme.onSurface),
-                      ),
-                      onChanged: (v) => setStateDialog(() => isActive = v),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving
-                    ? null
-                    : () {
-                        Navigator.pop(dialogCtx);
-                        _confirmDeleteRole();
-                      },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Role name is required'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (role.id == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Role is missing an id'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (appliesTo.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Pick at least one role kind'),
-                            ),
-                          );
-                          return;
-                        }
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          final description =
-                              descriptionController.text.trim();
-                          final orderedAppliesTo = [
-                            for (final k in AuthRoles.allKinds)
-                              if (appliesTo.contains(k)) k,
-                          ];
-                          final updated = role.copyWith(
-                            name: name,
-                            description:
-                                description.isEmpty ? null : description,
-                            color: color,
-                            appliesTo: orderedAppliesTo,
-                            isActive: isActive,
-                          );
-                          await FirebaseService.updateRole(updated);
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Role updated')),
-                          );
-                          await _load();
-                          widget.onDataChanged?.call();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(isSaving ? 'Saving...' : 'Save'),
-              ),
-            ],
-          );
-        },
-      ),
+                    child: Text(isSaving ? 'Saving...' : 'Save'),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -1010,119 +1058,122 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     final role = widget.role;
     await showDialog<void>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text(
-          'Delete role',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        content: Text(
-          'Delete "${role.name}"? '
-          'Any employees currently assigned to this role will be unassigned.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (role.id == null) {
-                Navigator.pop(dialogCtx);
-                return;
-              }
-              try {
-                final cleared = await FirebaseService.clearRoleAssignments(
-                  roleId: role.id!,
-                  appliesTo: role.appliesTo,
-                  schoolId: role.schoolId,
-                );
-                await FirebaseService.deleteRole(role.id!);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                final msg = cleared > 0
-                    ? 'Role deleted · '
-                        '$cleared ${cleared == 1 ? 'employee' : 'employees'} '
-                        'unassigned'
-                    : 'Role deleted';
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(msg)));
-                widget.onDataChanged?.call();
-              } catch (e) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Error: $e')));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+            title: Text(
+              'Delete role',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: const Text('Delete'),
+            content: Text(
+              'Delete "${role.name}"? '
+              'Any employees currently assigned to this role will be unassigned.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (role.id == null) {
+                    Navigator.pop(dialogCtx);
+                    return;
+                  }
+                  try {
+                    final cleared = await FirebaseService.clearRoleAssignments(
+                      roleId: role.id!,
+                      appliesTo: role.appliesTo,
+                      schoolId: role.schoolId,
+                    );
+                    await FirebaseService.deleteRole(role.id!);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    final msg =
+                        cleared > 0
+                            ? 'Role deleted · '
+                                '$cleared ${cleared == 1 ? 'employee' : 'employees'} '
+                                'unassigned'
+                            : 'Role deleted';
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(msg)));
+                    widget.onDataChanged?.call();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   Future<void> _confirmRemove(_Person person) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text(
-          'Remove from role',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        content: Text(
-          'Remove ${person.name} from "${widget.role.name}"? '
-          'The ${AuthRoles.kindLabel(person.kind).toLowerCase()} record stays — only the role assignment is cleared.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.setPersonsRole(
-                  kind: person.kind,
-                  ids: [person.id],
-                  roleId: null,
-                );
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '${person.name} removed from ${widget.role.name}',
-                    ),
-                  ),
-                );
-                await _load();
-                widget.onDataChanged?.call();
-              } catch (e) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Error: $e')));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+            title: Text(
+              'Remove from role',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            child: const Text('Remove'),
+            content: Text(
+              'Remove ${person.name} from "${widget.role.name}"? '
+              'The ${AuthRoles.kindLabel(person.kind).toLowerCase()} record stays — only the role assignment is cleared.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.setPersonsRole(
+                      kind: person.kind,
+                      ids: [person.id],
+                      roleId: null,
+                    );
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${person.name} removed from ${widget.role.name}',
+                        ),
+                      ),
+                    );
+                    await _load();
+                    widget.onDataChanged?.call();
+                  } catch (e) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Remove'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

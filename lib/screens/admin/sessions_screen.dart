@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/class_group.dart';
@@ -183,12 +183,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
         for (final t in _teachers) {
           if (!t.isActive || t.id == null) continue;
           if (t.schoolId != schoolId) continue;
-          out.add(SessionAttendee(
-            kind: 'teacher',
-            id: t.id!,
-            name: t.name,
-            roleKey: 'teacher',
-          ));
+          out.add(
+            SessionAttendee(
+              kind: 'teacher',
+              id: t.id!,
+              name: t.name,
+              roleKey: 'teacher',
+            ),
+          );
         }
         break;
       case 'admin':
@@ -196,12 +198,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
           if (!u.isActive || u.id == null) continue;
           if (!_isSchoolAdminUser(u)) continue;
           if (u.schoolId != schoolId) continue;
-          out.add(SessionAttendee(
-            kind: 'admin',
-            id: u.id!,
-            name: _displayName(u),
-            roleKey: 'admin',
-          ));
+          out.add(
+            SessionAttendee(
+              kind: 'admin',
+              id: u.id!,
+              name: _displayName(u),
+              roleKey: 'admin',
+            ),
+          );
         }
         break;
       case 'staff':
@@ -209,24 +213,28 @@ class _SessionsScreenState extends State<SessionsScreen> {
           if (!u.isActive || u.id == null) continue;
           if ((u.role ?? '').toLowerCase() != 'staff') continue;
           if (u.schoolId != schoolId) continue;
-          out.add(SessionAttendee(
-            kind: 'staff',
-            id: u.id!,
-            name: _displayName(u),
-            roleKey: 'staff',
-          ));
+          out.add(
+            SessionAttendee(
+              kind: 'staff',
+              id: u.id!,
+              name: _displayName(u),
+              roleKey: 'staff',
+            ),
+          );
         }
         break;
       case 'worker':
         for (final w in _workers) {
           if (!w.isActive || w.id == null) continue;
           if (w.schoolId != schoolId) continue;
-          out.add(SessionAttendee(
-            kind: 'worker',
-            id: w.id!,
-            name: w.name,
-            roleKey: (w.role ?? '').isEmpty ? 'worker' : w.role,
-          ));
+          out.add(
+            SessionAttendee(
+              kind: 'worker',
+              id: w.id!,
+              name: w.name,
+              roleKey: (w.role ?? '').isEmpty ? 'worker' : w.role,
+            ),
+          );
         }
         break;
       default:
@@ -235,12 +243,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
           if (!w.isActive || w.id == null) continue;
           if (w.schoolId != schoolId) continue;
           if ((w.role ?? '').trim().toLowerCase() != target) continue;
-          out.add(SessionAttendee(
-            kind: 'worker',
-            id: w.id!,
-            name: w.name,
-            roleKey: option.key,
-          ));
+          out.add(
+            SessionAttendee(
+              kind: 'worker',
+              id: w.id!,
+              name: w.name,
+              roleKey: option.key,
+            ),
+          );
         }
     }
 
@@ -266,9 +276,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
     final filtered = _filtered;
     return AdminListScaffold(
       title: 'Sessions',
-      subtitle: widget.showSchoolFilter
-          ? 'Daily class sessions and attendance windows'
-          : 'Class sessions and attendance windows for your school',
+      subtitle:
+          widget.showSchoolFilter
+              ? 'Daily class sessions and attendance windows'
+              : 'Class sessions and attendance windows for your school',
       searchHint: 'Search by name, class, role or person...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
@@ -278,23 +289,25 @@ class _SessionsScreenState extends State<SessionsScreen> {
       showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
       addButtonLabel: 'New Session',
       onAddPressed: () => _showFormDialog(),
-      listContent: filtered.isEmpty
-          ? const AdminEmptyState(
-              icon: Icons.event_note_outlined,
-              message: 'No sessions found',
-            )
-          : AdminListCard(
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: Theme.of(context).colorScheme.outlineVariant,
+      listContent:
+          filtered.isEmpty
+              ? const AdminEmptyState(
+                icon: Icons.event_note_outlined,
+                message: 'No sessions found',
+              )
+              : AdminListCard(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder:
+                      (_, __) => Divider(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                  itemBuilder: (_, i) => _buildRow(filtered[i]),
                 ),
-                itemBuilder: (_, i) => _buildRow(filtered[i]),
               ),
-            ),
     );
   }
 
@@ -324,144 +337,245 @@ class _SessionsScreenState extends State<SessionsScreen> {
   }
 
   String _scheduleLabel(Session s) {
-    final dateLabel = s.isMultiDay
-        ? '${_dateShortFmt.format(s.date)} – ${_dateFmt.format(s.endDate)}'
-        : _dateFmt.format(s.date);
-    final timeLabel = (s.startTime != null && s.endTime != null)
-        ? '${s.startTime}–${s.endTime}'
-        : (s.startTime ?? '');
+    final dateLabel =
+        s.isMultiDay
+            ? '${_dateShortFmt.format(s.date)} – ${_dateFmt.format(s.endDate)}'
+            : _dateFmt.format(s.date);
+    final timeLabel =
+        (s.startTime != null && s.endTime != null)
+            ? '${s.startTime}–${s.endTime}'
+            : (s.startTime ?? '');
     if (timeLabel.isEmpty) return dateLabel;
     return '$dateLabel · $timeLabel';
   }
 
   Widget _buildRow(Session s) {
     final colorScheme = Theme.of(context).colorScheme;
-    final schoolName = widget.schools
-        .firstWhere(
-          (sc) => sc.id == s.schoolId,
-          orElse: () => const School(name: 'Unknown school'),
-        )
-        .name;
+    final isMobile = MediaQuery.of(context).size.width < 650;
+    final schoolName =
+        widget.schools
+            .firstWhere(
+              (sc) => sc.id == s.schoolId,
+              orElse: () => const School(name: 'Unknown school'),
+            )
+            .name;
 
     final statusColor = s.isActive ? Colors.green : Colors.grey;
-    final hasOnlyClasses = s.classIds.isNotEmpty &&
-        s.audienceRoles.isEmpty &&
-        s.attendees.isEmpty;
+    final hasOnlyClasses =
+        s.classIds.isNotEmpty && s.audienceRoles.isEmpty && s.attendees.isEmpty;
     final audienceColor =
         hasOnlyClasses ? colorScheme.primary : colorScheme.tertiary;
 
-    final title = (s.name != null && s.name!.trim().isNotEmpty)
-        ? s.name!.trim()
-        : _audienceSummary(s);
+    final title =
+        (s.name != null && s.name!.trim().isNotEmpty)
+            ? s.name!.trim()
+            : _audienceSummary(s);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: audienceColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(_iconForSession(s), color: audienceColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    if (widget.showSchoolFilter && widget.schools.length > 1)
-                      schoolName,
-                    _scheduleLabel(s),
-                    if ((s.name != null && s.name!.trim().isNotEmpty))
-                      _audienceSummary(s),
-                  ].where((s) => s.isNotEmpty).join(' · '),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (s.isRecurring)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.repeat, size: 12, color: colorScheme.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      _recurrenceLabel(s.recurrence),
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
+      child:
+          isMobile
+              ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sessionIcon(audienceColor, s),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _sessionText(
+                          colorScheme,
+                          title: title,
+                          subtitle: [
+                            if (widget.showSchoolFilter &&
+                                widget.schools.length > 1)
+                              schoolName,
+                            _scheduleLabel(s),
+                            if ((s.name != null && s.name!.trim().isNotEmpty))
+                              _audienceSummary(s),
+                          ].where((s) => s.isNotEmpty).join(' · '),
+                          subtitleMaxLines: 2,
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (s.isRecurring) _recurrencePill(colorScheme, s),
+                      _statusPill(statusColor, s.isActive),
+                      if (s.isActive)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.stop_circle,
+                            size: 20,
+                            color: Colors.orange,
+                          ),
+                          tooltip: 'End session',
+                          onPressed: () => _endSession(s),
+                        ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: 'Edit session',
+                        onPressed: () => _showFormDialog(session: s),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
+                        tooltip: 'Delete session',
+                        onPressed: () => _confirmDelete(s),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+              : Row(
+                children: [
+                  _sessionIcon(audienceColor, s),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _sessionText(
+                      colorScheme,
+                      title: title,
+                      subtitle: [
+                        if (widget.showSchoolFilter &&
+                            widget.schools.length > 1)
+                          schoolName,
+                        _scheduleLabel(s),
+                        if ((s.name != null && s.name!.trim().isNotEmpty))
+                          _audienceSummary(s),
+                      ].where((s) => s.isNotEmpty).join(' · '),
                     ),
-                  ],
-                ),
+                  ),
+                  if (s.isRecurring)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _recurrencePill(colorScheme, s),
+                    ),
+                  _statusPill(statusColor, s.isActive),
+                  if (s.isActive)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.stop_circle,
+                        size: 20,
+                        color: Colors.orange,
+                      ),
+                      tooltip: 'End session',
+                      onPressed: () => _endSession(s),
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => _showFormDialog(session: s),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => _confirmDelete(s),
+                  ),
+                ],
               ),
-            ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              s.isActive ? 'ACTIVE' : 'ENDED',
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
+    );
+  }
+
+  Widget _sessionIcon(Color color, Session s) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(_iconForSession(s), color: color),
+    );
+  }
+
+  Widget _sessionText(
+    ColorScheme colorScheme, {
+    required String title,
+    required String subtitle,
+    int subtitleMaxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
-          if (s.isActive)
-            IconButton(
-              icon: const Icon(
-                Icons.stop_circle,
-                size: 20,
-                color: Colors.orange,
-              ),
-              tooltip: 'End session',
-              onPressed: () => _endSession(s),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+          maxLines: subtitleMaxLines,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _recurrencePill(ColorScheme colorScheme, Session s) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.repeat, size: 12, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            _recurrenceLabel(s.recurrence),
+            style: TextStyle(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
             ),
-          IconButton(
-            icon: Icon(
-              Icons.edit,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () => _showFormDialog(session: s),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-            onPressed: () => _confirmDelete(s),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _statusPill(Color color, bool isActive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        isActive ? 'ACTIVE' : 'ENDED',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
       ),
     );
   }
@@ -673,8 +787,13 @@ class _SessionsScreenState extends State<SessionsScreen> {
     }
 
     DateTime startDate = session?.date ?? DateTime.now();
-    startDate = DateTime(startDate.year, startDate.month, startDate.day,
-        session?.date.hour ?? 0, session?.date.minute ?? 0);
+    startDate = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+      session?.date.hour ?? 0,
+      session?.date.minute ?? 0,
+    );
     DateTime endDate = session?.endDate ?? startDate;
     bool isMultiDay = session?.isMultiDay ?? false;
 
@@ -692,8 +811,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
     };
 
     final overrides = <String, SessionDateOverride>{
-      for (final o in session?.dateOverrides ??
-          const <SessionDateOverride>[])
+      for (final o in session?.dateOverrides ?? const <SessionDateOverride>[])
         o.dateKey: o,
     };
 
@@ -711,470 +829,521 @@ class _SessionsScreenState extends State<SessionsScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setStateDialog) {
-          final colorScheme = Theme.of(dialogCtx).colorScheme;
-          final classesForSchool =
-              _classes.where((c) => c.schoolId == schoolId).toList()
-                ..sort((a, b) =>
-                    a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-          final roleOptions = schoolId == null
-              ? const <_RoleOption>[]
-              : _rolesForSchool(schoolId!);
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              final classesForSchool =
+                  _classes.where((c) => c.schoolId == schoolId).toList()..sort(
+                    (a, b) =>
+                        a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                  );
+              final roleOptions =
+                  schoolId == null
+                      ? const <_RoleOption>[]
+                      : _rolesForSchool(schoolId!);
 
-          // Collect every selectable person, grouped by role option, for
-          // the "Add individuals" panel.
-          final groupedPeople = <_RoleOption, List<SessionAttendee>>{};
-          for (final option in roleOptions) {
-            groupedPeople[option] = _peopleInRole(option);
-          }
+              // Collect every selectable person, grouped by role option, for
+              // the "Add individuals" panel.
+              final groupedPeople = <_RoleOption, List<SessionAttendee>>{};
+              for (final option in roleOptions) {
+                groupedPeople[option] = _peopleInRole(option);
+              }
 
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text(
-              isEdit ? 'Edit Session' : 'New Session',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-            content: SizedBox(
-              width: 620,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (widget.schools.length > 1) ...[
-                      DropdownButtonFormField<String?>(
-                        value: schoolId,
-                        decoration: adminInputDecoration(
-                          'School',
-                          required: true,
-                        ),
-                        dropdownColor: colorScheme.surface,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        items: widget.schools
-                            .map(
-                              (s) => DropdownMenuItem<String?>(
-                                value: s.id,
-                                child: Text(s.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setStateDialog(() {
-                          schoolId = v;
-                          selectedClassIds.clear();
-                          selectedRoles.clear();
-                          selectedAttendees.clear();
-                        }),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // ----------------------------------------------------
-                    // Name
-                    // ----------------------------------------------------
-                    _dialogSection(
-                      context: dialogCtx,
-                      icon: Icons.label_outline,
-                      title: 'Name',
-                      subtitle: 'Optional title shown in lists and reports.',
-                      child: TextField(
-                        controller: nameController,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        decoration: adminInputDecoration(
-                          'Session name (e.g. Weekly staff meeting)',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ----------------------------------------------------
-                    // Schedule
-                    // ----------------------------------------------------
-                    _dialogSection(
-                      context: dialogCtx,
-                      icon: Icons.schedule_outlined,
-                      title: 'Schedule',
-                      subtitle: 'Set when this attendance window is open.',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            value: isMultiDay,
-                            activeColor: colorScheme.primary,
-                            title: Text(
-                              'Spans multiple days',
-                              style: TextStyle(color: colorScheme.onSurface),
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                title: Text(
+                  isEdit ? 'Edit Session' : 'New Session',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 620,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.schools.length > 1) ...[
+                          DropdownButtonFormField<String?>(
+                            value: schoolId,
+                            decoration: adminInputDecoration(
+                              'School',
+                              required: true,
                             ),
-                            subtitle: Text(
-                              isMultiDay
-                                  ? 'Pick a start and end date+time.'
-                                  : 'Single-day session.',
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                            onChanged: (v) => setStateDialog(() {
-                              isMultiDay = v;
-                              if (!v) {
-                                endDate = DateTime(
-                                  startDate.year,
-                                  startDate.month,
-                                  startDate.day,
-                                );
-                                startDate = DateTime(
-                                  startDate.year,
-                                  startDate.month,
-                                  startDate.day,
-                                );
-                              } else if (!endDate.isAfter(startDate)) {
-                                endDate = startDate.add(
-                                  const Duration(days: 1),
-                                );
-                              }
-                            }),
+                            dropdownColor: colorScheme.surface,
+                            style: TextStyle(color: colorScheme.onSurface),
+                            items:
+                                widget.schools
+                                    .map(
+                                      (s) => DropdownMenuItem<String?>(
+                                        value: s.id,
+                                        child: Text(s.name),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged:
+                                (v) => setStateDialog(() {
+                                  schoolId = v;
+                                  selectedClassIds.clear();
+                                  selectedRoles.clear();
+                                  selectedAttendees.clear();
+                                }),
                           ),
-                          const SizedBox(height: 8),
-                          if (!isMultiDay) ...[
-                            _scheduleTile(
-                              context: dialogCtx,
-                              icon: Icons.event_outlined,
-                              label: 'Date',
-                              value: _dateLongFmt.format(startDate),
-                              onTap: () async {
-                                final d = await showDatePicker(
-                                  context: dialogCtx,
-                                  initialDate: startDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2100),
-                                  helpText: 'Select session date',
-                                );
-                                if (d != null) {
-                                  setStateDialog(() {
-                                    startDate = DateTime(
-                                      d.year,
-                                      d.month,
-                                      d.day,
-                                    );
-                                    endDate = startDate;
-                                  });
-                                }
-                              },
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ----------------------------------------------------
+                        // Name
+                        // ----------------------------------------------------
+                        _dialogSection(
+                          context: dialogCtx,
+                          icon: Icons.label_outline,
+                          title: 'Name',
+                          subtitle:
+                              'Optional title shown in lists and reports.',
+                          child: TextField(
+                            controller: nameController,
+                            style: TextStyle(color: colorScheme.onSurface),
+                            decoration: adminInputDecoration(
+                              'Session name (e.g. Weekly staff meeting)',
                             ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _scheduleTile(
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ----------------------------------------------------
+                        // Schedule
+                        // ----------------------------------------------------
+                        _dialogSection(
+                          context: dialogCtx,
+                          icon: Icons.schedule_outlined,
+                          title: 'Schedule',
+                          subtitle: 'Set when this attendance window is open.',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: isMultiDay,
+                                activeColor: colorScheme.primary,
+                                title: Text(
+                                  'Spans multiple days',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  isMultiDay
+                                      ? 'Pick a start and end date+time.'
+                                      : 'Single-day session.',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onChanged:
+                                    (v) => setStateDialog(() {
+                                      isMultiDay = v;
+                                      if (!v) {
+                                        endDate = DateTime(
+                                          startDate.year,
+                                          startDate.month,
+                                          startDate.day,
+                                        );
+                                        startDate = DateTime(
+                                          startDate.year,
+                                          startDate.month,
+                                          startDate.day,
+                                        );
+                                      } else if (!endDate.isAfter(startDate)) {
+                                        endDate = startDate.add(
+                                          const Duration(days: 1),
+                                        );
+                                      }
+                                    }),
+                              ),
+                              const SizedBox(height: 8),
+                              if (!isMultiDay) ...[
+                                _scheduleTile(
+                                  context: dialogCtx,
+                                  icon: Icons.event_outlined,
+                                  label: 'Date',
+                                  value: _dateLongFmt.format(startDate),
+                                  onTap: () async {
+                                    final d = await showDatePicker(
+                                      context: dialogCtx,
+                                      initialDate: startDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2100),
+                                      helpText: 'Select session date',
+                                    );
+                                    if (d != null) {
+                                      setStateDialog(() {
+                                        startDate = DateTime(
+                                          d.year,
+                                          d.month,
+                                          d.day,
+                                        );
+                                        endDate = startDate;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                _responsivePair(
+                                  first: _scheduleTile(
                                     context: dialogCtx,
                                     icon: Icons.play_arrow_outlined,
                                     label: 'Starts at',
-                                    value: startTimeOfDay == null
-                                        ? 'Pick a time'
-                                        : startTimeOfDay!.format(dialogCtx),
+                                    value:
+                                        startTimeOfDay == null
+                                            ? 'Pick a time'
+                                            : startTimeOfDay!.format(dialogCtx),
                                     onTap: () async {
                                       final t = await _pickTime(
                                         dialogCtx,
-                                        initial: startTimeOfDay ??
-                                            const TimeOfDay(
-                                                hour: 8, minute: 0),
+                                        initial:
+                                            startTimeOfDay ??
+                                            const TimeOfDay(hour: 8, minute: 0),
                                         helpText: 'Session start time',
                                       );
                                       if (t != null) {
                                         setStateDialog(
-                                            () => startTimeOfDay = t);
+                                          () => startTimeOfDay = t,
+                                        );
                                       }
                                     },
-                                    onClear: startTimeOfDay == null
-                                        ? null
-                                        : () => setStateDialog(
-                                            () => startTimeOfDay = null),
+                                    onClear:
+                                        startTimeOfDay == null
+                                            ? null
+                                            : () => setStateDialog(
+                                              () => startTimeOfDay = null,
+                                            ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _scheduleTile(
+                                  second: _scheduleTile(
                                     context: dialogCtx,
                                     icon: Icons.stop_outlined,
                                     label: 'Ends at',
-                                    value: endTimeOfDay == null
-                                        ? 'Pick a time'
-                                        : endTimeOfDay!.format(dialogCtx),
+                                    value:
+                                        endTimeOfDay == null
+                                            ? 'Pick a time'
+                                            : endTimeOfDay!.format(dialogCtx),
                                     onTap: () async {
                                       final t = await _pickTime(
                                         dialogCtx,
-                                        initial: endTimeOfDay ??
+                                        initial:
+                                            endTimeOfDay ??
                                             const TimeOfDay(
-                                                hour: 17, minute: 0),
+                                              hour: 17,
+                                              minute: 0,
+                                            ),
                                         helpText: 'Session end time',
                                       );
                                       if (t != null) {
                                         setStateDialog(() => endTimeOfDay = t);
                                       }
                                     },
-                                    onClear: endTimeOfDay == null
-                                        ? null
-                                        : () => setStateDialog(
-                                            () => endTimeOfDay = null),
+                                    onClear:
+                                        endTimeOfDay == null
+                                            ? null
+                                            : () => setStateDialog(
+                                              () => endTimeOfDay = null,
+                                            ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ] else ...[
-                            _scheduleTile(
-                              context: dialogCtx,
-                              icon: Icons.event_outlined,
-                              label: 'Starts',
-                              value: _dateLongFmt.format(startDate),
-                              onTap: () async {
-                                final d = await _pickDateTime(
-                                  dialogCtx,
-                                  initial: startDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2100),
-                                  helpText: 'Session start',
-                                );
-                                if (d != null) {
-                                  setStateDialog(() {
-                                    startDate = d;
-                                    if (!endDate.isAfter(startDate)) {
-                                      endDate = startDate
-                                          .add(const Duration(hours: 1));
+                              ] else ...[
+                                _scheduleTile(
+                                  context: dialogCtx,
+                                  icon: Icons.event_outlined,
+                                  label: 'Starts',
+                                  value: _dateLongFmt.format(startDate),
+                                  onTap: () async {
+                                    final d = await _pickDateTime(
+                                      dialogCtx,
+                                      initial: startDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2100),
+                                      helpText: 'Session start',
+                                    );
+                                    if (d != null) {
+                                      setStateDialog(() {
+                                        startDate = d;
+                                        if (!endDate.isAfter(startDate)) {
+                                          endDate = startDate.add(
+                                            const Duration(hours: 1),
+                                          );
+                                        }
+                                        startTimeOfDay ??= TimeOfDay(
+                                          hour: d.hour,
+                                          minute: d.minute,
+                                        );
+                                      });
                                     }
-                                    startTimeOfDay ??= TimeOfDay(
-                                        hour: d.hour, minute: d.minute);
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            _scheduleTile(
-                              context: dialogCtx,
-                              icon: Icons.event_available_outlined,
-                              label: 'Ends',
-                              value: _dateLongFmt.format(endDate),
-                              onTap: () async {
-                                final d = await _pickDateTime(
-                                  dialogCtx,
-                                  initial: endDate.isAfter(startDate)
-                                      ? endDate
-                                      : startDate.add(
-                                          const Duration(hours: 1),
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                _scheduleTile(
+                                  context: dialogCtx,
+                                  icon: Icons.event_available_outlined,
+                                  label: 'Ends',
+                                  value: _dateLongFmt.format(endDate),
+                                  onTap: () async {
+                                    final d = await _pickDateTime(
+                                      dialogCtx,
+                                      initial:
+                                          endDate.isAfter(startDate)
+                                              ? endDate
+                                              : startDate.add(
+                                                const Duration(hours: 1),
+                                              ),
+                                      firstDate: startDate,
+                                      lastDate: DateTime(2100),
+                                      helpText: 'Session end',
+                                    );
+                                    if (d != null) {
+                                      setStateDialog(() {
+                                        endDate = d;
+                                        endTimeOfDay ??= TimeOfDay(
+                                          hour: d.hour,
+                                          minute: d.minute,
+                                        );
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              _scheduleTile(
+                                context: dialogCtx,
+                                icon: Icons.timer_outlined,
+                                label: 'Late threshold',
+                                value:
+                                    lateTimeOfDay == null
+                                        ? 'Optional'
+                                        : lateTimeOfDay!.format(dialogCtx),
+                                onTap: () async {
+                                  final t = await _pickTime(
+                                    dialogCtx,
+                                    initial:
+                                        lateTimeOfDay ??
+                                        startTimeOfDay ??
+                                        const TimeOfDay(hour: 9, minute: 0),
+                                    helpText: 'Mark as late after this time',
+                                  );
+                                  if (t != null) {
+                                    setStateDialog(() => lateTimeOfDay = t);
+                                  }
+                                },
+                                onClear:
+                                    lateTimeOfDay == null
+                                        ? null
+                                        : () => setStateDialog(
+                                          () => lateTimeOfDay = null,
                                         ),
-                                  firstDate: startDate,
-                                  lastDate: DateTime(2100),
-                                  helpText: 'Session end',
+                              ),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<String>(
+                                value: recurrence,
+                                decoration: adminInputDecoration('Repeats'),
+                                dropdownColor: colorScheme.surface,
+                                style: TextStyle(color: colorScheme.onSurface),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('Does not repeat'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'daily',
+                                    child: Text('Daily'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'weekly',
+                                    child: Text('Weekly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'monthly',
+                                    child: Text('Monthly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'yearly',
+                                    child: Text('Yearly'),
+                                  ),
+                                ],
+                                onChanged:
+                                    (v) => setStateDialog(
+                                      () => recurrence = v ?? 'none',
+                                    ),
+                              ),
+                              if (isMultiDay || recurrence != 'none') ...[
+                                const SizedBox(height: 16),
+                                _customizationPanel(
+                                  dialogCtx: dialogCtx,
+                                  startDate: startDate,
+                                  endDate: isMultiDay ? endDate : startDate,
+                                  recurrence: recurrence,
+                                  baseStartTime: _formatHHmm(startTimeOfDay),
+                                  baseEndTime: _formatHHmm(endTimeOfDay),
+                                  baseLateTime: _formatHHmm(lateTimeOfDay),
+                                  overrides: overrides,
+                                  calendarMonth: calendarMonth,
+                                  show: showDayCustomization,
+                                  onToggleShow:
+                                      (v) => setStateDialog(
+                                        () => showDayCustomization = v,
+                                      ),
+                                  onMonthChanged:
+                                      (m) => setStateDialog(
+                                        () => calendarMonth = m,
+                                      ),
+                                  onOverrideChanged:
+                                      (key, ov) => setStateDialog(() {
+                                        if (ov == null ||
+                                            !ov.hasCustomization) {
+                                          overrides.remove(key);
+                                        } else {
+                                          overrides[key] = ov;
+                                        }
+                                      }),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ----------------------------------------------------
+                        // Attendees
+                        // ----------------------------------------------------
+                        _dialogSection(
+                          context: dialogCtx,
+                          icon: Icons.how_to_reg_outlined,
+                          title: 'Attendees',
+                          subtitle:
+                              'Mix classes, whole roles, and individuals as needed.',
+                          child: _attendeesSection(
+                            dialogCtx: dialogCtx,
+                            schoolId: schoolId,
+                            classesForSchool: classesForSchool,
+                            roleOptions: roleOptions,
+                            groupedPeople: groupedPeople,
+                            selectedClassIds: selectedClassIds,
+                            selectedRoles: selectedRoles,
+                            selectedAttendees: selectedAttendees,
+                            showIndividualPicker: showIndividualPicker,
+                            individualSearch: individualSearch,
+                            onShowIndividualPickerChanged:
+                                (v) => setStateDialog(
+                                  () => showIndividualPicker = v,
+                                ),
+                            onIndividualSearchChanged:
+                                (v) =>
+                                    setStateDialog(() => individualSearch = v),
+                            setStateDialog: setStateDialog,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: isActive,
+                          activeColor: colorScheme.primary,
+                          title: Text(
+                            'Active',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onChanged: (v) => setStateDialog(() => isActive = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              if (schoolId == null) {
+                                _snack('School is required');
+                                return;
+                              }
+                              if (selectedClassIds.isEmpty &&
+                                  selectedRoles.isEmpty &&
+                                  selectedAttendees.isEmpty) {
+                                _snack(
+                                  'Add at least one class, role, or person to the audience',
                                 );
-                                if (d != null) {
-                                  setStateDialog(() {
-                                    endDate = d;
-                                    endTimeOfDay ??= TimeOfDay(
-                                        hour: d.hour, minute: d.minute);
-                                  });
+                                return;
+                              }
+                              if (isMultiDay && !endDate.isAfter(startDate)) {
+                                _snack('End must be after start');
+                                return;
+                              }
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                final updated = _buildSession(
+                                  existing: session,
+                                  schoolId: schoolId!,
+                                  name: nameController.text.trim(),
+                                  startDate: startDate,
+                                  endDate: isMultiDay ? endDate : startDate,
+                                  isMultiDay: isMultiDay,
+                                  startTime: _formatHHmm(startTimeOfDay),
+                                  endTime: _formatHHmm(endTimeOfDay),
+                                  lateTime: _formatHHmm(lateTimeOfDay),
+                                  recurrence: recurrence,
+                                  isActive: isActive,
+                                  classIds: selectedClassIds.toList(),
+                                  classesForSchool: classesForSchool,
+                                  audienceRoles: selectedRoles.toList(),
+                                  attendees: selectedAttendees.values.toList(),
+                                  dateOverrides:
+                                      overrides.values
+                                          .where((o) => o.hasCustomization)
+                                          .toList(),
+                                );
+                                if (isEdit) {
+                                  await FirebaseService.updateSession(updated);
+                                } else {
+                                  await FirebaseService.createSession(updated);
                                 }
-                              },
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          _scheduleTile(
-                            context: dialogCtx,
-                            icon: Icons.timer_outlined,
-                            label: 'Late threshold',
-                            value: lateTimeOfDay == null
-                                ? 'Optional'
-                                : lateTimeOfDay!.format(dialogCtx),
-                            onTap: () async {
-                              final t = await _pickTime(
-                                dialogCtx,
-                                initial: lateTimeOfDay ??
-                                    startTimeOfDay ??
-                                    const TimeOfDay(hour: 9, minute: 0),
-                                helpText: 'Mark as late after this time',
-                              );
-                              if (t != null) {
-                                setStateDialog(() => lateTimeOfDay = t);
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                _snack(
+                                  isEdit
+                                      ? 'Session updated'
+                                      : 'Session created',
+                                );
+                                await _load();
+                                widget.onDataChanged?.call();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                _snack('Error: $e');
                               }
                             },
-                            onClear: lateTimeOfDay == null
-                                ? null
-                                : () => setStateDialog(
-                                    () => lateTimeOfDay = null),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            value: recurrence,
-                            decoration: adminInputDecoration('Repeats'),
-                            dropdownColor: colorScheme.surface,
-                            style: TextStyle(color: colorScheme.onSurface),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'none',
-                                  child: Text('Does not repeat')),
-                              DropdownMenuItem(
-                                  value: 'daily', child: Text('Daily')),
-                              DropdownMenuItem(
-                                  value: 'weekly', child: Text('Weekly')),
-                              DropdownMenuItem(
-                                  value: 'monthly', child: Text('Monthly')),
-                              DropdownMenuItem(
-                                  value: 'yearly', child: Text('Yearly')),
-                            ],
-                            onChanged: (v) => setStateDialog(
-                                () => recurrence = v ?? 'none'),
-                          ),
-                          if (isMultiDay || recurrence != 'none') ...[
-                            const SizedBox(height: 16),
-                            _customizationPanel(
-                              dialogCtx: dialogCtx,
-                              startDate: startDate,
-                              endDate: isMultiDay ? endDate : startDate,
-                              recurrence: recurrence,
-                              baseStartTime: _formatHHmm(startTimeOfDay),
-                              baseEndTime: _formatHHmm(endTimeOfDay),
-                              baseLateTime: _formatHHmm(lateTimeOfDay),
-                              overrides: overrides,
-                              calendarMonth: calendarMonth,
-                              show: showDayCustomization,
-                              onToggleShow: (v) => setStateDialog(
-                                  () => showDayCustomization = v),
-                              onMonthChanged: (m) =>
-                                  setStateDialog(() => calendarMonth = m),
-                              onOverrideChanged: (key, ov) =>
-                                  setStateDialog(() {
-                                if (ov == null || !ov.hasCustomization) {
-                                  overrides.remove(key);
-                                } else {
-                                  overrides[key] = ov;
-                                }
-                              }),
-                            ),
-                          ],
-                        ],
-                      ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
                     ),
-                    const SizedBox(height: 16),
-
-                    // ----------------------------------------------------
-                    // Attendees
-                    // ----------------------------------------------------
-                    _dialogSection(
-                      context: dialogCtx,
-                      icon: Icons.how_to_reg_outlined,
-                      title: 'Attendees',
-                      subtitle:
-                          'Mix classes, whole roles, and individuals as needed.',
-                      child: _attendeesSection(
-                        dialogCtx: dialogCtx,
-                        schoolId: schoolId,
-                        classesForSchool: classesForSchool,
-                        roleOptions: roleOptions,
-                        groupedPeople: groupedPeople,
-                        selectedClassIds: selectedClassIds,
-                        selectedRoles: selectedRoles,
-                        selectedAttendees: selectedAttendees,
-                        showIndividualPicker: showIndividualPicker,
-                        individualSearch: individualSearch,
-                        onShowIndividualPickerChanged: (v) =>
-                            setStateDialog(() => showIndividualPicker = v),
-                        onIndividualSearchChanged: (v) =>
-                            setStateDialog(() => individualSearch = v),
-                        setStateDialog: setStateDialog,
-                      ),
+                    child: Text(
+                      isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create'),
                     ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: isActive,
-                      activeColor: colorScheme.primary,
-                      title: Text(
-                        'Active',
-                        style: TextStyle(color: colorScheme.onSurface),
-                      ),
-                      onChanged: (v) => setStateDialog(() => isActive = v),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        if (schoolId == null) {
-                          _snack('School is required');
-                          return;
-                        }
-                        if (selectedClassIds.isEmpty &&
-                            selectedRoles.isEmpty &&
-                            selectedAttendees.isEmpty) {
-                          _snack(
-                              'Add at least one class, role, or person to the audience');
-                          return;
-                        }
-                        if (isMultiDay && !endDate.isAfter(startDate)) {
-                          _snack('End must be after start');
-                          return;
-                        }
-                        setStateDialog(() => isSaving = true);
-                        try {
-                          final updated = _buildSession(
-                            existing: session,
-                            schoolId: schoolId!,
-                            name: nameController.text.trim(),
-                            startDate: startDate,
-                            endDate: isMultiDay ? endDate : startDate,
-                            isMultiDay: isMultiDay,
-                            startTime: _formatHHmm(startTimeOfDay),
-                            endTime: _formatHHmm(endTimeOfDay),
-                            lateTime: _formatHHmm(lateTimeOfDay),
-                            recurrence: recurrence,
-                            isActive: isActive,
-                            classIds: selectedClassIds.toList(),
-                            classesForSchool: classesForSchool,
-                            audienceRoles: selectedRoles.toList(),
-                            attendees: selectedAttendees.values.toList(),
-                            dateOverrides: overrides.values
-                                .where((o) => o.hasCustomization)
-                                .toList(),
-                          );
-                          if (isEdit) {
-                            await FirebaseService.updateSession(updated);
-                          } else {
-                            await FirebaseService.createSession(updated);
-                          }
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                          _snack(isEdit
-                              ? 'Session updated'
-                              : 'Session created');
-                          await _load();
-                          widget.onDataChanged?.call();
-                        } catch (e) {
-                          setStateDialog(() => isSaving = false);
-                          _snack('Error: $e');
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(
-                  isSaving ? 'Saving...' : (isEdit ? 'Update' : 'Create'),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -1232,9 +1401,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
         (audienceRoles.isNotEmpty ? 1 : 0) +
         (attendees.isNotEmpty ? 1 : 0);
 
-    if (classIds.length == 1 &&
-        audienceRoles.isEmpty &&
-        attendees.isEmpty) {
+    if (classIds.length == 1 && audienceRoles.isEmpty && attendees.isEmpty) {
       // Single-class session.
       legacyClassId = classIds.first;
       legacyClassName = classNames.first;
@@ -1274,8 +1441,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
         legacyTeacherId = a.id;
         legacyTeacherName = a.name;
       }
-    } else if (totalAudienceSources > 1 || attendees.length > 1 ||
-        classIds.length > 1 || audienceRoles.length > 1) {
+    } else if (totalAudienceSources > 1 ||
+        attendees.length > 1 ||
+        classIds.length > 1 ||
+        audienceRoles.length > 1) {
       // Mixed audience — no clean legacy mapping.
       legacyAudienceType = 'mixed';
       legacyAudienceMode = 'multi';
@@ -1360,6 +1529,27 @@ class _SessionsScreenState extends State<SessionsScreen> {
   // Schedule tile (clickable read-only field).
   // ---------------------------------------------------------------------------
 
+  Widget _responsivePair({required Widget first, required Widget second}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 420) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [first, const SizedBox(height: 12), second],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: 12),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _scheduleTile({
     required BuildContext context,
     required IconData icon,
@@ -1379,6 +1569,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 10),
@@ -1400,16 +1591,27 @@ class _SessionsScreenState extends State<SessionsScreen> {
                       color: colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
             if (onClear != null)
-              IconButton(
-                tooltip: 'Clear',
-                icon: Icon(Icons.close,
-                    size: 16, color: colorScheme.onSurfaceVariant),
-                onPressed: onClear,
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: IconButton(
+                  tooltip: 'Clear',
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: onClear,
+                ),
               ),
           ],
         ),
@@ -1437,7 +1639,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required void Function(VoidCallback) setStateDialog,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
-    final hasSelection = selectedClassIds.isNotEmpty ||
+    final hasSelection =
+        selectedClassIds.isNotEmpty ||
         selectedRoles.isNotEmpty ||
         selectedAttendees.isNotEmpty;
 
@@ -1447,34 +1650,49 @@ class _SessionsScreenState extends State<SessionsScreen> {
         (c) => c.id == id,
         orElse: () => const ClassGroup(name: '', schoolId: ''),
       );
-      classChips.add(InputChip(
-        avatar: Icon(Icons.school_outlined,
-            size: 16, color: colorScheme.primary),
-        label: Text(cls.name.isEmpty ? 'Class' : cls.name),
-        onDeleted: () => setStateDialog(() => selectedClassIds.remove(id)),
-      ));
+      classChips.add(
+        InputChip(
+          avatar: Icon(
+            Icons.school_outlined,
+            size: 16,
+            color: colorScheme.primary,
+          ),
+          label: Text(cls.name.isEmpty ? 'Class' : cls.name),
+          onDeleted: () => setStateDialog(() => selectedClassIds.remove(id)),
+        ),
+      );
     }
 
     final roleChips = <Widget>[];
     for (final key in selectedRoles) {
-      roleChips.add(InputChip(
-        avatar:
-            Icon(Icons.badge_outlined, size: 16, color: colorScheme.tertiary),
-        label: Text('All ${_roleDisplayName(key)}'),
-        onDeleted: () => setStateDialog(() => selectedRoles.remove(key)),
-      ));
+      roleChips.add(
+        InputChip(
+          avatar: Icon(
+            Icons.badge_outlined,
+            size: 16,
+            color: colorScheme.tertiary,
+          ),
+          label: Text('All ${_roleDisplayName(key)}'),
+          onDeleted: () => setStateDialog(() => selectedRoles.remove(key)),
+        ),
+      );
     }
 
     final attendeeChips = <Widget>[];
     for (final entry in selectedAttendees.entries) {
       final a = entry.value;
-      attendeeChips.add(InputChip(
-        avatar: Icon(_iconForKind(a.kind),
-            size: 16, color: colorScheme.secondary),
-        label: Text(a.name),
-        onDeleted: () =>
-            setStateDialog(() => selectedAttendees.remove(entry.key)),
-      ));
+      attendeeChips.add(
+        InputChip(
+          avatar: Icon(
+            _iconForKind(a.kind),
+            size: 16,
+            color: colorScheme.secondary,
+          ),
+          label: Text(a.name),
+          onDeleted:
+              () => setStateDialog(() => selectedAttendees.remove(entry.key)),
+        ),
+      );
     }
 
     return Column(
@@ -1514,17 +1732,19 @@ class _SessionsScreenState extends State<SessionsScreen> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: classesForSchool.isEmpty
-                  ? null
-                  : () => _openClassPicker(
+              onPressed:
+                  classesForSchool.isEmpty
+                      ? null
+                      : () => _openClassPicker(
                         dialogCtx,
                         classesForSchool: classesForSchool,
                         selectedClassIds: selectedClassIds,
-                        onApply: (next) => setStateDialog(() {
-                          selectedClassIds
-                            ..clear()
-                            ..addAll(next);
-                        }),
+                        onApply:
+                            (next) => setStateDialog(() {
+                              selectedClassIds
+                                ..clear()
+                                ..addAll(next);
+                            }),
                       ),
               icon: const Icon(Icons.add, size: 16),
               label: Text(
@@ -1564,16 +1784,20 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     '${role.label} '
                     '(${(groupedPeople[role] ?? const []).length})',
                   ),
-                  avatar: Icon(_iconForKind(role.assigneeKind),
-                      size: 16, color: colorScheme.tertiary),
+                  avatar: Icon(
+                    _iconForKind(role.assigneeKind),
+                    size: 16,
+                    color: colorScheme.tertiary,
+                  ),
                   selected: selectedRoles.contains(role.key),
-                  onSelected: (v) => setStateDialog(() {
-                    if (v) {
-                      selectedRoles.add(role.key);
-                    } else {
-                      selectedRoles.remove(role.key);
-                    }
-                  }),
+                  onSelected:
+                      (v) => setStateDialog(() {
+                        if (v) {
+                          selectedRoles.add(role.key);
+                        } else {
+                          selectedRoles.remove(role.key);
+                        }
+                      }),
                 ),
             ],
           ),
@@ -1593,17 +1817,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
               ),
             ),
             TextButton.icon(
-              onPressed: () =>
-                  onShowIndividualPickerChanged(!showIndividualPicker),
+              onPressed:
+                  () => onShowIndividualPickerChanged(!showIndividualPicker),
               icon: Icon(
                 showIndividualPicker
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down,
                 size: 18,
               ),
-              label: Text(
-                showIndividualPicker ? 'Hide picker' : 'Show picker',
-              ),
+              label: Text(showIndividualPicker ? 'Hide picker' : 'Show picker'),
             ),
           ],
         ),
@@ -1650,11 +1872,12 @@ class _SessionsScreenState extends State<SessionsScreen> {
     final filteredGroups = <_RoleOption, List<SessionAttendee>>{};
     final q = individualSearch.trim().toLowerCase();
     for (final entry in groupedPeople.entries) {
-      final filtered = q.isEmpty
-          ? entry.value
-          : entry.value
-              .where((p) => p.name.toLowerCase().contains(q))
-              .toList();
+      final filtered =
+          q.isEmpty
+              ? entry.value
+              : entry.value
+                  .where((p) => p.name.toLowerCase().contains(q))
+                  .toList();
       if (filtered.isNotEmpty) filteredGroups[entry.key] = filtered;
     }
 
@@ -1727,9 +1950,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required void Function(VoidCallback) setStateDialog,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
-    final selectedCount = people
-        .where((p) => selectedAttendees.containsKey(p.compoundKey))
-        .length;
+    final selectedCount =
+        people
+            .where((p) => selectedAttendees.containsKey(p.compoundKey))
+            .length;
     final allSelected = selectedCount == people.length && people.isNotEmpty;
     final partialSelected = selectedCount > 0 && !allSelected;
 
@@ -1745,8 +1969,11 @@ class _SessionsScreenState extends State<SessionsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
-                Icon(_iconForKind(option.assigneeKind),
-                    size: 16, color: colorScheme.tertiary),
+                Icon(
+                  _iconForKind(option.assigneeKind),
+                  size: 16,
+                  color: colorScheme.tertiary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1759,19 +1986,18 @@ class _SessionsScreenState extends State<SessionsScreen> {
                 ),
                 Checkbox(
                   tristate: true,
-                  value: allSelected
-                      ? true
-                      : (partialSelected ? null : false),
-                  onChanged: (v) => setStateDialog(() {
-                    final shouldSelectAll = v ?? !allSelected;
-                    for (final p in people) {
-                      if (shouldSelectAll) {
-                        selectedAttendees[p.compoundKey] = p;
-                      } else {
-                        selectedAttendees.remove(p.compoundKey);
-                      }
-                    }
-                  }),
+                  value: allSelected ? true : (partialSelected ? null : false),
+                  onChanged:
+                      (v) => setStateDialog(() {
+                        final shouldSelectAll = v ?? !allSelected;
+                        for (final p in people) {
+                          if (shouldSelectAll) {
+                            selectedAttendees[p.compoundKey] = p;
+                          } else {
+                            selectedAttendees.remove(p.compoundKey);
+                          }
+                        }
+                      }),
                 ),
                 Text(
                   'Select all',
@@ -1789,13 +2015,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               controlAffinity: ListTileControlAffinity.leading,
               value: selectedAttendees.containsKey(p.compoundKey),
-              onChanged: (v) => setStateDialog(() {
-                if (v == true) {
-                  selectedAttendees[p.compoundKey] = p;
-                } else {
-                  selectedAttendees.remove(p.compoundKey);
-                }
-              }),
+              onChanged:
+                  (v) => setStateDialog(() {
+                    if (v == true) {
+                      selectedAttendees[p.compoundKey] = p;
+                    } else {
+                      selectedAttendees.remove(p.compoundKey);
+                    }
+                  }),
               title: Text(
                 p.name,
                 style: TextStyle(color: colorScheme.onSurface),
@@ -1817,115 +2044,126 @@ class _SessionsScreenState extends State<SessionsScreen> {
 
     await showDialog<void>(
       context: dialogCtx,
-      builder: (innerCtx) => StatefulBuilder(
-        builder: (innerCtx, setInner) {
-          final colorScheme = Theme.of(innerCtx).colorScheme;
-          final filtered = search.isEmpty
-              ? classesForSchool
-              : classesForSchool
-                  .where((c) =>
-                      c.name.toLowerCase().contains(search.toLowerCase()))
-                  .toList();
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text('Pick classes',
-                style: TextStyle(color: colorScheme.onSurface)),
-            content: SizedBox(
-              width: 420,
-              height: 480,
-              child: Column(
-                children: [
-                  TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search classes…',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (v) => setInner(() => search = v.trim()),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No matching classes',
-                              style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant),
+      builder:
+          (innerCtx) => StatefulBuilder(
+            builder: (innerCtx, setInner) {
+              final colorScheme = Theme.of(innerCtx).colorScheme;
+              final filtered =
+                  search.isEmpty
+                      ? classesForSchool
+                      : classesForSchool
+                          .where(
+                            (c) => c.name.toLowerCase().contains(
+                              search.toLowerCase(),
                             ),
                           )
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) => Divider(
-                              height: 1,
-                              color: colorScheme.outlineVariant,
-                            ),
-                            itemBuilder: (_, i) {
-                              final c = filtered[i];
-                              final id = c.id ?? '';
-                              return CheckboxListTile(
-                                value: localSelected.contains(id),
-                                onChanged: (v) {
-                                  if (id.isEmpty) return;
-                                  setInner(() {
-                                    if (v == true) {
-                                      localSelected.add(id);
-                                    } else {
-                                      localSelected.remove(id);
-                                    }
-                                  });
-                                },
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  c.name,
-                                  style:
-                                      TextStyle(color: colorScheme.onSurface),
-                                ),
-                                subtitle: Text(
-                                  '${c.studentIds.length} '
-                                  '${c.studentIds.length == 1 ? 'student' : 'students'}',
-                                  style: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${localSelected.length} selected',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
+                          .toList();
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  'Pick classes',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 420,
+                  height: 480,
+                  child: Column(
+                    children: [
+                      TextField(
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          hintText: 'Search classes…',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: (v) => setInner(() => search = v.trim()),
                       ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child:
+                            filtered.isEmpty
+                                ? Center(
+                                  child: Text(
+                                    'No matching classes',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                                : ListView.separated(
+                                  itemCount: filtered.length,
+                                  separatorBuilder:
+                                      (_, __) => Divider(
+                                        height: 1,
+                                        color: colorScheme.outlineVariant,
+                                      ),
+                                  itemBuilder: (_, i) {
+                                    final c = filtered[i];
+                                    final id = c.id ?? '';
+                                    return CheckboxListTile(
+                                      value: localSelected.contains(id),
+                                      onChanged: (v) {
+                                        if (id.isEmpty) return;
+                                        setInner(() {
+                                          if (v == true) {
+                                            localSelected.add(id);
+                                          } else {
+                                            localSelected.remove(id);
+                                          }
+                                        });
+                                      },
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      title: Text(
+                                        c.name,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        '${c.studentIds.length} '
+                                        '${c.studentIds.length == 1 ? 'student' : 'students'}',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurfaceVariant,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${localSelected.length} selected',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(innerCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      onApply(localSelected);
+                      Navigator.pop(innerCtx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
                     ),
+                    child: const Text('Apply'),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(innerCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  onApply(localSelected);
-                  Navigator.pop(innerCtx);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Apply'),
-              ),
-            ],
-          );
-        },
-      ),
+              );
+            },
+          ),
     );
   }
 
@@ -1936,98 +2174,100 @@ class _SessionsScreenState extends State<SessionsScreen> {
   void _endSession(Session s) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text(
-          'End Session',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        content: Text(
-          'Mark this session as ended? Attendance recording will stop.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(
-              'Cancel',
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+            title: Text(
+              'End Session',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            content: Text(
+              'Mark this session as ended? Attendance recording will stop.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.endSession(s.id!);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    _snack('Session ended');
+                    await _load();
+                    widget.onDataChanged?.call();
+                  } catch (e) {
+                    _snack('Error: $e');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('End'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.endSession(s.id!);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                _snack('Session ended');
-                await _load();
-                widget.onDataChanged?.call();
-              } catch (e) {
-                _snack('Error: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('End'),
-          ),
-        ],
-      ),
     );
   }
 
   void _confirmDelete(Session s) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text(
-          'Delete Session',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        content: Text(
-          'Delete this session? This action cannot be undone.',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(
-              'Cancel',
+      builder:
+          (dialogCtx) => AlertDialog(
+            backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+            title: Text(
+              'Delete Session',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            content: Text(
+              'Delete this session? This action cannot be undone.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await FirebaseService.deleteSession(s.id!);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    _snack('Session deleted');
+                    await _load();
+                    widget.onDataChanged?.call();
+                  } catch (e) {
+                    _snack('Error: $e');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseService.deleteSession(s.id!);
-                if (!mounted) return;
-                Navigator.pop(dialogCtx);
-                _snack('Session deleted');
-                await _load();
-                widget.onDataChanged?.call();
-              } catch (e) {
-                _snack('Error: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -2044,8 +2284,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required DateTime endDate,
     required String recurrence,
   }) {
-    final start =
-        DateTime(startDate.year, startDate.month, startDate.day);
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
     final end = DateTime(endDate.year, endDate.month, endDate.day);
     final keys = <String>{};
     if (end.isBefore(start)) return keys;
@@ -2100,7 +2339,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required ValueChanged<bool> onToggleShow,
     required ValueChanged<DateTime> onMonthChanged,
     required void Function(String key, SessionDateOverride? ov)
-        onOverrideChanged,
+    onOverrideChanged,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
     final occurrenceKeys = _occurrenceKeys(
@@ -2109,9 +2348,8 @@ class _SessionsScreenState extends State<SessionsScreen> {
       recurrence: recurrence,
     );
     final skipped = overrides.values.where((o) => o.excluded).length;
-    final tweaked = overrides.values
-        .where((o) => !o.excluded && o.hasCustomization)
-        .length;
+    final tweaked =
+        overrides.values.where((o) => !o.excluded && o.hasCustomization).length;
 
     return Container(
       decoration: BoxDecoration(
@@ -2126,12 +2364,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
             onTap: () => onToggleShow(!show),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_month_outlined,
-                      size: 18, color: colorScheme.primary),
+                  Icon(
+                    Icons.calendar_month_outlined,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -2149,10 +2389,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                           [
                             '${occurrenceKeys.length} '
                                 '${occurrenceKeys.length == 1 ? 'occurrence' : 'occurrences'}',
-                            if (skipped > 0)
-                              '$skipped skipped'
-                            else
-                              null,
+                            if (skipped > 0) '$skipped skipped' else null,
                             if (tweaked > 0)
                               '$tweaked with custom times'
                             else
@@ -2167,9 +2404,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     ),
                   ),
                   Icon(
-                    show
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
+                    show ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ],
@@ -2212,11 +2447,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required String baseLateTime,
     required ValueChanged<DateTime> onMonthChanged,
     required void Function(String key, SessionDateOverride? ov)
-        onOverrideChanged,
+    onOverrideChanged,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
-    final monthStart =
-        DateTime(calendarMonth.year, calendarMonth.month, 1);
+    final monthStart = DateTime(calendarMonth.year, calendarMonth.month, 1);
     // Sunday=0 ... Saturday=6 (weekday is 1..7 Mon..Sun in Dart, normalize
     // so the calendar grid starts on Monday).
     final firstWeekday = monthStart.weekday; // 1=Mon..7=Sun
@@ -2230,16 +2464,18 @@ class _SessionsScreenState extends State<SessionsScreen> {
     }
     for (var d = 1; d <= daysInMonth; d++) {
       final day = DateTime(calendarMonth.year, calendarMonth.month, d);
-      cells.add(_calendarCell(
-        dialogCtx: dialogCtx,
-        day: day,
-        occurrenceKeys: occurrenceKeys,
-        overrides: overrides,
-        baseStartTime: baseStartTime,
-        baseEndTime: baseEndTime,
-        baseLateTime: baseLateTime,
-        onOverrideChanged: onOverrideChanged,
-      ));
+      cells.add(
+        _calendarCell(
+          dialogCtx: dialogCtx,
+          day: day,
+          occurrenceKeys: occurrenceKeys,
+          overrides: overrides,
+          baseStartTime: baseStartTime,
+          baseEndTime: baseEndTime,
+          baseLateTime: baseLateTime,
+          onOverrideChanged: onOverrideChanged,
+        ),
+      );
     }
 
     final monthLabel = DateFormat.yMMMM().format(calendarMonth);
@@ -2250,9 +2486,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
         Row(
           children: [
             IconButton(
-              onPressed: () => onMonthChanged(
-                DateTime(calendarMonth.year, calendarMonth.month - 1),
-              ),
+              onPressed:
+                  () => onMonthChanged(
+                    DateTime(calendarMonth.year, calendarMonth.month - 1),
+                  ),
               icon: const Icon(Icons.chevron_left),
               tooltip: 'Previous month',
             ),
@@ -2267,9 +2504,10 @@ class _SessionsScreenState extends State<SessionsScreen> {
               ),
             ),
             IconButton(
-              onPressed: () => onMonthChanged(
-                DateTime(calendarMonth.year, calendarMonth.month + 1),
-              ),
+              onPressed:
+                  () => onMonthChanged(
+                    DateTime(calendarMonth.year, calendarMonth.month + 1),
+                  ),
               icon: const Icon(Icons.chevron_right),
               tooltip: 'Next month',
             ),
@@ -2319,14 +2557,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required String baseEndTime,
     required String baseLateTime,
     required void Function(String key, SessionDateOverride? ov)
-        onOverrideChanged,
+    onOverrideChanged,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
     final key = SessionDateOverride.formatDateKey(day);
     final isOccurrence = occurrenceKeys.contains(key);
     final ov = overrides[key];
     final excluded = ov?.excluded ?? false;
-    final hasTimeOverride = ov != null &&
+    final hasTimeOverride =
+        ov != null &&
         !ov.excluded &&
         ((ov.startTime?.isNotEmpty ?? false) ||
             (ov.endTime?.isNotEmpty ?? false) ||
@@ -2349,18 +2588,20 @@ class _SessionsScreenState extends State<SessionsScreen> {
     }
 
     return Tooltip(
-      message: isOccurrence
-          ? (excluded
-              ? 'Skipped'
-              : (hasTimeOverride
-                  ? 'Custom times for this day'
-                  : 'Default session day'))
-          : 'Not a session day',
+      message:
+          isOccurrence
+              ? (excluded
+                  ? 'Skipped'
+                  : (hasTimeOverride
+                      ? 'Custom times for this day'
+                      : 'Default session day'))
+              : 'Not a session day',
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: !isOccurrence
-            ? null
-            : () => _editDayOverride(
+        onTap:
+            !isOccurrence
+                ? null
+                : () => _editDayOverride(
                   dialogCtx,
                   day: day,
                   current: ov,
@@ -2386,8 +2627,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                 style: TextStyle(
                   color: fg,
                   fontWeight: FontWeight.w600,
-                  decoration:
-                      excluded ? TextDecoration.lineThrough : null,
+                  decoration: excluded ? TextDecoration.lineThrough : null,
                 ),
               ),
               if (hasTimeOverride)
@@ -2442,10 +2682,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
       spacing: 4,
       runSpacing: 4,
       children: [
-        swatch(colorScheme.primaryContainer.withValues(alpha: 0.5),
-            'Session day'),
-        swatch(colorScheme.tertiaryContainer.withValues(alpha: 0.7),
-            'Custom times'),
+        swatch(
+          colorScheme.primaryContainer.withValues(alpha: 0.5),
+          'Session day',
+        ),
+        swatch(
+          colorScheme.tertiaryContainer.withValues(alpha: 0.7),
+          'Custom times',
+        ),
         swatch(colorScheme.errorContainer.withValues(alpha: 0.6), 'Skipped'),
       ],
     );
@@ -2471,152 +2715,158 @@ class _SessionsScreenState extends State<SessionsScreen> {
 
     await showDialog<void>(
       context: dialogCtx,
-      builder: (innerCtx) => StatefulBuilder(
-        builder: (innerCtx, setInner) {
-          final colorScheme = Theme.of(innerCtx).colorScheme;
+      builder:
+          (innerCtx) => StatefulBuilder(
+            builder: (innerCtx, setInner) {
+              final colorScheme = Theme.of(innerCtx).colorScheme;
 
-          String fmt(TimeOfDay? ov, TimeOfDay? base) {
-            if (ov != null) return '${ov.format(innerCtx)} (custom)';
-            if (base != null) return '${base.format(innerCtx)} (default)';
-            return 'Pick a time';
-          }
+              String fmt(TimeOfDay? ov, TimeOfDay? base) {
+                if (ov != null) return '${ov.format(innerCtx)} (custom)';
+                if (base != null) return '${base.format(innerCtx)} (default)';
+                return 'Pick a time';
+              }
 
-          return AlertDialog(
-            backgroundColor: colorScheme.surface,
-            title: Text(
-              DateFormat('EEE, MMM d, y').format(day),
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: skip,
-                    activeColor: colorScheme.error,
-                    title: Text(
-                      'Skip this day',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    subtitle: Text(
-                      'No attendance window will be opened.',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  DateFormat('EEE, MMM d, y').format(day),
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 360,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: skip,
+                        activeColor: colorScheme.error,
+                        title: Text(
+                          'Skip this day',
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
+                        subtitle: Text(
+                          'No attendance window will be opened.',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onChanged: (v) => setInner(() => skip = v),
                       ),
-                    ),
-                    onChanged: (v) => setInner(() => skip = v),
+                      if (!skip) ...[
+                        const SizedBox(height: 8),
+                        _scheduleTile(
+                          context: innerCtx,
+                          icon: Icons.play_arrow_outlined,
+                          label: 'Starts at',
+                          value: fmt(startOv, baseStart),
+                          onTap: () async {
+                            final t = await _pickTime(
+                              innerCtx,
+                              initial:
+                                  startOv ??
+                                  baseStart ??
+                                  const TimeOfDay(hour: 8, minute: 0),
+                              helpText: 'Start time for this day',
+                            );
+                            if (t != null) setInner(() => startOv = t);
+                          },
+                          onClear:
+                              startOv == null
+                                  ? null
+                                  : () => setInner(() => startOv = null),
+                        ),
+                        const SizedBox(height: 8),
+                        _scheduleTile(
+                          context: innerCtx,
+                          icon: Icons.stop_outlined,
+                          label: 'Ends at',
+                          value: fmt(endOv, baseEnd),
+                          onTap: () async {
+                            final t = await _pickTime(
+                              innerCtx,
+                              initial:
+                                  endOv ??
+                                  baseEnd ??
+                                  const TimeOfDay(hour: 17, minute: 0),
+                              helpText: 'End time for this day',
+                            );
+                            if (t != null) setInner(() => endOv = t);
+                          },
+                          onClear:
+                              endOv == null
+                                  ? null
+                                  : () => setInner(() => endOv = null),
+                        ),
+                        const SizedBox(height: 8),
+                        _scheduleTile(
+                          context: innerCtx,
+                          icon: Icons.timer_outlined,
+                          label: 'Late threshold',
+                          value: fmt(lateOv, baseLate),
+                          onTap: () async {
+                            final t = await _pickTime(
+                              innerCtx,
+                              initial:
+                                  lateOv ??
+                                  baseLate ??
+                                  const TimeOfDay(hour: 9, minute: 0),
+                              helpText: 'Late threshold for this day',
+                            );
+                            if (t != null) setInner(() => lateOv = t);
+                          },
+                          onClear:
+                              lateOv == null
+                                  ? null
+                                  : () => setInner(() => lateOv = null),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (!skip) ...[
-                    const SizedBox(height: 8),
-                    _scheduleTile(
-                      context: innerCtx,
-                      icon: Icons.play_arrow_outlined,
-                      label: 'Starts at',
-                      value: fmt(startOv, baseStart),
-                      onTap: () async {
-                        final t = await _pickTime(
-                          innerCtx,
-                          initial: startOv ??
-                              baseStart ??
-                              const TimeOfDay(hour: 8, minute: 0),
-                          helpText: 'Start time for this day',
-                        );
-                        if (t != null) setInner(() => startOv = t);
-                      },
-                      onClear: startOv == null
-                          ? null
-                          : () => setInner(() => startOv = null),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      onSave(null);
+                      Navigator.pop(innerCtx);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: 8),
-                    _scheduleTile(
-                      context: innerCtx,
-                      icon: Icons.stop_outlined,
-                      label: 'Ends at',
-                      value: fmt(endOv, baseEnd),
-                      onTap: () async {
-                        final t = await _pickTime(
-                          innerCtx,
-                          initial: endOv ??
-                              baseEnd ??
-                              const TimeOfDay(hour: 17, minute: 0),
-                          helpText: 'End time for this day',
-                        );
-                        if (t != null) setInner(() => endOv = t);
-                      },
-                      onClear: endOv == null
-                          ? null
-                          : () => setInner(() => endOv = null),
+                    child: const Text('Reset to default'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(innerCtx),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 8),
-                    _scheduleTile(
-                      context: innerCtx,
-                      icon: Icons.timer_outlined,
-                      label: 'Late threshold',
-                      value: fmt(lateOv, baseLate),
-                      onTap: () async {
-                        final t = await _pickTime(
-                          innerCtx,
-                          initial: lateOv ??
-                              baseLate ??
-                              const TimeOfDay(hour: 9, minute: 0),
-                          helpText: 'Late threshold for this day',
-                        );
-                        if (t != null) setInner(() => lateOv = t);
-                      },
-                      onClear: lateOv == null
-                          ? null
-                          : () => setInner(() => lateOv = null),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      final next = SessionDateOverride(
+                        date: DateTime(day.year, day.month, day.day),
+                        excluded: skip,
+                        startTime: skip ? null : _formatHHmm(startOv),
+                        endTime: skip ? null : _formatHHmm(endOv),
+                        lateTime: skip ? null : _formatHHmm(lateOv),
+                      );
+                      onSave(next.hasCustomization ? next : null);
+                      Navigator.pop(innerCtx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
                     ),
-                  ],
+                    child: const Text('Save'),
+                  ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  onSave(null);
-                  Navigator.pop(innerCtx);
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                ),
-                child: const Text('Reset to default'),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(innerCtx),
-                child: Text(
-                  'Cancel',
-                  style:
-                      TextStyle(color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final next = SessionDateOverride(
-                    date: DateTime(day.year, day.month, day.day),
-                    excluded: skip,
-                    startTime: skip ? null : _formatHHmm(startOv),
-                    endTime: skip ? null : _formatHHmm(endOv),
-                    lateTime: skip ? null : _formatHHmm(lateOv),
-                  );
-                  onSave(next.hasCustomization ? next : null);
-                  Navigator.pop(innerCtx);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      ),
+              );
+            },
+          ),
     );
   }
 }
