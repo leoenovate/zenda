@@ -2275,50 +2275,70 @@ class _SessionsScreenState extends State<SessionsScreen> {
   // Per-day customization (calendar + override editor)
   // ---------------------------------------------------------------------------
 
-  /// Returns the concrete dates inside `[startDate, endDate]` (inclusive,
-  /// date-only) on which the session occurs, given [recurrence]. Used by
-  /// the calendar to highlight session days and to bound how many cells
-  /// can be customised.
-  Set<String> _occurrenceKeys({
+  bool _sameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// True when [day] is an occurrence of a session that starts at [startDate].
+  ///
+  /// Non-repeating sessions occur on every date inside `[startDate, endDate]`
+  /// so multi-day sessions can skip/override any concrete date in the range.
+  ///
+  /// Repeating sessions are treated as an unbounded series beginning at
+  /// [startDate]. The calendar computes occurrences for the visible month,
+  /// which lets admins navigate forward and override future weekly/monthly/
+  /// yearly dates without having to set an artificial end date.
+  bool _isOccurrenceDay({
+    required DateTime day,
     required DateTime startDate,
     required DateTime endDate,
     required String recurrence,
   }) {
+    final normalizedRecurrence = recurrence.toLowerCase();
     final start = DateTime(startDate.year, startDate.month, startDate.day);
     final end = DateTime(endDate.year, endDate.month, endDate.day);
-    final keys = <String>{};
-    if (end.isBefore(start)) return keys;
+    final d = DateTime(day.year, day.month, day.day);
+    if (d.isBefore(start)) return false;
 
-    if (recurrence == 'none' || recurrence.isEmpty) {
-      var cursor = start;
-      while (!cursor.isAfter(end)) {
-        keys.add(SessionDateOverride.formatDateKey(cursor));
-        cursor = cursor.add(const Duration(days: 1));
-      }
-      return keys;
+    if (normalizedRecurrence == 'none' || normalizedRecurrence.isEmpty) {
+      return !d.isAfter(end);
     }
 
-    var cursor = start;
-    var safety = 0;
-    while (!cursor.isAfter(end) && safety < 2000) {
-      keys.add(SessionDateOverride.formatDateKey(cursor));
-      switch (recurrence) {
-        case 'daily':
-          cursor = cursor.add(const Duration(days: 1));
-          break;
-        case 'weekly':
-          cursor = cursor.add(const Duration(days: 7));
-          break;
-        case 'monthly':
-          cursor = DateTime(cursor.year, cursor.month + 1, cursor.day);
-          break;
-        case 'yearly':
-          cursor = DateTime(cursor.year + 1, cursor.month, cursor.day);
-          break;
-        default:
-          cursor = end.add(const Duration(days: 1));
+    switch (normalizedRecurrence) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        return d.weekday == start.weekday;
+      case 'monthly':
+        return d.day == start.day;
+      case 'yearly':
+        return d.month == start.month && d.day == start.day;
+      default:
+        return _sameDate(d, start);
+    }
+  }
+
+  /// Returns concrete occurrence dates for the currently visible calendar
+  /// month only. This keeps the calendar fast while still supporting
+  /// unbounded recurring schedules via month navigation.
+  Set<String> _occurrenceKeysForMonth({
+    required DateTime startDate,
+    required DateTime endDate,
+    required String recurrence,
+    required DateTime calendarMonth,
+  }) {
+    final keys = <String>{};
+    final daysInMonth =
+        DateTime(calendarMonth.year, calendarMonth.month + 1, 0).day;
+    for (var day = 1; day <= daysInMonth; day++) {
+      final d = DateTime(calendarMonth.year, calendarMonth.month, day);
+      if (_isOccurrenceDay(
+        day: d,
+        startDate: startDate,
+        endDate: endDate,
+        recurrence: recurrence,
+      )) {
+        keys.add(SessionDateOverride.formatDateKey(d));
       }
-      safety++;
     }
     return keys;
   }
@@ -2342,10 +2362,11 @@ class _SessionsScreenState extends State<SessionsScreen> {
     onOverrideChanged,
   }) {
     final colorScheme = Theme.of(dialogCtx).colorScheme;
-    final occurrenceKeys = _occurrenceKeys(
+    final occurrenceKeys = _occurrenceKeysForMonth(
       startDate: startDate,
       endDate: endDate,
       recurrence: recurrence,
+      calendarMonth: calendarMonth,
     );
     final skipped = overrides.values.where((o) => o.excluded).length;
     final tweaked =
@@ -2388,7 +2409,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                         Text(
                           [
                             '${occurrenceKeys.length} '
-                                '${occurrenceKeys.length == 1 ? 'occurrence' : 'occurrences'}',
+                                '${occurrenceKeys.length == 1 ? 'occurrence' : 'occurrences'} this month',
                             if (skipped > 0) '$skipped skipped' else null,
                             if (tweaked > 0)
                               '$tweaked with custom times'
@@ -2419,6 +2440,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                 dialogCtx: dialogCtx,
                 startDate: startDate,
                 endDate: endDate,
+                recurrence: recurrence,
                 occurrenceKeys: occurrenceKeys,
                 overrides: overrides,
                 calendarMonth: calendarMonth,
@@ -2439,6 +2461,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
     required BuildContext dialogCtx,
     required DateTime startDate,
     required DateTime endDate,
+    required String recurrence,
     required Set<String> occurrenceKeys,
     required Map<String, SessionDateOverride> overrides,
     required DateTime calendarMonth,
@@ -2513,6 +2536,26 @@ class _SessionsScreenState extends State<SessionsScreen> {
             ),
           ],
         ),
+        if (recurrence != 'none' && recurrence.isNotEmpty) ...[
+          Text(
+            'Navigate months to customize future ${_recurrenceLabel(recurrence).toLowerCase()} occurrences.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (calendarMonth.year != startDate.year ||
+            calendarMonth.month != startDate.month)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed:
+                  () =>
+                      onMonthChanged(DateTime(startDate.year, startDate.month)),
+              icon: const Icon(Icons.today, size: 16),
+              label: const Text('Jump to start'),
+            ),
+          ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -2732,100 +2775,103 @@ class _SessionsScreenState extends State<SessionsScreen> {
                   DateFormat('EEE, MMM d, y').format(day),
                   style: TextStyle(color: colorScheme.onSurface),
                 ),
-                content: SizedBox(
-                  width: 360,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: skip,
-                        activeColor: colorScheme.error,
-                        title: Text(
-                          'Skip this day',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        subtitle: Text(
-                          'No attendance window will be opened.',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
+                content: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: skip,
+                          activeColor: colorScheme.error,
+                          title: Text(
+                            'Skip this day',
+                            style: TextStyle(color: colorScheme.onSurface),
                           ),
+                          subtitle: Text(
+                            'No attendance window will be opened.',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          onChanged: (v) => setInner(() => skip = v),
                         ),
-                        onChanged: (v) => setInner(() => skip = v),
-                      ),
-                      if (!skip) ...[
-                        const SizedBox(height: 8),
-                        _scheduleTile(
-                          context: innerCtx,
-                          icon: Icons.play_arrow_outlined,
-                          label: 'Starts at',
-                          value: fmt(startOv, baseStart),
-                          onTap: () async {
-                            final t = await _pickTime(
-                              innerCtx,
-                              initial:
-                                  startOv ??
-                                  baseStart ??
-                                  const TimeOfDay(hour: 8, minute: 0),
-                              helpText: 'Start time for this day',
-                            );
-                            if (t != null) setInner(() => startOv = t);
-                          },
-                          onClear:
-                              startOv == null
-                                  ? null
-                                  : () => setInner(() => startOv = null),
-                        ),
-                        const SizedBox(height: 8),
-                        _scheduleTile(
-                          context: innerCtx,
-                          icon: Icons.stop_outlined,
-                          label: 'Ends at',
-                          value: fmt(endOv, baseEnd),
-                          onTap: () async {
-                            final t = await _pickTime(
-                              innerCtx,
-                              initial:
-                                  endOv ??
-                                  baseEnd ??
-                                  const TimeOfDay(hour: 17, minute: 0),
-                              helpText: 'End time for this day',
-                            );
-                            if (t != null) setInner(() => endOv = t);
-                          },
-                          onClear:
-                              endOv == null
-                                  ? null
-                                  : () => setInner(() => endOv = null),
-                        ),
-                        const SizedBox(height: 8),
-                        _scheduleTile(
-                          context: innerCtx,
-                          icon: Icons.timer_outlined,
-                          label: 'Late threshold',
-                          value: fmt(lateOv, baseLate),
-                          onTap: () async {
-                            final t = await _pickTime(
-                              innerCtx,
-                              initial:
-                                  lateOv ??
-                                  baseLate ??
-                                  const TimeOfDay(hour: 9, minute: 0),
-                              helpText: 'Late threshold for this day',
-                            );
-                            if (t != null) setInner(() => lateOv = t);
-                          },
-                          onClear:
-                              lateOv == null
-                                  ? null
-                                  : () => setInner(() => lateOv = null),
-                        ),
+                        if (!skip) ...[
+                          const SizedBox(height: 8),
+                          _scheduleTile(
+                            context: innerCtx,
+                            icon: Icons.play_arrow_outlined,
+                            label: 'Starts at',
+                            value: fmt(startOv, baseStart),
+                            onTap: () async {
+                              final t = await _pickTime(
+                                innerCtx,
+                                initial:
+                                    startOv ??
+                                    baseStart ??
+                                    const TimeOfDay(hour: 8, minute: 0),
+                                helpText: 'Start time for this day',
+                              );
+                              if (t != null) setInner(() => startOv = t);
+                            },
+                            onClear:
+                                startOv == null
+                                    ? null
+                                    : () => setInner(() => startOv = null),
+                          ),
+                          const SizedBox(height: 8),
+                          _scheduleTile(
+                            context: innerCtx,
+                            icon: Icons.stop_outlined,
+                            label: 'Ends at',
+                            value: fmt(endOv, baseEnd),
+                            onTap: () async {
+                              final t = await _pickTime(
+                                innerCtx,
+                                initial:
+                                    endOv ??
+                                    baseEnd ??
+                                    const TimeOfDay(hour: 17, minute: 0),
+                                helpText: 'End time for this day',
+                              );
+                              if (t != null) setInner(() => endOv = t);
+                            },
+                            onClear:
+                                endOv == null
+                                    ? null
+                                    : () => setInner(() => endOv = null),
+                          ),
+                          const SizedBox(height: 8),
+                          _scheduleTile(
+                            context: innerCtx,
+                            icon: Icons.timer_outlined,
+                            label: 'Late threshold',
+                            value: fmt(lateOv, baseLate),
+                            onTap: () async {
+                              final t = await _pickTime(
+                                innerCtx,
+                                initial:
+                                    lateOv ??
+                                    baseLate ??
+                                    const TimeOfDay(hour: 9, minute: 0),
+                                helpText: 'Late threshold for this day',
+                              );
+                              if (t != null) setInner(() => lateOv = t);
+                            },
+                            onClear:
+                                lateOv == null
+                                    ? null
+                                    : () => setInner(() => lateOv = null),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
+                actionsAlignment: MainAxisAlignment.end,
                 actions: [
                   TextButton(
                     onPressed: () {
@@ -2837,7 +2883,6 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     ),
                     child: const Text('Reset to default'),
                   ),
-                  const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.pop(innerCtx),
                     child: Text(

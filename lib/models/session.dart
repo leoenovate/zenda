@@ -143,8 +143,9 @@ class Session {
   /// Effective `(startTime, endTime, lateTime)` for [day], applying any
   /// per-day overrides on top of the session-level defaults. Returns
   /// nulls for any field that is unset.
-  ({String? startTime, String? endTime, String? lateTime})
-      effectiveTimesFor(DateTime day) {
+  ({String? startTime, String? endTime, String? lateTime}) effectiveTimesFor(
+    DateTime day,
+  ) {
     final ov = overrideFor(day);
     return (
       startTime: ov?.startTime ?? startTime,
@@ -224,8 +225,7 @@ class Session {
               m.map((k, v) => MapEntry(k.toString(), v)),
             ),
           )
-          .where((o) =>
-              o.date.millisecondsSinceEpoch > 0 && o.hasCustomization)
+          .where((o) => o.date.millisecondsSinceEpoch > 0 && o.hasCustomization)
           .toList();
     }
     return const [];
@@ -306,14 +306,15 @@ class Session {
       ];
     }
 
-    final recurrence = (_optionalString(data['recurrence']) ?? 'none')
-        .toLowerCase();
+    final recurrence =
+        (_optionalString(data['recurrence']) ?? 'none').toLowerCase();
 
     return Session(
       id: id,
-      schoolId: data['schoolId'] is String
-          ? (data['schoolId'] as String)
-          : (data['schoolId']?.toString() ?? ''),
+      schoolId:
+          data['schoolId'] is String
+              ? (data['schoolId'] as String)
+              : (data['schoolId']?.toString() ?? ''),
       name: _optionalString(data['name']),
       date: dateValue,
       endDate: endDateValue,
@@ -370,7 +371,10 @@ class Session {
         'attendees': attendees.map((a) => a.toMap()).toList(),
       if (dateOverrides.isNotEmpty)
         'dateOverrides':
-            dateOverrides.where((o) => o.hasCustomization).map((o) => o.toMap()).toList(),
+            dateOverrides
+                .where((o) => o.hasCustomization)
+                .map((o) => o.toMap())
+                .toList(),
     };
     return m;
   }

@@ -218,15 +218,14 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     return out;
   }
 
-  /// People that match the focused [Role]: same school, kind in
-  /// `appliesTo`, and either matching `roleId` (for normal roles) or
-  /// missing `roleId` (for the Unassigned bucket).
+  /// People that match the focused [Role]: same school and either
+  /// matching `roleId` (for normal roles) or missing `roleId` (for the
+  /// Unassigned bucket). The role's `appliesTo` is informational only —
+  /// any person assigned to the role shows up regardless of their kind.
   List<_Person> get _assigned {
     final roleSchoolId = widget.role.schoolId;
-    final appliesTo = widget.role.appliesTo;
     return _people.where((p) {
         if (p.schoolId != roleSchoolId) return false;
-        if (!appliesTo.contains(p.kind)) return false;
         final matchesRole =
             _isUnassignedBucket
                 ? (p.roleId == null || p.roleId!.isEmpty)
@@ -438,15 +437,15 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   // ----------------------------------------------------------------------
 
   /// Picker dialog used by the "Add employee" button. Lists every person
-  /// in the same school whose kind is covered by `role.appliesTo` and
-  /// who is not already in this role.
+  /// in the same school who is not already in this role. Person kind is
+  /// not filtered — any worker / teacher / admin / staff record can be
+  /// assigned to any role.
   Future<void> _openAddDialog() async {
     final available =
         _people
             .where(
               (p) =>
                   p.schoolId == widget.role.schoolId &&
-                  widget.role.appliesTo.contains(p.kind) &&
                   p.roleId != widget.role.id,
             )
             .toList()
@@ -676,18 +675,21 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   }
 
   Future<void> _openMoveDialog(_Person person) async {
-    // Move targets: every other role for this school whose appliesTo
-    // covers the person's kind, plus a synthetic "Unassigned" option.
+    // Move targets: every other active role for this school, plus a
+    // synthetic "Unassigned" option. Person kind is not filtered.
     final targetRoles =
         widget.allRoles
             .where(
               (r) =>
                   r.id != widget.role.id &&
                   r.schoolId == widget.role.schoolId &&
-                  r.isActive &&
-                  r.appliesTo.contains(person.kind),
+                  r.isActive,
             )
-            .toList();
+            .toList()
+          ..sort(
+            (a, b) =>
+                a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
 
     String? targetRoleId; // null => Unassigned
     bool selectedUnassigned = _isUnassignedBucket ? false : false;
@@ -845,9 +847,28 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
               final colorScheme = Theme.of(dialogCtx).colorScheme;
               return AlertDialog(
                 backgroundColor: colorScheme.surface,
-                title: Text(
-                  'Edit role',
-                  style: TextStyle(color: colorScheme.onSurface),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Edit role',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed:
+                          isSaving
+                              ? null
+                              : () {
+                                Navigator.pop(dialogCtx);
+                                _confirmDeleteRole();
+                              },
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
                 ),
                 content: SizedBox(
                   width: 420,
@@ -959,18 +980,6 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                   ),
                 ),
                 actions: [
-                  TextButton(
-                    onPressed:
-                        isSaving
-                            ? null
-                            : () {
-                              Navigator.pop(dialogCtx);
-                              _confirmDeleteRole();
-                            },
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                    child: const Text('Delete'),
-                  ),
-                  const Spacer(),
                   TextButton(
                     onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                     child: Text(

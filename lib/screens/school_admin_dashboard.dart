@@ -722,41 +722,32 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  /// Counts every person across all `appliesTo` collections whose
-  /// `roleId` equals [roleId] (or whose `roleId` is null when [roleId]
-  /// itself is null — the Unassigned bucket).
-  int _countAssignedToRole(String? roleId, List<String> appliesTo) {
+  /// Counts every person across `workers/`, `teachers/`, and admin-like
+  /// `users/` whose `roleId` equals [roleId] (or whose `roleId` is null
+  /// when [roleId] itself is null — the Unassigned bucket). Person kind
+  /// is not filtered: any role can be assigned to any kind, so the
+  /// count reflects every assignment.
+  int _countAssignedToRole(String? roleId) {
     var n = 0;
-    if (appliesTo.contains(AuthRoles.kindWorker)) {
-      for (final w in _workers) {
-        if (roleId == null) {
-          if ((w.roleId == null) || w.roleId!.isEmpty) n++;
-        } else if (w.roleId == roleId) {
-          n++;
-        }
+    for (final w in _workers) {
+      if (roleId == null) {
+        if ((w.roleId == null) || w.roleId!.isEmpty) n++;
+      } else if (w.roleId == roleId) {
+        n++;
       }
     }
-    if (appliesTo.contains(AuthRoles.kindTeacher)) {
-      for (final t in _teachers) {
-        if (roleId == null) {
-          if ((t.roleId == null) || t.roleId!.isEmpty) n++;
-        } else if (t.roleId == roleId) {
-          n++;
-        }
+    for (final t in _teachers) {
+      if (roleId == null) {
+        if ((t.roleId == null) || t.roleId!.isEmpty) n++;
+      } else if (t.roleId == roleId) {
+        n++;
       }
     }
-    final usersInScope = _adminLikeUsers;
-    if (appliesTo.contains(AuthRoles.kindAdmin) ||
-        appliesTo.contains(AuthRoles.kindStaff)) {
-      for (final u in usersInScope) {
-        final kind = AuthRoles.kindForUserRole(u.role);
-        if (kind == null) continue;
-        if (!appliesTo.contains(kind)) continue;
-        if (roleId == null) {
-          if ((u.roleId == null) || u.roleId!.isEmpty) n++;
-        } else if (u.roleId == roleId) {
-          n++;
-        }
+    for (final u in _adminLikeUsers) {
+      if (roleId == null) {
+        if ((u.roleId == null) || u.roleId!.isEmpty) n++;
+      } else if (u.roleId == roleId) {
+        n++;
       }
     }
     return n;
@@ -808,7 +799,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
             .toList();
 
     for (final role in scopedRoles) {
-      final assigned = _countAssignedToRole(role.id, role.appliesTo);
+      final assigned = _countAssignedToRole(role.id);
       entries.add(
         _RoleEntry(
           Icons.badge_outlined,
@@ -821,25 +812,13 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
       );
     }
 
-    // Unassigned bucket. Aggregates across every kind covered by *any*
-    // active role in this school, plus workers (since workers are the
-    // historical baseline). This makes the sum-rule predictable: every
-    // worker shows up in exactly one row.
-    final unassignedAppliesTo = <String>{AuthRoles.kindWorker};
-    for (final r in scopedRoles) {
-      if (!r.isActive) continue;
-      unassignedAppliesTo.addAll(r.appliesTo);
-    }
-    final unassignedKinds = [
-      for (final k in AuthRoles.allKinds)
-        if (unassignedAppliesTo.contains(k)) k,
-    ];
-    final unassignedCount = _countAssignedToRole(null, unassignedKinds);
+    // Unassigned bucket: every worker / teacher / admin / staff with no
+    // roleId set, regardless of school role definitions.
     entries.add(
       _RoleEntry(
         Icons.help_outline,
         'Unassigned',
-        unassignedCount,
+        _countAssignedToRole(null),
         _Section.rolesUnassigned,
         alwaysShow: true,
       ),
@@ -1367,23 +1346,13 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         );
       case _Section.rolesUnassigned:
         // Synthesize a virtual "Unassigned" Role with id == null so
-        // RoleEmployeesScreen knows to filter for people whose roleId is
-        // null. The appliesTo set is the union of every active role's
-        // appliesTo plus workers (the historical baseline).
-        final appliesToSet = <String>{AuthRoles.kindWorker};
-        for (final r in _customRoles) {
-          if (!r.isActive) continue;
-          if (_school?.id != null && r.schoolId != _school!.id) continue;
-          appliesToSet.addAll(r.appliesTo);
-        }
-        final orderedAppliesTo = [
-          for (final k in AuthRoles.allKinds)
-            if (appliesToSet.contains(k)) k,
-        ];
+        // RoleEmployeesScreen knows to filter for people whose roleId
+        // is null. appliesTo carries every kind so the screen's
+        // informational helpers behave sensibly.
         final unassignedRole = Role(
           name: 'Unassigned',
           schoolId: _school?.id ?? '',
-          appliesTo: orderedAppliesTo,
+          appliesTo: AuthRoles.allKinds,
         );
         return RoleEmployeesScreen(
           key: const ValueKey('role-unassigned'),
