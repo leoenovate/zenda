@@ -6,7 +6,6 @@ import '../../models/school.dart';
 import '../../models/worker.dart';
 import '../../services/device_enrollment_lookup_service.dart';
 import '../../services/firebase_service.dart';
-import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 import '../../widgets/admin/enrolled_badge.dart';
 
@@ -73,17 +72,12 @@ class _WorkersScreenState extends State<WorkersScreen> {
     } catch (_) {}
   }
 
-  /// Roles applicable to workers in [schoolId] (active and `appliesTo`
-  /// includes `worker`).
+  /// Active roles available for assignment. The roles list is already
+  /// school-scoped server-side via `getRoles()`; we don't re-filter by
+  /// `appliesTo` because any role can be assigned to any kind, nor by
+  /// strict `schoolId` equality (legacy roles may have empty schoolId).
   List<Role> _rolesForSchool(String? schoolId) {
-    return _roles
-        .where(
-          (role) =>
-              role.isActive &&
-              role.appliesTo.contains(AuthRoles.kindWorker) &&
-              (schoolId == null || role.schoolId == schoolId),
-        )
-        .toList();
+    return _roles.where((role) => role.isActive).toList();
   }
 
   /// Display label for [w]'s role: prefers a lookup of `roleId → Role.name`

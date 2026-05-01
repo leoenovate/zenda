@@ -247,11 +247,11 @@ class _AdminsScreenState extends State<AdminsScreen> {
     if (schoolId == null && widget.schools.isNotEmpty) {
       schoolId = widget.schools.first.id;
     }
+    // Clear the selection only if the role no longer exists in the
+    // loaded list. Don't gate on appliesTo or strict schoolId equality
+    // — legacy data may have mismatched schoolId fields.
     if (selectedRoleId != null &&
-        !_roles.any((r) =>
-            r.id == selectedRoleId &&
-            r.appliesTo.contains(AuthRoles.kindAdmin) &&
-            r.schoolId == schoolId)) {
+        !_roles.any((r) => r.id == selectedRoleId)) {
       selectedRoleId = null;
     }
 
@@ -328,9 +328,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
                       onChanged: (v) => setStateDialog(() {
                         schoolId = v;
                         if (selectedRoleId != null &&
-                            !_roles.any((r) =>
-                                r.id == selectedRoleId &&
-                                r.schoolId == schoolId)) {
+                            !_roles.any((r) => r.id == selectedRoleId)) {
                           selectedRoleId = null;
                         }
                       }),

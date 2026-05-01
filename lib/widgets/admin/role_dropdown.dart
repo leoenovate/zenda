@@ -34,14 +34,14 @@ class RoleDropdown extends StatelessWidget {
     this.label = 'Role',
   });
 
+  /// Returns every active role provided by the caller. The caller is
+  /// responsible for passing a school-scoped list (`getRoles()` already
+  /// scopes server-side via `_scoped`). We deliberately don't re-filter
+  /// by `schoolId` here because legacy role docs may have an empty
+  /// schoolId or a schoolId that doesn't strictly match the person
+  /// being edited; that re-filter would silently drop everything.
   List<Role> get _eligibleRoles {
-    final filtered = roles
-        .where(
-          (r) =>
-              r.isActive &&
-              (schoolId == null || r.schoolId == schoolId),
-        )
-        .toList();
+    final filtered = roles.where((r) => r.isActive).toList();
     filtered.sort(
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );

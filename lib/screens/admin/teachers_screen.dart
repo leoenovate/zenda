@@ -240,11 +240,12 @@ class _TeachersScreenState extends State<TeachersScreen> {
     if (schoolId == null && widget.schools.isNotEmpty) {
       schoolId = widget.schools.first.id;
     }
+    // Clear the selection only if the role no longer exists in the
+    // loaded list. Don't gate on appliesTo (any role can be assigned
+    // to any kind) or strict schoolId equality (legacy data may have
+    // mismatched schoolId fields).
     if (selectedRoleId != null &&
-        !_roles.any((r) =>
-            r.id == selectedRoleId &&
-            r.appliesTo.contains(AuthRoles.kindTeacher) &&
-            r.schoolId == schoolId)) {
+        !_roles.any((r) => r.id == selectedRoleId)) {
       selectedRoleId = null;
     }
 
