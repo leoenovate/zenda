@@ -985,17 +985,23 @@ class FirebaseService {
     }
   }
 
-  // Get recent activity (from api_logs)
+  // Get recent activity (from api_logs).
+  //
+  // Recent activity is a non-critical dashboard widget. We deliberately
+  // swallow `permission-denied` (e.g. demo sessions without a real Firebase
+  // Auth user, or freshly-issued tokens whose custom claims haven't
+  // propagated yet) and return an empty list so callers using `Future.wait`
+  // don't have their entire dashboard load fail because of this one query.
   static Future<List<Map<String, dynamic>>> getRecentActivity({
     int limit = 10,
   }) async {
     try {
-      final QuerySnapshot snapshot =
-          await _firestore
-              .collection('api_logs')
-              .orderBy('timestamp', descending: true)
-              .limit(limit)
-              .get();
+      final QuerySnapshot snapshot = await _getWithAuthRetry(
+        _firestore
+            .collection('api_logs')
+            .orderBy('timestamp', descending: true)
+            .limit(limit),
+      );
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -1008,6 +1014,11 @@ class FirebaseService {
           'type': data['type'] ?? 'authentication',
         };
       }).toList();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return const [];
+      }
+      throw Exception('Failed to get recent activity: ${e.message ?? e.code}');
     } catch (e) {
       throw Exception('Failed to get recent activity: $e');
     }
