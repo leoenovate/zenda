@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'school_admin_dashboard.dart';
 import 'system_owner_dashboard.dart';
 import 'teacher_dashboard_screen.dart';
@@ -21,10 +19,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
   @override
   void dispose() {
@@ -74,95 +69,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isGoogleLoading = true;
-    });
-
-    try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-
-      if (googleUser == null) {
-        setState(() {
-          _isGoogleLoading = false;
-        });
-        return;
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final UserCredential userCredential = await _auth.signInWithCredential(
-        credential,
-      );
-
-      if (userCredential.user != null) {
-        final session = await AuthService.restoreSession();
-        if (session != null) {
-          await AuthStorageService.saveSession(
-            role: session.role,
-            email: session.email,
-            uid: session.uid,
-            schoolId: session.schoolId,
-          );
-        }
-        if (!mounted) return;
-        final target = _dashboardForRole(session?.role);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => target),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Google Sign-In failed. Please try again.';
-
-      if (e.code == 'account-exists-with-different-credential') {
-        errorMessage =
-            'An account already exists with a different sign-in method.';
-      } else if (e.code == 'invalid-credential') {
-        errorMessage = 'Invalid credential. Please try again.';
-      } else if (e.code == 'operation-not-allowed') {
-        errorMessage = 'Google Sign-In is not enabled.';
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      String errorMessage = 'An error occurred: ${e.toString()}';
-      if (e.toString().contains('MissingPluginException')) {
-        errorMessage =
-            'Google Sign-In plugin not initialized. Please restart the app.';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isGoogleLoading = false;
         });
       }
     }
@@ -286,74 +192,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: context.spacingLg),
-                    OutlinedButton.icon(
-                      onPressed:
-                          (_isLoading || _isGoogleLoading)
-                              ? null
-                              : _signInWithGoogle,
-                      icon:
-                          _isGoogleLoading
-                              ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Center(
-                                  child: Text(
-                                    'G',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
-                                      fontFamily: 'Roboto',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      label: Text(
-                        'Continue with Google',
-                        style: TextStyle(
-                          fontSize: context.isMobile ? 14 : 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.isMobile ? 14 : 16,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: context.spacingMd),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(color: colorScheme.outlineVariant),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'OR',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(color: colorScheme.outlineVariant),
-                        ),
-                      ],
-                    ),
                     SizedBox(height: context.spacingMd),
                     ElevatedButton(
-                      onPressed:
-                          (_isLoading || _isGoogleLoading) ? null : _login,
+                      onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(
                           vertical: context.isMobile ? 16 : 18,

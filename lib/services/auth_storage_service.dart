@@ -4,9 +4,7 @@ import 'auth_service.dart';
 /// Thin wrapper around SharedPreferences used to remember the most recent
 /// sign-in so AuthWrapper can route the user to their dashboard on app open
 /// without waiting for a network round-trip.
-///
-/// NOTE: this is a UX cache only. The actual authoritative session comes
-/// from [AuthService] / Firebase Auth.
+/// The authoritative account profile is the matching Firestore users doc.
 class AuthStorageService {
   static const String _keyRole = 'auth_role';
   static const String _keyEmail = 'auth_email';

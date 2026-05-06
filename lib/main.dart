@@ -132,38 +132,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuthStatus() async {
     try {
-      // Prefer a live Firebase Auth session if one exists (admin/teacher).
-      final restored = await AuthService.restoreSession();
-      if (restored != null) {
-        Widget target;
-        switch (restored.role) {
-          case UserRole.systemOwner:
-            target = const SystemOwnerDashboard();
-            break;
-          case UserRole.schoolAdmin:
-            target = const SchoolAdminDashboard();
-            break;
-          case UserRole.teacher:
-            target = const TeacherDashboardScreen();
-            break;
-          case UserRole.parent:
-            // Parents don't sign in via Firebase Auth, fall through to the
-            // cached-session path below.
-            target = const LoginScreen();
-            break;
-        }
-        if (restored.role != UserRole.parent) {
-          if (mounted) {
-            setState(() {
-              _initialScreen = target;
-              _isLoading = false;
-            });
-          }
-          return;
-        }
-      }
-
-      // Fall back to the cached session (parents & demo logins).
+      // Restore the local Firestore-backed session cache.
       final stored = await AuthStorageService.getStoredSession();
       if (stored == null) {
         if (mounted) {
@@ -176,6 +145,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
 
       final role = stored['role'] as UserRole;
+      final uid = stored['uid'] as String?;
       final studentNumber = stored['studentNumber'] as String?;
 
       Widget? targetScreen;
@@ -217,12 +187,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
             targetScreen = const LoginScreen();
           }
         }
+      } else if (uid != null && uid.isNotEmpty) {
+        final restored = await AuthService.restoreSession(uid: uid);
+        if (restored == null) {
+          await AuthStorageService.clearStoredLogin();
+          targetScreen = const LoginScreen();
+        } else {
+          switch (restored.role) {
+            case UserRole.systemOwner:
+              targetScreen = const SystemOwnerDashboard();
+              break;
+            case UserRole.schoolAdmin:
+              targetScreen = const SchoolAdminDashboard();
+              break;
+            case UserRole.teacher:
+              targetScreen = const TeacherDashboardScreen();
+              break;
+            case UserRole.parent:
+              targetScreen = const LoginScreen();
+              break;
+          }
+        }
       } else {
-        // Admin/teacher/owner dashboards read protected Firestore data.
-        // Never restore them from SharedPreferences alone: a cached session
-        // can outlive Firebase Auth, leaving request.auth == null and causing
-        // permission-denied errors on devices/sessions/students. If
-        // AuthService.restoreSession() failed above, force a real sign-in.
         await AuthStorageService.clearStoredLogin();
         targetScreen = const LoginScreen();
       }
