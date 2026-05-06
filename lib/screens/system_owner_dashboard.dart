@@ -420,7 +420,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           ),
           ListTile(
             leading: const Icon(Icons.event_busy, color: Colors.white70),
-            title: const Text('Time off', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Time off',
+              style: TextStyle(color: Colors.white),
+            ),
             selected: _selectedIndex == 8,
             onTap: () {
               setState(() => _selectedIndex = 8);
@@ -546,7 +549,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   Widget _buildDashboard() {
     final activeDevices = devices.where((d) => d.status == 'active').length;
     final offlineDevices = devices.where((d) => d.status == 'offline').length;
-    final adminUsers = users.where((u) => u.role == 'admin').length;
+    final adminUsers =
+        users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length;
 
     // Responsive padding
     final padding =
@@ -1018,16 +1022,20 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                                 color: Colors.white,
                               ),
                             ),
-                          if (users.where((u) => u.role == 'admin').isNotEmpty)
+                          if (users
+                              .where((u) => AuthRoles.isSchoolAdmin(u.role))
+                              .isNotEmpty)
                             PieChartSectionData(
                               value:
                                   users
-                                      .where((u) => u.role == 'admin')
+                                      .where(
+                                        (u) => AuthRoles.isSchoolAdmin(u.role),
+                                      )
                                       .length
                                       .toDouble(),
                               color: Colors.purple,
                               title:
-                                  '${users.where((u) => u.role == 'admin').length}',
+                                  '${users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length}',
                               radius: 60,
                               titleStyle: const TextStyle(
                                 fontSize: 14,
@@ -1061,7 +1069,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               _buildLegendItem(
                 Colors.purple,
                 'Admins',
-                users.where((u) => u.role == 'admin').length,
+                users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length,
               ),
               _buildLegendItem(Colors.orange, 'Devices', devices.length),
             ],
@@ -1337,24 +1345,25 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Migrate worker roles'),
-        content: const Text(
-          'Promote legacy free-form role labels on workers (e.g. "Nurse", '
-          '"Administrator") into proper Role records and set every worker\'s '
-          'roleId field. Safe to run more than once.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Migrate worker roles'),
+            content: const Text(
+              'Promote legacy free-form role labels on workers (e.g. "Nurse", '
+              '"Administrator") into proper Role records and set every worker\'s '
+              'roleId field. Safe to run more than once.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Run'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Run'),
-          ),
-        ],
-      ),
     );
     if (confirmed != true) return;
 
@@ -2815,7 +2824,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final offlineDeviceCount = deviceCount - activeDeviceCount;
     final schoolAdmins =
         users
-            .where((u) => u.schoolId == school.id && u.role == 'admin')
+            .where(
+              (u) => u.schoolId == school.id && AuthRoles.isSchoolAdmin(u.role),
+            )
             .toList();
 
     final initial = school.name.isNotEmpty ? school.name[0].toUpperCase() : '?';
@@ -2981,7 +2992,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: role,
                           decoration: field('Role', required: true),
-                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                          dropdownColor:
+                              Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -2999,9 +3011,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                               child: Text('Staff'),
                             ),
                           ],
-                          onChanged: (v) => setStateDialog(
-                            () => role = v ?? AuthRoles.admin,
-                          ),
+                          onChanged:
+                              (v) => setStateDialog(
+                                () => role = v ?? AuthRoles.admin,
+                              ),
                         ),
                         if (isEdit) ...[
                           const SizedBox(height: 12),
@@ -3775,7 +3788,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: deviceType,
                           decoration: field('Type'),
-                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                          dropdownColor:
+                              Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3802,7 +3816,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String?>(
                           value: schoolId,
                           decoration: field('Assigned School'),
-                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                          dropdownColor:
+                              Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -3832,7 +3847,8 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         DropdownButtonFormField<String>(
                           value: status,
                           decoration: field('Status'),
-                          dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
+                          dropdownColor:
+                              Theme.of(dialogCtx).colorScheme.surface,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),

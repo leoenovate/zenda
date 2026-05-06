@@ -281,7 +281,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
       schoolFilter: 'all',
       onSchoolFilterChanged: (_) {},
       showSchoolFilter: false,
-      addButtonLabel: 'Add employee',
+      addButtonLabel: 'Add new',
       onAddPressed: _openAddDialog,
       headerExtras: headerExtras,
       listContent:
@@ -436,7 +436,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
   // Add / move / remove dialogs
   // ----------------------------------------------------------------------
 
-  /// Picker dialog used by the "Add employee" button. Lists every person
+  /// Picker dialog used by the "Add new" button. Lists every person
   /// in the same school who is not already in this role. Person kind is
   /// not filtered — any worker / teacher / admin / staff record can be
   /// assigned to any role.
@@ -456,15 +456,6 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
             if (k != 0) return k;
             return a.name.toLowerCase().compareTo(b.name.toLowerCase());
           });
-
-    if (available.isEmpty) {
-      final msg =
-          _isUnassignedBucket
-              ? 'No assigned people to unassign'
-              : 'Every eligible person is already assigned';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      return;
-    }
 
     String query = '';
     final selected = <String>{}; // compoundKey: kind:id
@@ -522,7 +513,19 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                       const SizedBox(height: 12),
                       Expanded(
                         child:
-                            filtered.isEmpty
+                            available.isEmpty
+                                ? Center(
+                                  child: Text(
+                                    _isUnassignedBucket
+                                        ? 'No assigned people to unassign'
+                                        : 'Every existing person is already assigned. Create a new one instead.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                                : filtered.isEmpty
                                 ? Center(
                                   child: Text(
                                     'No matching employees',
@@ -607,6 +610,16 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                 ),
                 actions: [
                   TextButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () {
+                              Navigator.pop(dialogCtx);
+                              unawaited(_openCreateNewPersonDialog());
+                            },
+                    child: const Text('Create new'),
+                  ),
+                  TextButton(
                     onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                     child: const Text('Cancel'),
                   ),
@@ -674,6 +687,249 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     );
   }
 
+  Future<void> _openCreateNewPersonDialog() async {
+    final roleId = _isUnassignedBucket ? null : widget.role.id;
+    final preferredKinds =
+        AuthRoles.allKinds
+            .where((kind) => widget.role.appliesTo.contains(kind))
+            .toList();
+    String kind =
+        preferredKinds.isNotEmpty ? preferredKinds.first : AuthRoles.kindWorker;
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+    final employeeIdController = TextEditingController();
+    final subjectController = TextEditingController();
+    final passwordController = TextEditingController(text: 'admin123');
+    bool isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (dialogCtx) => StatefulBuilder(
+            builder: (dialogCtx, setStateDialog) {
+              final colorScheme = Theme.of(dialogCtx).colorScheme;
+              final isUserAccount =
+                  kind == AuthRoles.kindAdmin || kind == AuthRoles.kindStaff;
+              final isTeacher = kind == AuthRoles.kindTeacher;
+              final isWorker = kind == AuthRoles.kindWorker;
+
+              return AlertDialog(
+                backgroundColor: colorScheme.surface,
+                title: Text(
+                  'Add new',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+                content: SizedBox(
+                  width: 440,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: kind,
+                          decoration: adminInputDecoration(
+                            'Employee type',
+                            required: true,
+                          ),
+                          items: [
+                            for (final k in AuthRoles.allKinds)
+                              DropdownMenuItem(
+                                value: k,
+                                child: Text(AuthRoles.kindLabel(k)),
+                              ),
+                          ],
+                          onChanged:
+                              (v) => setStateDialog(
+                                () => kind = v ?? AuthRoles.kindWorker,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: nameController,
+                          autofocus: true,
+                          decoration: adminInputDecoration(
+                            'Full name',
+                            required: true,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (isWorker || isTeacher) ...[
+                          TextField(
+                            controller: employeeIdController,
+                            decoration: adminInputDecoration('Employee ID'),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (isTeacher) ...[
+                          TextField(
+                            controller: subjectController,
+                            decoration: adminInputDecoration('Subject'),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        TextField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: adminInputDecoration(
+                            'Email',
+                            required: isUserAccount,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: adminInputDecoration('Phone'),
+                        ),
+                        if (isUserAccount) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: adminInputDecoration(
+                              'Temporary password',
+                              required: true,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        isSaving
+                            ? null
+                            : () async {
+                              final name = nameController.text.trim();
+                              final email = emailController.text.trim();
+                              final phone = phoneController.text.trim();
+                              final employeeId =
+                                  employeeIdController.text.trim();
+                              final subject = subjectController.text.trim();
+                              final password = passwordController.text;
+
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Full name is required'),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (isUserAccount && !email.contains('@')) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'A valid email is required for admin/staff accounts',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (isUserAccount && password.length < 6) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Password must be at least 6 characters',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setStateDialog(() => isSaving = true);
+                              try {
+                                switch (kind) {
+                                  case AuthRoles.kindTeacher:
+                                    await FirebaseService.addTeacher(
+                                      Teacher(
+                                        name: name,
+                                        schoolId: widget.role.schoolId,
+                                        email: email.isEmpty ? null : email,
+                                        phone: phone.isEmpty ? null : phone,
+                                        subject:
+                                            subject.isEmpty ? null : subject,
+                                        employeeId:
+                                            employeeId.isEmpty
+                                                ? null
+                                                : employeeId,
+                                        roleId: roleId,
+                                      ),
+                                    );
+                                    break;
+                                  case AuthRoles.kindAdmin:
+                                  case AuthRoles.kindStaff:
+                                    await FirebaseService.addAdmin(
+                                      email: email,
+                                      password: password,
+                                      role:
+                                          kind == AuthRoles.kindAdmin
+                                              ? AuthRoles.admin
+                                              : AuthRoles.staff,
+                                      name: name,
+                                      schoolId: widget.role.schoolId,
+                                      phone: phone.isEmpty ? null : phone,
+                                      roleId: roleId,
+                                    );
+                                    break;
+                                  case AuthRoles.kindWorker:
+                                  default:
+                                    await FirebaseService.addWorker(
+                                      Worker(
+                                        name: name,
+                                        schoolId: widget.role.schoolId,
+                                        employeeId:
+                                            employeeId.isEmpty
+                                                ? null
+                                                : employeeId,
+                                        phone: phone.isEmpty ? null : phone,
+                                        email: email.isEmpty ? null : email,
+                                        roleId: roleId,
+                                      ),
+                                    );
+                                    break;
+                                }
+
+                                if (!mounted) return;
+                                Navigator.pop(dialogCtx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Created $name'
+                                      '${roleId == null ? '' : ' in ${widget.role.name}'}',
+                                    ),
+                                  ),
+                                );
+                                await _load();
+                                widget.onDataChanged?.call();
+                              } catch (e) {
+                                setStateDialog(() => isSaving = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(isSaving ? 'Saving...' : 'Create'),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
   Future<void> _openMoveDialog(_Person person) async {
     // Move targets: every other active role for this school, plus a
     // synthetic "Unassigned" option. Person kind is not filtered.
@@ -687,8 +943,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
             )
             .toList()
           ..sort(
-            (a, b) =>
-                a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
           );
 
     String? targetRoleId; // null => Unassigned
@@ -863,9 +1118,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                                 Navigator.pop(dialogCtx);
                                 _confirmDeleteRole();
                               },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
                       child: const Text('Delete'),
                     ),
                   ],

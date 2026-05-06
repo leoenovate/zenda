@@ -836,7 +836,31 @@ class FirebaseService {
               .limit(1)
               .get();
       if (existing.docs.isNotEmpty) {
-        throw Exception('An account with this email already exists.');
+        final doc = existing.docs.first;
+        final data = doc.data();
+        final updateData = <String, dynamic>{
+          'role': role,
+          if (name != null && name.isNotEmpty) 'name': name,
+          if (schoolId != null) 'schoolId': schoolId,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
+          if (roleId != null && roleId.isNotEmpty) 'roleId': roleId,
+          'isActive': true,
+        };
+
+        final hasPasswordHash =
+            (data['passwordHash'] as String?)?.isNotEmpty ?? false;
+        if (!hasPasswordHash && password.isNotEmpty) {
+          final salt = AuthService.generateSalt();
+          updateData
+            ..['passwordSalt'] = salt
+            ..['passwordHash'] = AuthService.hashPassword(password, salt)
+            ..['password'] = FieldValue.delete()
+            ..['temporaryPassword'] = FieldValue.delete()
+            ..['passwordUpdatedAt'] = FieldValue.serverTimestamp();
+        }
+
+        await doc.reference.update(updateData);
+        return doc.id;
       }
 
       final salt = AuthService.generateSalt();
