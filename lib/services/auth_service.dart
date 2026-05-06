@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/parent.dart' as app_parent;
 import '../models/student.dart';
 import '../models/user.dart' as app_user;
@@ -13,72 +12,6 @@ enum UserRole {
   teacher,
   schoolAdmin,
   systemOwner,
-}
-
-/// Reads `schoolId` from Firebase Auth custom claims (mirrored by Cloud Functions).
-String? _schoolIdFromClaims(Map<String, dynamic>? claims) {
-  if (claims == null) return null;
-  final raw = claims['schoolId'];
-  if (raw is String && raw.isNotEmpty) return raw;
-  return null;
-}
-
-String? _roleFromClaims(Map<String, dynamic>? claims) {
-  if (claims == null) return null;
-  final raw = claims['role'];
-  if (raw is String && raw.isNotEmpty) return raw;
-  return null;
-}
-
-/// Force-refresh Firebase Auth custom claims before protected dashboards run.
-///
-/// Firestore rules for school-scoped collections accept custom claims
-/// (`role`, `schoolId`) and only fall back to `users/{uid}` for older tokens.
-/// In production we observed scoped reads failing until the token carried
-/// claims, so real admin sign-in/restore should not proceed with a stale ID
-/// token. If claims are missing or stale, touching the user's doc triggers
-/// `syncClaimsOnUserWrite`, then we poll a few short refreshes.
-Future<void> _ensureClaimsSynced(
-  User user, {
-  required String role,
-  required String? schoolId,
-  DocumentReference<Map<String, dynamic>>? userRef,
-}) async {
-  if (role == 'parent') return;
-
-  var requestedSync = false;
-  for (var attempt = 0; attempt < 6; attempt++) {
-    try {
-      final token = await user.getIdTokenResult(true);
-      final claims = token.claims;
-      final claimRole = _roleFromClaims(claims);
-      final claimSchoolId = _schoolIdFromClaims(claims);
-      final roleMatches = claimRole == role;
-      final schoolMatches =
-          schoolId == null || schoolId.isEmpty || claimSchoolId == schoolId;
-      if (roleMatches && schoolMatches) return;
-
-      if (!requestedSync && userRef != null) {
-        requestedSync = true;
-        await userRef.update({
-          'claimsRefreshRequestedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (_) {
-      // Keep polling; restore/sign-in should still use Firestore profile data
-      // if claims cannot be refreshed immediately.
-    }
-    await Future.delayed(Duration(milliseconds: 250 * (attempt + 1)));
-  }
-}
-
-Future<String?> _resolveSchoolId(User user, String? fromFirestore) async {
-  try {
-    final token = await user.getIdTokenResult(true);
-    return _schoolIdFromClaims(token.claims) ?? fromFirestore;
-  } catch (_) {
-    return fromFirestore;
-  }
 }
 
 UserRole? _parseUserRole(String? role) {
@@ -94,6 +27,8 @@ UserRole? _parseUserRole(String? role) {
       return UserRole.teacher;
     case 'parent':
       return UserRole.parent;
+    case 'staff':
+      return UserRole.schoolAdmin;
     default:
       return null;
   }
@@ -138,14 +73,13 @@ class AuthSession {
 }
 
 /// Centralized authentication service. Handles:
-///  - Email+password sign-in for admin/staff roles (Firebase Auth).
+///  - Email+password sign-in for admin/staff roles from Firestore users docs.
 ///  - Student-number based sign-in for parents (derived from students /
 ///    parents collections).
 ///  - Resolving the caller's role and schoolId from the `users/{uid}` doc.
 ///  - Exposing the current session for school-scoped queries elsewhere in
 ///    the app (see FirebaseService._scopedSchool / _scoped).
 class AuthService {
-  static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static AuthSession? _current;
@@ -166,47 +100,29 @@ class AuthService {
   static String? get currentSchoolId => _current?.schoolId;
   static String? get currentUid => _current?.uid;
 
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  /// Try to restore an admin session from a still-valid Firebase Auth user.
+  /// Try to restore an admin session from a cached Firestore user id.
   /// Returns the resolved [AuthSession] or `null` when the user doc cannot be
   /// found or loaded.
-  static Future<AuthSession?> restoreSession() async {
-    final user = _auth.currentUser;
-    if (user == null) return null;
+  static Future<AuthSession?> restoreSession({String? uid}) async {
+    if (_current != null && (uid == null || _current?.uid == uid)) {
+      return _current;
+    }
+    if (uid == null || uid.isEmpty) return null;
     try {
-      final doc = await _firestore.collection('users').doc(user.uid).get();
+      final doc = await _firestore.collection('users').doc(uid).get();
       if (!doc.exists) return null;
-      final data = doc.data() ?? {};
-      final role = _parseUserRole(data['role'] as String?);
-      if (role == null) return null;
-      final schoolId = await _resolveSchoolId(
-        user,
-        data['schoolId'] as String?,
-      );
-      await _ensureClaimsSynced(
-        user,
-        role: userRoleToFirestore(role),
-        schoolId: schoolId,
-        userRef: doc.reference,
-      );
-      _current = AuthSession(
-        role: role,
-        uid: user.uid,
-        email: user.email,
-        schoolId: schoolId,
-        name: data['name'] as String?,
-      );
+      _current = _sessionFromUserDoc(doc);
       return _current;
     } catch (_) {
       return null;
     }
   }
 
-  /// Sign in an admin/teacher/system-owner with email + password. The user's
-  /// role and schoolId are loaded from `users/{uid}`. If that doc is missing
-  /// but the email matches one of the demo accounts above, a synthetic
-  /// session is returned so the app remains explorable out of the box.
+  /// Sign in an admin/teacher/system-owner with email + password. Accounts are
+  /// plain Firestore `users` docs that include a temporary `password` field.
+  /// If a doc is missing but the email matches one of the demo accounts above,
+  /// a synthetic session is returned so the app remains explorable out of the
+  /// box.
   static Future<AuthSession> signInWithEmail({
     required String email,
     required String password,
@@ -214,67 +130,33 @@ class AuthService {
   }) async {
     final trimmedEmail = email.trim();
 
-    try {
-      final cred = await _auth.signInWithEmailAndPassword(
-        email: trimmedEmail,
-        password: password,
-      );
-      final uid = cred.user!.uid;
-
-      final doc = await _firestore.collection('users').doc(uid).get();
-      UserRole? role;
-      String? schoolId;
-      String? name;
-      DocumentReference<Map<String, dynamic>>? userRef;
-      if (doc.exists) {
-        userRef = doc.reference;
-        final data = doc.data() ?? {};
-        if (data['isActive'] == false) {
-          await _auth.signOut();
-          throw Exception('This account has been deactivated');
-        }
-        role = _parseUserRole(data['role'] as String?);
-        schoolId = data['schoolId'] as String?;
-        name = data['name'] as String?;
-        // Bump lastLogin for admin visibility.
-        unawaited(doc.reference.update({'lastLogin': FieldValue.serverTimestamp()}));
-      }
-
-      role ??= expectedRole ?? _demoRoleForEmail(trimmedEmail);
-      if (role == null) {
-        throw Exception('User record is missing a role');
-      }
-
-      schoolId = await _resolveSchoolId(cred.user!, schoolId);
-      await _ensureClaimsSynced(
-        cred.user!,
-        role: userRoleToFirestore(role),
-        schoolId: schoolId,
-        userRef: userRef,
-      );
-
-      _current = AuthSession(
-        role: role,
-        uid: uid,
-        email: trimmedEmail,
-        schoolId: schoolId,
-        name: name,
-      );
-      return _current!;
-    } on FirebaseAuthException catch (e) {
-      // If real auth fails and these are demo credentials, honor them so the
-      // app stays explorable without a seeded Firebase project.
-      if (_isDemoCredentials(trimmedEmail, password)) {
-        final role = _demoRoleForEmail(trimmedEmail)!;
-        _current = AuthSession(
-          role: role,
-          email: trimmedEmail,
-          name: 'Demo ${role.name}',
-        );
-        return _current!;
-      }
-      throw Exception(_authMessage(e));
+    final doc = await _findUserByEmail(trimmedEmail);
+    if (doc == null) {
+      return _demoSessionOrThrow(trimmedEmail, password);
     }
+
+    final data = doc.data();
+    if (data['isActive'] == false) {
+      throw Exception('This account has been deactivated');
+    }
+    if (!_passwordMatches(data, password)) {
+      throw Exception('Incorrect password.');
+    }
+
+    final role = _parseUserRole(data['role'] as String?) ?? expectedRole;
+    if (role == null) {
+      throw Exception('User record is missing a role');
+    }
+
+    unawaited(doc.reference.update({'lastLogin': FieldValue.serverTimestamp()}));
+    _current = AuthSession(
+      role: role,
+      uid: doc.id,
+      email: data['email'] as String? ?? trimmedEmail,
+      schoolId: data['schoolId'] as String?,
+      name: data['name'] as String?,
+    );
+    return _current!;
   }
 
   /// Parent sign-in by student registration number + password. Looks up the
@@ -365,11 +247,6 @@ class AuthService {
   }
 
   static Future<void> signOut() async {
-    try {
-      await _auth.signOut();
-    } catch (_) {
-      // Ignore; the local session is cleared below.
-    }
     _current = null;
   }
 
@@ -428,21 +305,66 @@ class AuthService {
     return false;
   }
 
-  static String _authMessage(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No account found with this email.';
-      case 'wrong-password':
-        return 'Incorrect password.';
-      case 'invalid-email':
-        return 'Invalid email address.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
-      default:
-        return e.message ?? 'Authentication failed (${e.code}).';
+  static Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findUserByEmail(
+    String email,
+  ) async {
+    final snap =
+        await _firestore
+            .collection('users')
+            .where('email', isEqualTo: email.trim())
+            .limit(1)
+            .get();
+    if (snap.docs.isNotEmpty) return snap.docs.first;
+
+    final lower = email.trim().toLowerCase();
+    if (lower == email.trim()) return null;
+    final lowerSnap =
+        await _firestore
+            .collection('users')
+            .where('email', isEqualTo: lower)
+            .limit(1)
+            .get();
+    return lowerSnap.docs.isEmpty ? null : lowerSnap.docs.first;
+  }
+
+  static bool _passwordMatches(Map<String, dynamic> data, String password) {
+    final stored = data['password'];
+    final temporary = data['temporaryPassword'];
+    return (stored is String && stored == password) ||
+        (temporary is String && temporary == password);
+  }
+
+  static AuthSession _sessionFromUserDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
+    if (data['isActive'] == false) {
+      throw Exception('This account has been deactivated');
     }
+    final role = _parseUserRole(data['role'] as String?);
+    if (role == null) {
+      throw Exception('User record is missing a role');
+    }
+    return AuthSession(
+      role: role,
+      uid: doc.id,
+      email: data['email'] as String?,
+      schoolId: data['schoolId'] as String?,
+      name: data['name'] as String?,
+    );
+  }
+
+  static AuthSession _demoSessionOrThrow(String email, String password) {
+    if (!_isDemoCredentials(email, password)) {
+      throw Exception('No account found with this email.');
+    }
+    final role = _demoRoleForEmail(email)!;
+    _current = AuthSession(
+      role: role,
+      email: email,
+      name: 'Demo ${role.name}',
+    );
+    return _current!;
   }
 
   /// Overrides the in-memory session. Used by main.dart when restoring a

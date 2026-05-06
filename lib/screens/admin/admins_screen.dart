@@ -214,7 +214,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
               size: 18,
               color: colorScheme.onSurfaceVariant,
             ),
-            tooltip: 'Send password reset',
+            tooltip: 'Reset password',
             onPressed: () => _showResetPasswordDialog(admin),
           ),
           IconButton(
@@ -461,6 +461,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
   }
 
   void _showResetPasswordDialog(app_user.AppUser admin) {
+    final passwordController = TextEditingController();
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -469,10 +470,15 @@ class _AdminsScreenState extends State<AdminsScreen> {
           'Reset Password',
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
-        content: Text(
-          'Send a password reset email to ${admin.email}?',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        content: SizedBox(
+          width: 360,
+          child: TextField(
+            controller: passwordController,
+            obscureText: true,
+            decoration: adminInputDecoration(
+              'New Temporary Password',
+              required: true,
+            ),
           ),
         ),
         actions: [
@@ -482,12 +488,21 @@ class _AdminsScreenState extends State<AdminsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              final password = passwordController.text;
+              if (password.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Password must be at least 6 characters'),
+                  ),
+                );
+                return;
+              }
               try {
-                await FirebaseService.resetAdminPassword(admin.email);
+                await FirebaseService.resetAdminPassword(admin.id!, password);
                 if (!mounted) return;
                 Navigator.pop(dialogCtx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Reset email sent to ${admin.email}')),
+                  SnackBar(content: Text('Password reset for ${admin.email}')),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -499,7 +514,7 @@ class _AdminsScreenState extends State<AdminsScreen> {
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Send'),
+            child: const Text('Reset'),
           ),
         ],
       ),

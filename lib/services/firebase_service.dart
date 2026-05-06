@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
@@ -72,25 +71,13 @@ class FirebaseService {
   static Future<QuerySnapshot<Map<String, dynamic>>> _getWithAuthRetry(
     Query<Map<String, dynamic>> query,
   ) async {
-    try {
-      return await query.get();
-    } on FirebaseException catch (e) {
-      if (e.code != 'permission-denied') rethrow;
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      return query.get();
-    }
+    return query.get();
   }
 
   static Future<DocumentSnapshot<Map<String, dynamic>>> _getDocWithAuthRetry(
     DocumentReference<Map<String, dynamic>> doc,
   ) async {
-    try {
-      return await doc.get();
-    } on FirebaseException catch (e) {
-      if (e.code != 'permission-denied') rethrow;
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      return doc.get();
-    }
+    return doc.get();
   }
 
   // Add a new student
@@ -825,9 +812,9 @@ class FirebaseService {
 
   // ADMIN / USER MANAGEMENT
 
-  // Create a new admin user. Creates both a Firebase Auth account (so the
-  // admin can sign in with email+password) and a matching users/{uid} doc.
-  // Returns the new user's UID.
+  // Create a new admin user as a Firestore-only account. The temporary
+  // password is stored on users/{id} and checked by AuthService.signInWithEmail.
+  // Returns the new user's document id.
   static Future<String> addAdmin({
     required String email,
     required String password,
@@ -838,20 +825,21 @@ class FirebaseService {
     String? roleId,
   }) async {
     try {
-      // Create Firebase Auth account using a secondary app so we don't clobber
-      // the currently-signed-in system owner's session.
-      final primaryAuth = FirebaseAuth.instance;
-      final currentUser = primaryAuth.currentUser;
+      final normalizedEmail = email.trim().toLowerCase();
+      final existing =
+          await _firestore
+              .collection('users')
+              .where('email', isEqualTo: normalizedEmail)
+              .limit(1)
+              .get();
+      if (existing.docs.isNotEmpty) {
+        throw Exception('An account with this email already exists.');
+      }
 
-      final UserCredential cred = await primaryAuth
-          .createUserWithEmailAndPassword(
-            email: email.trim(),
-            password: password,
-          );
-      final uid = cred.user!.uid;
-
-      await _firestore.collection('users').doc(uid).set({
-        'email': email.trim(),
+      final doc = await _firestore.collection('users').add({
+        'email': normalizedEmail,
+        'password': password,
+        'temporaryPassword': password,
         if (name != null && name.isNotEmpty) 'name': name,
         'role': role,
         if (schoolId != null) 'schoolId': schoolId,
@@ -859,21 +847,10 @@ class FirebaseService {
         if (roleId != null && roleId.isNotEmpty) 'roleId': roleId,
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
+        'passwordUpdatedAt': FieldValue.serverTimestamp(),
       });
 
-      // If a system owner was previously signed in and got replaced by the
-      // newly created account, sign the new account out. The calling UI is
-      // responsible for keeping the owner's session; during development with
-      // open rules we don't have a secondary-app path, so signOut is the
-      // pragmatic recovery.
-      if (currentUser != null &&
-          primaryAuth.currentUser?.uid != currentUser.uid) {
-        await primaryAuth.signOut();
-      }
-
-      return uid;
-    } on FirebaseAuthException catch (e) {
-      throw Exception('Failed to create admin: ${e.message ?? e.code}');
+      return doc.id;
     } catch (e) {
       throw Exception('Failed to create admin: $e');
     }
@@ -895,20 +872,20 @@ class FirebaseService {
     }
   }
 
-  // Send a password reset email to the given address via Firebase Auth.
-  static Future<void> resetAdminPassword(String email) async {
+  // Replace the stored Firestore password for an admin account.
+  static Future<void> resetAdminPassword(String userId, String password) async {
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
-    } on FirebaseAuthException catch (e) {
-      throw Exception('Failed to send reset email: ${e.message ?? e.code}');
+      await _firestore.collection('users').doc(userId).update({
+        'password': password,
+        'temporaryPassword': password,
+        'passwordUpdatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
-      throw Exception('Failed to send reset email: $e');
+      throw Exception('Failed to reset password: $e');
     }
   }
 
-  // Activate or deactivate an admin user. Only flips the `isActive` flag in
-  // the users doc; actually disabling Firebase Auth sign-in requires an Admin
-  // SDK call from a trusted backend (see functions/setRoleClaim).
+  // Activate or deactivate an admin user.
   static Future<void> setAdminActive(String userId, bool isActive) async {
     try {
       await _firestore.collection('users').doc(userId).update({

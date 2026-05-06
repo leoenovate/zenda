@@ -3124,6 +3124,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   void _showResetPasswordDialog(app_user.AppUser admin) {
+    final passwordController = TextEditingController();
     showDialog(
       context: context,
       builder:
@@ -3133,10 +3134,28 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               'Reset Password',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            content: Text(
-              'Send a password reset email to ${admin.email}?',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            content: SizedBox(
+              width: 360,
+              child: TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'New Temporary Password *',
+                  labelStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
               ),
             ),
             actions: [
@@ -3151,13 +3170,25 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ),
               ElevatedButton(
                 onPressed: () async {
+                  final password = passwordController.text;
+                  if (password.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Password must be at least 6 characters'),
+                      ),
+                    );
+                    return;
+                  }
                   try {
-                    await FirebaseService.resetAdminPassword(admin.email);
+                    await FirebaseService.resetAdminPassword(
+                      admin.id!,
+                      password,
+                    );
                     if (!mounted) return;
                     Navigator.pop(dialogCtx);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Reset email sent to ${admin.email}'),
+                        content: Text('Password reset for ${admin.email}'),
                       ),
                     );
                   } catch (e) {
@@ -3170,7 +3201,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Send'),
+                child: const Text('Reset'),
               ),
             ],
           ),
