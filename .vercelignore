@@ -19,7 +19,6 @@ build/.cxx/
 build/233fb48cc808c093c8f2c6dc3ee7bf5a/
 build/app/
 build/cloud_firestore/
-build/firebase_auth/
 build/firebase_core/
 build/firebase_cpp_sdk_12.7.0/
 build/firebase_storage/

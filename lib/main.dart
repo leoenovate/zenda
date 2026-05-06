@@ -188,7 +188,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         }
       } else if (uid != null && uid.isNotEmpty) {
-        final restored = await AuthService.restoreSession(uid: uid);
+        final restored = await AuthService.restoreSession();
         if (restored == null) {
           await AuthStorageService.clearStoredLogin();
           targetScreen = const LoginScreen();

@@ -610,49 +610,11 @@ service cloud.firestore {
 **⚠️ Security Warning**: Current rules allow full read/write access to all collections. This should be restricted in production.
 
 ### Recommended Production Rules
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Students - Admins can read/write, parents can read their children
-    match /students/{studentId} {
-      allow read: if request.auth != null && 
-        (isAdmin() || isParentOfStudent(studentId));
-      allow write: if request.auth != null && isAdmin();
-    }
-    
-    // Messages - Participants can read/write
-    match /messages/{messageId} {
-      allow read: if request.auth != null && 
-        (isAdmin() || isParentOfStudent(resource.data.studentId));
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-    }
-    
-    // API Logs - Admins only
-    match /api_logs/{logId} {
-      allow read, write: if request.auth != null && isAdmin();
-    }
-    
-    // Fingerprints - Write only from scanner, read by admins
-    match /fingerprints/{fingerprintId} {
-      allow write: if true; // Scanner device writes
-      allow read: if request.auth != null && isAdmin();
-    }
-  }
-  
-  function isAdmin() {
-    return request.auth.token.admin == true;
-  }
-  
-  function isParentOfStudent(studentId) {
-    let student = get(/databases/$(database)/documents/students/$(studentId));
-    return request.auth.token.phone == student.data.fatherPhone || 
-           request.auth.token.phone == student.data.motherPhone;
-  }
-}
-```
+
+The current app uses Firestore-only login, so requests do not carry an
+identity that Firestore rules can inspect. Keep the open rules only for a
+trusted/internal deployment, or move privileged reads and writes behind a
+server API before hardening production access.
 
 ---
 

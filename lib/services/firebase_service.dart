@@ -608,8 +608,9 @@ class FirebaseService {
         return [School.fromFirestore(doc.data()!, doc.id)];
       }
 
-      final QuerySnapshot snapshot =
-          await _getWithAuthRetry(_firestore.collection('schools'));
+      final QuerySnapshot snapshot = await _getWithAuthRetry(
+        _firestore.collection('schools'),
+      );
       return snapshot.docs.map((doc) {
         return School.fromFirestore(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
@@ -727,9 +728,10 @@ class FirebaseService {
         q = q.where('deviceId', isEqualTo: deviceId);
       }
       final snapshot = await _getWithAuthRetry(q);
-      final results = snapshot.docs
-          .map((doc) => DeviceEnrollment.fromFirestore(doc.data(), doc.id))
-          .toList();
+      final results =
+          snapshot.docs
+              .map((doc) => DeviceEnrollment.fromFirestore(doc.data(), doc.id))
+              .toList();
       results.sort((a, b) => a.slotId.compareTo(b.slotId));
       return results;
     } catch (e) {
@@ -775,10 +777,11 @@ class FirebaseService {
   /// commits to stay within Firestore's 500-write batch limit.
   static Future<void> clearDeviceEnrollments(String deviceId) async {
     try {
-      final snapshot = await _firestore
-          .collection('device_enrollments')
-          .where('deviceId', isEqualTo: deviceId)
-          .get();
+      final snapshot =
+          await _firestore
+              .collection('device_enrollments')
+              .where('deviceId', isEqualTo: deviceId)
+              .get();
       if (snapshot.docs.isEmpty) return;
       const batchLimit = 400;
       for (var i = 0; i < snapshot.docs.length; i += batchLimit) {
@@ -813,7 +816,7 @@ class FirebaseService {
   // ADMIN / USER MANAGEMENT
 
   // Create a new admin user as a Firestore-only account. The temporary
-  // password is stored on users/{id} and checked by AuthService.signInWithEmail.
+  // password is stored as a salted hash and checked by AuthService.
   // Returns the new user's document id.
   static Future<String> addAdmin({
     required String email,
@@ -836,10 +839,11 @@ class FirebaseService {
         throw Exception('An account with this email already exists.');
       }
 
+      final salt = AuthService.generateSalt();
       final doc = await _firestore.collection('users').add({
         'email': normalizedEmail,
-        'password': password,
-        'temporaryPassword': password,
+        'passwordSalt': salt,
+        'passwordHash': AuthService.hashPassword(password, salt),
         if (name != null && name.isNotEmpty) 'name': name,
         'role': role,
         if (schoolId != null) 'schoolId': schoolId,
@@ -875,9 +879,12 @@ class FirebaseService {
   // Replace the stored Firestore password for an admin account.
   static Future<void> resetAdminPassword(String userId, String password) async {
     try {
+      final salt = AuthService.generateSalt();
       await _firestore.collection('users').doc(userId).update({
-        'password': password,
-        'temporaryPassword': password,
+        'passwordSalt': salt,
+        'passwordHash': AuthService.hashPassword(password, salt),
+        'password': FieldValue.delete(),
+        'temporaryPassword': FieldValue.delete(),
         'passwordUpdatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -896,7 +903,7 @@ class FirebaseService {
     }
   }
 
-  // Delete an admin user document. Does not delete the Firebase Auth account.
+  // Delete an admin user document.
   static Future<void> deleteAdmin(String userId) async {
     try {
       await _firestore.collection('users').doc(userId).delete();
@@ -964,11 +971,9 @@ class FirebaseService {
 
   // Get recent activity (from api_logs).
   //
-  // Recent activity is a non-critical dashboard widget. We deliberately
-  // swallow `permission-denied` (e.g. demo sessions without a real Firebase
-  // Auth user, or freshly-issued tokens whose custom claims haven't
-  // propagated yet) and return an empty list so callers using `Future.wait`
-  // don't have their entire dashboard load fail because of this one query.
+  // Recent activity is a non-critical dashboard widget. Return an empty list
+  // on permission issues so callers using `Future.wait` do not lose the rest
+  // of the dashboard data because this optional query failed.
   static Future<List<Map<String, dynamic>>> getRecentActivity({
     int limit = 10,
   }) async {
@@ -1566,7 +1571,9 @@ class FirebaseService {
     }
   }
 
-  static Future<void> deleteLegacyStaffTimeOffStorage(String? storagePath) async {
+  static Future<void> deleteLegacyStaffTimeOffStorage(
+    String? storagePath,
+  ) async {
     if (storagePath == null || storagePath.isEmpty) return;
     try {
       await FirebaseStorage.instance.ref(storagePath).delete();
@@ -1717,8 +1724,7 @@ class FirebaseService {
           explicitSchoolId: schoolId,
         );
         if (base == null) continue;
-        final snap =
-            await base.where('roleId', isEqualTo: roleId).get();
+        final snap = await base.where('roleId', isEqualTo: roleId).get();
         if (snap.docs.isEmpty) continue;
         final batch = _firestore.batch();
         for (final d in snap.docs) {

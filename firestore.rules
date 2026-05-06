@@ -3,116 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helpers ----------------------------------------------------------
-
-    function signedIn() { return request.auth != null; }
-
-    function userDocExists() {
-      return signedIn() &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function userRole() {
-      // Prefer a custom claim if one is set (see functions/setRoleClaim), and
-      // fall back to the role field stored on the users/{uid} doc.
-      return request.auth.token.role != null
-          ? request.auth.token.role
-          : (userDocExists()
-              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-              : null);
-    }
-
-    function userSchool() {
-      return request.auth.token.schoolId != null
-          ? request.auth.token.schoolId
-          : (userDocExists()
-              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId
-              : null);
-    }
-
-    function isOwner() { return signedIn() && userRole() == 'system_owner'; }
-
-    // Any admin seat: system owner, school admin, teacher, or generic staff.
-    function isAdmin() {
-      return signedIn() && userRole() != null && userRole() in ['system_owner', 'admin', 'school_admin', 'teacher', 'staff'];
-    }
-
-    function sameSchool(data) {
-      return isOwner() || (data.schoolId != null && data.schoolId == userSchool());
-    }
-
-    // --- Core: schools ----------------------------------------------------
-
-    match /schools/{schoolId} {
-      allow read:   if isOwner() || (isAdmin() && schoolId == userSchool());
-      allow write:  if isOwner();
-    }
-
-    // --- Users (admin accounts) -------------------------------------------
-
-    match /users/{uid} {
-      // Users can always read their own profile; admins can read roster.
-      allow read:   if signedIn() && (request.auth.uid == uid || isAdmin());
-      // Only owners and the user themselves may update a user doc.
-      allow create: if isOwner();
-      allow update: if isOwner() || request.auth.uid == uid;
-      allow delete: if isOwner();
-    }
-
-    // --- Students ---------------------------------------------------------
-
-    match /students/{studentId} {
-      // Admins on the same school can read/write. Owners see all.
-      allow read, write: if isAdmin() &&
-        (isOwner() || sameSchool(resource.data) ||
-         (request.method == 'create' && sameSchool(request.resource.data)));
-    }
-
-    // --- Teachers, classes, workers, sessions, devices, parents -----------
-
-    match /teachers/{id}    { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /classes/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /workers/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /worker_time_off/{id} { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /sessions/{id}    { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /devices/{id}     { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /device_enrollments/{id} { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-    match /parents/{id}     { allow read, write: if isAdmin(); }
-    match /roles/{id}       { allow read, write: if isAdmin() && (isOwner() || sameSchool(resource.data) || (request.method == 'create' && sameSchool(request.resource.data))); }
-
-    // --- Messages ---------------------------------------------------------
-
-    // Admins can read/write all messages for their school. Parents are
-    // intentionally not tied to Firebase Auth yet, so client-side messaging
-    // from parents relies on isAdmin() for now; tighten once parents use
-    // real auth.
-    match /messages/{id} {
-      allow read:   if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // --- API logs & fingerprints ------------------------------------------
-
-    match /api_logs/{id} {
-      // Scanners / unauthenticated devices append entries; admins read.
-      allow create: if true;
-      allow read:   if isAdmin();
-      allow update, delete: if isOwner();
-    }
-
-    match /fingerprints/{id} {
-      // Scanner device writes (may be unauthenticated); admins read.
-      allow write:  if true;
-      allow read:   if isAdmin();
-    }
-
-    // --- System config ----------------------------------------------------
-
-    match /system/{doc} {
-      allow read:   if isAdmin();
-      allow write:  if isOwner();
+    // Firestore-only auth: the Flutter app authenticates against users docs
+    // and enforces role/school scoping in the client service layer. Because no
+    // server-verifiable identity is attached to requests, rules cannot inspect
+    // per-user roles here.
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

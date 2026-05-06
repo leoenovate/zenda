@@ -11,12 +11,7 @@ import 'firebase_service.dart';
 
 /// Application-level user roles. Kept in sync with the `role` field stored on
 /// `users/{uid}` Firestore documents.
-enum UserRole {
-  parent,
-  teacher,
-  schoolAdmin,
-  systemOwner,
-}
+enum UserRole { parent, teacher, schoolAdmin, systemOwner }
 
 UserRole? _parseUserRole(String? role) {
   switch (role) {
@@ -75,7 +70,7 @@ class AuthSession {
 }
 
 /// Centralized authentication service. Backed entirely by Firestore — no
-/// Firebase Auth involved. Email + password admins live in `users/{uid}`
+/// external identity provider involved. Email + password admins live in `users/{uid}`
 /// with `passwordHash` (SHA-256 hex of `passwordSalt + plainPassword`) and
 /// `passwordSalt` (random hex string). Parents sign in by student number.
 ///
@@ -107,9 +102,7 @@ class AuthService {
   /// Generate a fresh 16-byte hex salt for a new password.
   static String generateSalt() {
     final bytes = List<int>.generate(16, (_) => _rng.nextInt(256));
-    return bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   /// SHA-256 hex of `salt + password`. Same hash + salt are stored on the
@@ -141,15 +134,16 @@ class AuthService {
     required String password,
     UserRole? expectedRole,
   }) async {
-    final trimmedEmail = email.trim();
+    final normalizedEmail = email.trim().toLowerCase();
 
     DocumentSnapshot<Map<String, dynamic>>? doc;
     try {
-      final snap = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: trimmedEmail)
-          .limit(1)
-          .get();
+      final snap =
+          await _firestore
+              .collection('users')
+              .where('email', isEqualTo: normalizedEmail)
+              .limit(1)
+              .get();
       if (snap.docs.isNotEmpty) doc = snap.docs.first;
     } catch (_) {
       // Network / rules failure — fall through to demo handling below.
@@ -162,32 +156,51 @@ class AuthService {
       }
       final hash = data['passwordHash'] as String?;
       final salt = data['passwordSalt'] as String?;
-      // If no hash is set yet, only the demo credentials below can let the
-      // caller in; otherwise we refuse rather than letting any password work.
-      if (hash != null &&
-          !_verifyPassword(password, hash: hash, salt: salt)) {
-        throw Exception('Incorrect password');
-      }
-      if (hash == null && !_isDemoCredentials(trimmedEmail, password)) {
+      final legacyPassword =
+          (data['password'] ?? data['temporaryPassword']) as String?;
+      final hasHash = hash != null && hash.isNotEmpty;
+      final hasLegacyPassword =
+          legacyPassword != null && legacyPassword.isNotEmpty;
+
+      if (hasHash) {
+        if (!_verifyPassword(password, hash: hash, salt: salt)) {
+          throw Exception('Incorrect password');
+        }
+      } else if (hasLegacyPassword) {
+        if (legacyPassword != password) {
+          throw Exception('Incorrect password');
+        }
+      } else if (!_isDemoCredentials(normalizedEmail, password)) {
         throw Exception('Account has no password set. Contact your admin.');
       }
 
-      final role = _parseUserRole(data['role'] as String?) ??
+      final role =
+          _parseUserRole(data['role'] as String?) ??
           expectedRole ??
-          _demoRoleForEmail(trimmedEmail);
+          _demoRoleForEmail(normalizedEmail);
       if (role == null) {
         throw Exception('User record is missing a role');
       }
 
-      // Bump lastLogin for admin visibility (best effort).
-      unawaited(
-        doc.reference.update({'lastLogin': FieldValue.serverTimestamp()}),
-      );
+      // Bump lastLogin for admin visibility and upgrade any legacy plain-text
+      // password doc to the Firestore hash format (best effort).
+      final updateData = <String, dynamic>{
+        'lastLogin': FieldValue.serverTimestamp(),
+      };
+      if (!hasHash && hasLegacyPassword) {
+        final newSalt = generateSalt();
+        updateData
+          ..['passwordSalt'] = newSalt
+          ..['passwordHash'] = hashPassword(password, newSalt)
+          ..['password'] = FieldValue.delete()
+          ..['temporaryPassword'] = FieldValue.delete();
+      }
+      unawaited(doc.reference.update(updateData));
 
       _current = AuthSession(
         role: role,
         uid: doc.id,
-        email: trimmedEmail,
+        email: normalizedEmail,
         schoolId: data['schoolId'] as String?,
         name: data['name'] as String?,
       );
@@ -196,11 +209,11 @@ class AuthService {
 
     // No matching Firestore user. Allow the built-in demo accounts so the
     // app can still be explored on a blank database.
-    if (_isDemoCredentials(trimmedEmail, password)) {
-      final role = _demoRoleForEmail(trimmedEmail)!;
+    if (_isDemoCredentials(normalizedEmail, password)) {
+      final role = _demoRoleForEmail(normalizedEmail)!;
       _current = AuthSession(
         role: role,
-        email: trimmedEmail,
+        email: normalizedEmail,
         name: 'Demo ${role.name}',
       );
       return _current!;
@@ -224,7 +237,8 @@ class AuthService {
       throw Exception('Password must be at least 6 characters');
     }
 
-    final isDemo = normalized.toUpperCase() == demoParentStudentNumber &&
+    final isDemo =
+        normalized.toUpperCase() == demoParentStudentNumber &&
         password == demoParentPassword;
 
     List<Student> students = [];
@@ -248,11 +262,13 @@ class AuthService {
     // this contact and so we have a stable parent ID. Failures are ignored;
     // this isn't critical for login to succeed.
     if (!isDemo && phone != null && phone.trim().isNotEmpty) {
-      unawaited(_upsertParentRecord(
-        phone: phone,
-        name: students.first.fatherName ?? students.first.motherName,
-        studentIds: students.map((s) => s.id!).toList(),
-      ));
+      unawaited(
+        _upsertParentRecord(
+          phone: phone,
+          name: students.first.fatherName ?? students.first.motherName,
+          studentIds: students.map((s) => s.id!).toList(),
+        ),
+      );
     }
 
     _current = AuthSession(
@@ -270,11 +286,12 @@ class AuthService {
     required List<String> studentIds,
   }) async {
     try {
-      final snap = await _firestore
-          .collection('parents')
-          .where('phone', isEqualTo: phone.trim())
-          .limit(1)
-          .get();
+      final snap =
+          await _firestore
+              .collection('parents')
+              .where('phone', isEqualTo: phone.trim())
+              .limit(1)
+              .get();
       if (snap.docs.isEmpty) {
         await _firestore.collection('parents').add({
           'phone': phone.trim(),
@@ -331,8 +348,7 @@ class AuthService {
         if (doc.exists) {
           final data = doc.data() ?? {};
           if (data['isActive'] == false) return null;
-          final freshRole =
-              _parseUserRole(data['role'] as String?) ?? role;
+          final freshRole = _parseUserRole(data['role'] as String?) ?? role;
           _current = AuthSession(
             role: freshRole,
             uid: uid,
@@ -384,17 +400,19 @@ class AuthService {
   static Future<app_parent.Parent?> currentParentRecord() async {
     final session = _current;
     if (session == null || session.role != UserRole.parent) return null;
-    final phone = session.students.isNotEmpty
-        ? (session.students.first.fatherPhone ??
-            session.students.first.motherPhone)
-        : null;
+    final phone =
+        session.students.isNotEmpty
+            ? (session.students.first.fatherPhone ??
+                session.students.first.motherPhone)
+            : null;
     if (phone == null) return null;
     try {
-      final snap = await _firestore
-          .collection('parents')
-          .where('phone', isEqualTo: phone.trim())
-          .limit(1)
-          .get();
+      final snap =
+          await _firestore
+              .collection('parents')
+              .where('phone', isEqualTo: phone.trim())
+              .limit(1)
+              .get();
       if (snap.docs.isEmpty) return null;
       final doc = snap.docs.first;
       return app_parent.Parent.fromFirestore(doc.data(), doc.id);

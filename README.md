@@ -7,15 +7,14 @@ multiple schools from a single system-owner dashboard.
 ## Stack
 
 - **Flutter** 3.7+ (mobile, web, Windows, macOS, Linux)
-- **Firebase**: Auth, Firestore, Storage, Cloud Functions
+- **Firebase**: Firestore, Storage, Cloud Functions
 - **fl_chart / syncfusion_flutter_charts** for dashboard visualizations
 
 ## Features
 
 - Parent login by student registration number; parent dashboard with
   attendance history and school chat.
-- Admin / teacher login via Firebase Auth (email + password). Google
-  sign-in is also supported on `AdminLoginScreen`.
+- Admin / teacher login via Firestore `users` documents (email + password).
 - System owner dashboard with nine sections: Dashboard, Schools, Devices,
   Teachers, Classes, Parents, Sessions, Workers, System.
 - Full CRUD for `schools`, `users`, `devices`, `teachers`, `classes`,
@@ -32,7 +31,7 @@ lib/
   models/                      # Firestore-backed data classes
   screens/
     login_screen.dart          # unified login (parent / admin / teacher / owner)
-    admin_login_screen.dart    # Firebase Auth + Google sign-in
+    admin_login_screen.dart    # Firestore admin login
     home_screen.dart           # school admin / teacher dashboard
     parent_dashboard_screen.dart
     system_owner_dashboard.dart
@@ -47,8 +46,8 @@ lib/
     chat/
     dashboard/
     student_form/
-functions/                     # Cloud Functions (setRoleClaim, syncClaims)
-firestore.rules                # role + schoolId aware security rules
+functions/                     # Cloud Functions placeholder
+firestore.rules                # Firestore-only development rules
 firestore.indexes.json
 storage.rules                  # chat_attachments/* size + MIME constraints
 firebase.json
@@ -59,8 +58,7 @@ firebase.json
 ### Prerequisites
 
 - Flutter 3.7+
-- A Firebase project with Firestore (enabled) and Authentication
-  (Email/Password enabled, Google enabled if you want Google sign-in)
+- A Firebase project with Firestore enabled
 - Node.js 20+ (only if you plan to deploy the Cloud Functions)
 - Firebase CLI: `npm install -g firebase-tools`
 
@@ -82,7 +80,7 @@ flutter run                    # attached mobile device / emulator
 
 The three demo accounts below work out of the box even against an empty
 Firestore - `AuthService` silently falls back to a synthetic session when
-the email/password are not registered in Firebase Auth.
+the email/password are not found in `users`.
 
 | Role           | Email / student #   | Password      |
 |----------------|---------------------|---------------|
@@ -92,8 +90,8 @@ the email/password are not registered in Firebase Auth.
 | Parent         | STD001              | parent123     |
 
 Creating real accounts via **System Owner > System > Add Administrator**
-registers the user with Firebase Auth and records a matching
-`users/{uid}` document with the chosen role and `schoolId`.
+writes a `users/{uid}` document with the chosen role, `schoolId`, and a
+salted password hash.
 
 ## Roles
 
@@ -122,15 +120,9 @@ firebase deploy --only storage
 
 ## Cloud Functions (optional)
 
-Two functions live under `functions/`:
-
-- `setRoleClaim` - a callable that promotes a user (by email) to a role
-  and sets `role` / `schoolId` as custom auth claims. Bootstrap path
-  allows creating the very first `system_owner` when none exists.
-- `syncClaimsOnUserWrite` - a Firestore trigger that mirrors
-  `users/{uid}.role` + `schoolId` into custom claims whenever the doc
-  changes. With this deployed, the Firestore rules use the claims
-  directly (no extra `get()` per request).
+Authentication is handled directly in Firestore by the Flutter app. The
+`functions/` package is currently just a placeholder for future backend work;
+there are no identity or role-claim functions to deploy.
 
 ```
 cd functions
