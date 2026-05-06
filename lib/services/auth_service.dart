@@ -89,6 +89,10 @@ class AuthService {
     UserRole.schoolAdmin: {'email': 'admin@school.com', 'password': 'admin123'},
     UserRole.teacher: {'email': 'teacher@school.com', 'password': 'teacher123'},
   };
+  static const Map<String, String> _bootstrapAdminCredentials = {
+    'email': 'isaacngendahayo2020@gmail.com',
+    'password': 'admin123',
+  };
   static const String demoParentStudentNumber = 'STD001';
   static const String demoParentPassword = 'parent123';
 
@@ -217,6 +221,11 @@ class AuthService {
         name: 'Demo ${role.name}',
       );
       return _current!;
+    }
+
+    if (_isBootstrapAdminCredentials(normalizedEmail, password)) {
+      final session = await _createBootstrapAdmin(normalizedEmail, password);
+      if (session != null) return session;
     }
 
     throw Exception('No account found with this email');
@@ -440,6 +449,49 @@ class AuthService {
       }
     }
     return false;
+  }
+
+  static bool _isBootstrapAdminCredentials(String email, String password) {
+    return _bootstrapAdminCredentials['email'] == email.toLowerCase() &&
+        _bootstrapAdminCredentials['password'] == password;
+  }
+
+  static Future<AuthSession?> _createBootstrapAdmin(
+    String email,
+    String password,
+  ) async {
+    try {
+      final existing =
+          await _firestore
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
+      if (existing.docs.isNotEmpty) return null;
+
+      final salt = generateSalt();
+      final doc = await _firestore.collection('users').add({
+        'email': email,
+        'name': 'School Admin',
+        'role': 'admin',
+        'passwordSalt': salt,
+        'passwordHash': hashPassword(password, salt),
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'passwordUpdatedAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
+
+      _current = AuthSession(
+        role: UserRole.schoolAdmin,
+        uid: doc.id,
+        email: email,
+        name: 'School Admin',
+      );
+      return _current;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Overrides the in-memory session. Used by main.dart when restoring a

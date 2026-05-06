@@ -5,64 +5,70 @@ import '../../theme/app_colors.dart';
 import '../../theme/theme_controller.dart';
 
 /// A compact theme switcher for AppBar [AppBar.actions]:
-/// * tap the sun/moon icon to flip light <-> dark
+/// * tap the mode button to flip light <-> dark
 /// * tap the palette button to choose a primary hue (teal or orange)
 class ThemeSwitcher extends StatelessWidget {
-  /// When true, icons are rendered in the AppBar's `onPrimary` color.
-  /// When false, icons adopt the ambient icon color (useful on light
+  /// When true, controls are rendered in the AppBar's `onPrimary` color.
+  /// When false, controls adopt the ambient foreground color (useful on light
   /// scaffolds without a colored AppBar).
   final bool onAppBar;
   final bool compact;
 
-  const ThemeSwitcher({
-    super.key,
-    this.onAppBar = true,
-    this.compact = false,
-  });
+  const ThemeSwitcher({super.key, this.onAppBar = true, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ThemeController>();
     final theme = Theme.of(context);
-    final iconColor = onAppBar
-        ? theme.appBarTheme.foregroundColor ?? theme.colorScheme.onPrimary
-        : theme.iconTheme.color;
-
-    final modeIcon = controller.isDarkResolved
-        ? Icons.light_mode_outlined
-        : Icons.dark_mode_outlined;
+    final controlColor =
+        onAppBar
+            ? theme.appBarTheme.foregroundColor ?? theme.colorScheme.onPrimary
+            : theme.colorScheme.onSurface;
+    final modeLabel = controller.isDarkResolved ? 'Light' : 'Dark';
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          tooltip: controller.isDarkResolved
-              ? 'Switch to light theme'
-              : 'Switch to dark theme',
-          icon: Icon(modeIcon, color: iconColor),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: controlColor,
+            minimumSize: compact ? const Size(44, 36) : const Size(56, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          child: Text(modeLabel),
           onPressed: () => controller.toggleMode(),
         ),
         PopupMenuButton<AppPrimary>(
           tooltip: 'Primary color',
-          icon: Icon(Icons.palette_outlined, color: iconColor),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Text(
+              'Color',
+              style: TextStyle(
+                color: controlColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           position: PopupMenuPosition.under,
           onSelected: (p) => controller.setPrimary(p),
-          itemBuilder: (context) => [
-            _paletteItem(
-              value: AppPrimary.teal,
-              label: 'Teal primary',
-              swatch: AppColors.tealDark,
-              accent: AppColors.orangeMid,
-              selected: controller.primary == AppPrimary.teal,
-            ),
-            _paletteItem(
-              value: AppPrimary.orange,
-              label: 'Orange primary',
-              swatch: AppColors.orangeDark,
-              accent: AppColors.tealMid,
-              selected: controller.primary == AppPrimary.orange,
-            ),
-          ],
+          itemBuilder:
+              (context) => [
+                _paletteItem(
+                  value: AppPrimary.teal,
+                  label: 'Teal primary',
+                  swatch: AppColors.tealDark,
+                  accent: AppColors.orangeMid,
+                  selected: controller.primary == AppPrimary.teal,
+                ),
+                _paletteItem(
+                  value: AppPrimary.orange,
+                  label: 'Orange primary',
+                  swatch: AppColors.orangeDark,
+                  accent: AppColors.tealMid,
+                  selected: controller.primary == AppPrimary.orange,
+                ),
+              ],
         ),
       ],
     );
@@ -82,7 +88,8 @@ class ThemeSwitcher extends StatelessWidget {
           _Swatch(primary: swatch, accent: accent),
           const SizedBox(width: 12),
           Expanded(child: Text(label)),
-          if (selected) const Icon(Icons.check, size: 18),
+          if (selected)
+            Text('Selected', style: TextStyle(fontSize: 12, color: swatch)),
         ],
       ),
     );

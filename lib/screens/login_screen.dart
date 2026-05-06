@@ -230,7 +230,14 @@ class _LoginScreenState extends State<LoginScreen> {
             color: colorScheme.primaryContainer,
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.school_rounded, size: 64, color: onBrand),
+          child: Text(
+            'Z',
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.w800,
+              color: onBrand,
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         Text(
@@ -271,20 +278,14 @@ class _LoginScreenState extends State<LoginScreen> {
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
-        _buildFeatureButton(
-          icon: Icons.check_circle,
-          label: 'Real-time Updates',
-        ),
-        _buildFeatureButton(icon: Icons.shield, label: 'Secure & Reliable'),
-        _buildFeatureButton(
-          icon: Icons.desktop_windows,
-          label: 'Multi-Platform',
-        ),
+        _buildFeatureButton(label: 'Real-time Updates'),
+        _buildFeatureButton(label: 'Secure & Reliable'),
+        _buildFeatureButton(label: 'Multi-Platform'),
       ],
     );
   }
 
-  Widget _buildFeatureButton({required IconData icon, required String label}) {
+  Widget _buildFeatureButton({required String label}) {
     final onBrand = Theme.of(context).colorScheme.onPrimary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -296,7 +297,11 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: onBrand),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: onBrand, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 8),
           Text(
             label,
@@ -355,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Email or Student Number',
                     hintText: 'email@school.com or STD001',
-                    prefixIcon: const Icon(Icons.person),
+                    prefixIcon: _FieldPrefix(label: 'ID'),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -371,13 +376,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Password',
                     hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                    prefixIcon: _FieldPrefix(label: 'PW'),
+                    suffixIcon: TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(56, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
+                      child: Text(_obscurePassword ? 'Show' : 'Hide'),
                       onPressed: () {
                         setState(() {
                           _obscurePassword = !_obscurePassword;
@@ -435,19 +440,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           )
-                          : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Icon(Icons.arrow_forward, size: 20),
-                            ],
+                          : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                 ),
                 const SizedBox(height: 24),
@@ -460,23 +458,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: colorScheme.onSurfaceVariant,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Demo Credentials',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Demo Credentials',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _buildDemoCredential(
@@ -547,13 +535,43 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.touch_app_outlined,
-                  size: 14,
-                  color: colorScheme.outline,
+                Text(
+                  'Tap',
+                  style: TextStyle(fontSize: 11, color: colorScheme.outline),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldPrefix extends StatelessWidget {
+  final String label;
+
+  const _FieldPrefix({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      widthFactor: 1,
+      child: Container(
+        width: 28,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: colorScheme.primary,
           ),
         ),
       ),
