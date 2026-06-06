@@ -1,0 +1,7 @@
+node_modules/
+package-lock.json
+
+# Never commit credentials.
+serviceAccountKey.json
+*serviceAccountKey*.json
+.env

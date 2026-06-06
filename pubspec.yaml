@@ -38,4 +38,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data.json
-    - assets/logos/
+    - assets/logos/logo.svg
+    - assets/logos/logo_black.svg
+    - assets/logos/logo_orange.svg
+    - assets/logos/logo_teal.svg
+    - assets/logos/logo_white.svg

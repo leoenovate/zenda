@@ -55,6 +55,11 @@ class ZendaLogo extends StatelessWidget {
         height: size,
         fit: BoxFit.contain,
         colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.hub_outlined,
+          size: size,
+          color: tint,
+        ),
       ),
     );
   }

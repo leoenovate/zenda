@@ -357,13 +357,16 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder:
-            (_) => CustomRolesScreen(
-              schools: widget.schools,
-              onDataChanged: () {
-                _load();
-                widget.onDataChanged?.call();
-              },
-              showSchoolFilter: false,
+            (routeCtx) => Scaffold(
+              appBar: AppBar(title: const Text('Roles')),
+              body: CustomRolesScreen(
+                schools: widget.schools,
+                onDataChanged: () {
+                  _load();
+                  widget.onDataChanged?.call();
+                },
+                showSchoolFilter: false,
+              ),
             ),
       ),
     );
@@ -688,6 +691,9 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
               message: enrollTooltip,
               child: IconButton(
                 icon: const Icon(Icons.fingerprint_outlined, size: 20),
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
                 onPressed: () => _enroll(person),
               ),
             ),
@@ -695,6 +701,9 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
               message: attendanceTooltip,
               child: IconButton(
                 icon: const Icon(Icons.visibility_outlined, size: 20),
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
                 onPressed: () => _viewAttendance(person),
               ),
             ),
@@ -706,6 +715,7 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
                 icon: const Icon(Icons.fingerprint_outlined, size: 16),
                 label: const Text('Enroll'),
                 style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
@@ -719,6 +729,7 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
                 icon: const Icon(Icons.visibility_outlined, size: 16),
                 label: const Text('Attendance'),
                 style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),

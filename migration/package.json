@@ -1,0 +1,17 @@
+{
+  "name": "zenda-migration",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-off Firestore schema migration + verification scripts for the Zenda school attendance app (old schema -> organizations/members/groups/time_off, parents-as-users).",
+  "type": "commonjs",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "verify": "node verify.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.3.0"
+  }
+}

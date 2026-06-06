@@ -1626,14 +1626,37 @@ class FirebaseService {
 
   static Future<List<Role>> getRoles({String? schoolId}) async {
     try {
-      final q = _scopedSchool(
-        _firestore.collection('roles'),
-        explicitSchoolId: schoolId,
-      );
-      if (q == null) return [];
-      final snap = await q.get();
+      final session = AuthService.currentSession;
+      final isOwner = session?.role == UserRole.systemOwner;
+
+      if (isOwner) {
+        final q = _scopedSchool(
+          _firestore.collection('roles'),
+          explicitSchoolId: schoolId,
+        );
+        if (q == null) return [];
+        final snap = await q.get();
+        final roles =
+            snap.docs.map((d) => Role.fromFirestore(d.data(), d.id)).toList();
+        roles.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        return roles;
+      }
+
+      // School admins: filter client-side so legacy docs with empty or
+      // mismatched `schoolId` still appear for the active school.
+      final targetSchoolId = schoolId ?? session?.schoolId;
+      if (targetSchoolId == null || targetSchoolId.isEmpty) return [];
+
+      final snap = await _firestore.collection('roles').get();
       final roles =
-          snap.docs.map((d) => Role.fromFirestore(d.data(), d.id)).toList();
+          snap.docs
+              .map((d) => Role.fromFirestore(d.data(), d.id))
+              .where(
+                (r) => r.schoolId.isEmpty || r.schoolId == targetSchoolId,
+              )
+              .toList();
       roles.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );

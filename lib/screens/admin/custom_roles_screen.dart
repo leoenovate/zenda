@@ -5,6 +5,7 @@ import '../../models/school.dart';
 import '../../services/auth_service.dart';
 import '../../services/firebase_service.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import 'role_employees_screen.dart';
 
 /// Admin-list screen for managing custom role definitions for a school.
 /// Distinct from built-in system roles (admin/teacher/parent/worker/student);
@@ -73,6 +74,15 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
     }
   }
 
+  List<School> get _effectiveSchools {
+    if (widget.schools.isNotEmpty) return widget.schools;
+    final sessionId = AuthService.currentSchoolId;
+    if (sessionId != null && sessionId.isNotEmpty) {
+      return [School(id: sessionId, name: 'Your school')];
+    }
+    return const [];
+  }
+
   List<Role> get _filtered {
     return _roles.where((r) {
       if (widget.focusedRoleId != null && r.id != widget.focusedRoleId) {
@@ -107,10 +117,11 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
       searchHint: 'Search by name or description...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
-      schools: widget.schools,
+      schools: _effectiveSchools,
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
-      showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
+      showSchoolFilter:
+          widget.showSchoolFilter && _effectiveSchools.length > 1,
       addButtonLabel: 'Add Role',
       onAddPressed: _showFormDialog,
       listContent:
@@ -135,21 +146,43 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
     );
   }
 
+  void _openRoleEmployees(Role role) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder:
+            (_) => Scaffold(
+              appBar: AppBar(title: Text(role.name)),
+              body: RoleEmployeesScreen(
+                role: role,
+                allRoles: _roles,
+                schools: _effectiveSchools,
+                onDataChanged: () {
+                  _load();
+                  widget.onDataChanged?.call();
+                },
+              ),
+            ),
+      ),
+    );
+  }
+
   Widget _buildRow(Role role) {
     final colorScheme = Theme.of(context).colorScheme;
     final initial = role.name.isNotEmpty ? role.name[0].toUpperCase() : '?';
     final schoolName =
-        widget.schools
+        _effectiveSchools
             .firstWhere(
               (s) => s.id == role.schoolId,
               orElse: () => const School(name: 'Unassigned'),
             )
             .name;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
+    return InkWell(
+      onTap: () => _openRoleEmployees(role),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
           CircleAvatar(
             backgroundColor: colorScheme.primary.withOpacity(0.15),
             radius: 20,
@@ -177,7 +210,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    if (widget.showSchoolFilter && widget.schools.length > 1)
+                    if (widget.showSchoolFilter && _effectiveSchools.length > 1)
                       schoolName,
                     if (role.description != null &&
                         role.description!.isNotEmpty)
@@ -206,7 +239,13 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
             tooltip: 'Delete',
             onPressed: () => _confirmDelete(role),
           ),
+          Icon(
+            Icons.chevron_right,
+            size: 20,
+            color: colorScheme.onSurfaceVariant,
+          ),
         ],
+      ),
       ),
     );
   }
@@ -218,7 +257,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
   String? _resolveSchoolId({Role? role}) {
     final fromRole = role?.schoolId;
     if (fromRole != null && fromRole.isNotEmpty) return fromRole;
-    for (final s in widget.schools) {
+    for (final s in _effectiveSchools) {
       final id = s.id;
       if (id != null && id.isNotEmpty) return id;
     }
@@ -279,7 +318,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                             ),
                             decoration: adminInputDecoration('Description'),
                           ),
-                          if (widget.schools.length > 1) ...[
+                          if (_effectiveSchools.length > 1) ...[
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String?>(
                               value: schoolId,
@@ -293,7 +332,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                 color: Theme.of(context).colorScheme.onSurface,
                               ),
                               items:
-                                  widget.schools
+                                  _effectiveSchools
                                       .map(
                                         (s) => DropdownMenuItem<String?>(
                                           value: s.id,

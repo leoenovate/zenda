@@ -1246,6 +1246,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                       context,
                     ).showSnackBar(SnackBar(content: Text(msg)));
                     widget.onDataChanged?.call();
+                    Navigator.pop(context);
                   } catch (e) {
                     ScaffoldMessenger.of(
                       context,
