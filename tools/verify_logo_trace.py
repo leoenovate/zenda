@@ -1,30 +1,29 @@
 """Compare potrace SVG mask against source logo.png crop."""
 from __future__ import annotations
 
-import re
+from pathlib import Path
+
 import potrace
 import numpy as np
 from PIL import Image, ImageDraw
 
-SRC = r"c:\i\zenda\assets\icons\logo.png"
-SVG = r"c:\i\zenda\assets\icons\logo.svg"
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "assets" / "icons" / "logo.png"
+SVG = ROOT / "assets" / "icons" / "logo.svg"
 SCALE = 4
 PAD = 2
 
 
 def logo_mask(arr: np.ndarray) -> np.ndarray:
-    return (arr[:, :, 3] > 128) & (
-        arr[:, :, 2].astype(int) - arr[:, :, 0].astype(int) > 20
-    )
+    opaque = arr[:, :, 3] > 128
+    blue = arr[:, :, 2].astype(int) - arr[:, :, 0].astype(int) > 20
+    return opaque & blue
 
 
 def rasterize_potrace(mask: np.ndarray) -> np.ndarray:
     ch, cw = mask.shape
-    up = np.array(
-        Image.fromarray((mask.astype(np.uint8) * 255)).resize(
-            (cw * SCALE, ch * SCALE), Image.Resampling.NEAREST
-        )
-    ) > 127
+    layer = Image.fromarray((~mask).astype(np.uint8) * 255, mode="L")
+    up = layer.resize((cw * SCALE, ch * SCALE), Image.Resampling.NEAREST)
     path = potrace.Bitmap(up).trace(
         turdsize=2,
         turnpolicy=potrace.POTRACE_TURNPOLICY_MINORITY,
@@ -33,11 +32,9 @@ def rasterize_potrace(mask: np.ndarray) -> np.ndarray:
         opttolerance=0.08,
     )
 
-    img = Image.new("L", (cw, ch), 0)
-    draw = ImageDraw.Draw(img)
+    result = np.zeros((ch, cw), dtype=bool)
     inv = 1.0 / SCALE
 
-    polys: list[list[tuple[float, float]]] = []
     for curve in path.curves:
         pts: list[tuple[float, float]] = [
             (curve.start_point.x * inv, curve.start_point.y * inv)
@@ -66,16 +63,11 @@ def rasterize_potrace(mask: np.ndarray) -> np.ndarray:
                         + t**3 * p3[1]
                     )
                     pts.append((x, y))
-        polys.append(pts)
-
-    # evenodd: XOR each subpath mask
-    result = np.zeros((ch, cw), dtype=bool)
-    for poly in polys:
-        if len(poly) < 3:
+        if len(pts) < 3:
             continue
-        layer = Image.new("L", (cw, ch), 0)
-        ImageDraw.Draw(layer).polygon(poly, fill=255)
-        result ^= np.array(layer) > 0
+        layer_img = Image.new("L", (cw, ch), 0)
+        ImageDraw.Draw(layer_img).polygon(pts, fill=255)
+        result ^= np.array(layer_img) > 0
     return result
 
 
@@ -95,7 +87,7 @@ def main() -> None:
     extra = (~crop & approx).sum()
     print(f"crop {crop.shape[1]}x{crop.shape[0]}")
     print(f"iou={inter/union:.4f} miss={miss} extra={extra}")
-    svg = open(SVG, encoding="utf-8").read()
+    svg = SVG.read_text(encoding="utf-8")
     assert "d=\"" in svg
     print("svg bytes", len(svg))
 
