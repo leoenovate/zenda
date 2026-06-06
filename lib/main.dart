@@ -12,8 +12,10 @@ import 'services/auth_storage_service.dart';
 import 'services/firebase_service.dart';
 import 'models/student.dart';
 import 'models/attendance.dart';
+import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+import 'utils/web_brand_sync.dart';
 
 // Synthetic student used when the demo parent (STD001) resumes a session but
 // no matching student exists in Firestore. Kept in sync with the equivalent
@@ -105,12 +107,55 @@ class MyApp extends StatelessWidget {
 
         return MediaQuery(
           data: mediaQuery.copyWith(textScaler: scale),
-          child: child!,
+          child: _WebBrandListener(
+            primary: controller.primary,
+            isDark: controller.isDarkResolved,
+            child: child!,
+          ),
         );
       },
       debugShowCheckedModeBanner: false,
     );
   }
+}
+
+class _WebBrandListener extends StatefulWidget {
+  const _WebBrandListener({
+    required this.primary,
+    required this.isDark,
+    required this.child,
+  });
+
+  final AppPrimary primary;
+  final bool isDark;
+  final Widget child;
+
+  @override
+  State<_WebBrandListener> createState() => _WebBrandListenerState();
+}
+
+class _WebBrandListenerState extends State<_WebBrandListener> {
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebBrandListener oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.primary != widget.primary ||
+        oldWidget.isDark != widget.isDark) {
+      _sync();
+    }
+  }
+
+  void _sync() {
+    syncWebBrand(primary: widget.primary, isDark: widget.isDark);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class AuthWrapper extends StatefulWidget {

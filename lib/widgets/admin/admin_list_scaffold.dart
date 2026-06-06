@@ -136,12 +136,17 @@ class AdminListScaffold extends StatelessWidget {
   }
 
   Widget _buildFilters(BuildContext context, bool isMobile) {
-    final searchField = TextField(
-      decoration: InputDecoration(
-        hintText: searchHint,
-        prefixIcon: const Icon(Icons.search),
+    final colorScheme = Theme.of(context).colorScheme;
+    final searchField = Material(
+      color: colorScheme.surfaceContainer,
+      borderRadius: BorderRadius.circular(8),
+      child: TextField(
+        decoration: InputDecoration(
+          hintText: searchHint,
+          prefixIcon: const Icon(Icons.search),
+        ),
+        onChanged: onSearchChanged,
       ),
-      onChanged: onSearchChanged,
     );
     final filters = <Widget>[
       if (showSchoolFilter)

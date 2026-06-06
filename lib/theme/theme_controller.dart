@@ -10,7 +10,7 @@ class ThemeController extends ChangeNotifier {
   static const String _primaryKey = 'pref.theme_primary';
 
   ThemeMode _mode = ThemeMode.dark;
-  AppPrimary _primary = AppPrimary.teal;
+  AppPrimary _primary = AppPrimary.orange;
   bool _loaded = false;
 
   ThemeMode get mode => _mode;
@@ -42,7 +42,7 @@ class ThemeController extends ChangeNotifier {
       if (primaryStr != null) {
         _primary = AppPrimary.values.firstWhere(
           (p) => p.name == primaryStr,
-          orElse: () => AppPrimary.teal,
+          orElse: () => AppPrimary.orange,
         );
       }
     } catch (_) {

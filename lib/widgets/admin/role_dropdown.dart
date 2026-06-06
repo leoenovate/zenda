@@ -5,9 +5,8 @@ import 'admin_list_scaffold.dart';
 
 /// Reusable dropdown for picking a custom [Role] when editing a worker,
 /// teacher, or admin record. Lists every active role defined for the
-/// person's school. Roles are not filtered by `appliesTo` — any role
-/// can be assigned to any kind of person; `appliesTo` is informational
-/// only and used elsewhere as a default hint.
+/// person's school. Every active role is shown — any role can be assigned
+/// to any kind of person.
 ///
 /// The selected value is the role's `id` (or null for "no role"). Pass
 /// the loaded `_roles` list down so this widget doesn't reload data.

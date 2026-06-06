@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/role.dart';
 import '../../models/school.dart';
+import '../../services/auth_service.dart';
 import '../../services/firebase_service.dart';
-import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
 /// Admin-list screen for managing custom role definitions for a school.
@@ -137,7 +137,6 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
 
   Widget _buildRow(Role role) {
     final colorScheme = Theme.of(context).colorScheme;
-    final accent = _parseColor(role.color) ?? colorScheme.primary;
     final initial = role.name.isNotEmpty ? role.name[0].toUpperCase() : '?';
     final schoolName =
         widget.schools
@@ -152,11 +151,14 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: accent.withOpacity(0.15),
+            backgroundColor: colorScheme.primary.withOpacity(0.15),
             radius: 20,
             child: Text(
               initial,
-              style: TextStyle(color: accent, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -213,24 +215,16 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
   // Dialogs
   // ----------------------------------------------------------------------
 
-  static const List<String> _palette = [
-    '#FF7043',
-    '#26A69A',
-    '#5C6BC0',
-    '#AB47BC',
-    '#EC407A',
-    '#66BB6A',
-    '#FFA726',
-    '#42A5F5',
-  ];
-
-  static Color? _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    var v = hex.replaceFirst('#', '');
-    if (v.length == 6) v = 'FF$v';
-    final parsed = int.tryParse(v, radix: 16);
-    if (parsed == null) return null;
-    return Color(parsed);
+  String? _resolveSchoolId({Role? role}) {
+    final fromRole = role?.schoolId;
+    if (fromRole != null && fromRole.isNotEmpty) return fromRole;
+    for (final s in widget.schools) {
+      final id = s.id;
+      if (id != null && id.isNotEmpty) return id;
+    }
+    final sessionId = AuthService.currentSchoolId;
+    if (sessionId != null && sessionId.isNotEmpty) return sessionId;
+    return null;
   }
 
   void _showFormDialog({Role? role}) {
@@ -238,18 +232,11 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
     final descriptionController = TextEditingController(
       text: role?.description ?? '',
     );
-    String? schoolId = role?.schoolId;
-    String? color = role?.color ?? _palette.first;
-    final Set<String> appliesTo = {
-      ...(role?.appliesTo ?? const [AuthRoles.kindWorker]),
-    };
+    String? schoolId = _resolveSchoolId(role: role);
     bool isActive = role?.isActive ?? true;
     bool isSaving = false;
+    String? formError;
     final isEdit = role != null;
-
-    if (schoolId == null && widget.schools.isNotEmpty) {
-      schoolId = widget.schools.first.id;
-    }
 
     showDialog<void>(
       context: context,
@@ -318,65 +305,8 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                   (v) => setStateDialog(() => schoolId = v),
                             ),
                           ],
-                          const SizedBox(height: 16),
-                          Text(
-                            'Color',
-                            style: TextStyle(
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final hex in _palette)
-                                _ColorSwatch(
-                                  hex: hex,
-                                  selected: color == hex,
-                                  onTap:
-                                      () => setStateDialog(() => color = hex),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Applies to',
-                            style: TextStyle(
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final kind in AuthRoles.allKinds)
-                                FilterChip(
-                                  label: Text(
-                                    AuthRoles.kindLabelPlural(kind),
-                                  ),
-                                  selected: appliesTo.contains(kind),
-                                  onSelected: (v) => setStateDialog(() {
-                                    if (v) {
-                                      appliesTo.add(kind);
-                                    } else if (appliesTo.length > 1) {
-                                      appliesTo.remove(kind);
-                                    }
-                                  }),
-                                ),
-                            ],
-                          ),
                           if (isEdit) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 16),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
                               value: isActive,
@@ -391,6 +321,16 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                               ),
                               onChanged:
                                   (v) => setStateDialog(() => isActive = v),
+                            ),
+                          ],
+                          if (formError != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              formError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ],
@@ -416,38 +356,29 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                 final name = nameController.text.trim();
                                 final description =
                                     descriptionController.text.trim();
+                                final effectiveSchoolId =
+                                    schoolId ?? _resolveSchoolId(role: role);
                                 if (name.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Role name is required'),
-                                    ),
+                                  setStateDialog(
+                                    () => formError = 'Role name is required',
                                   );
                                   return;
                                 }
-                                if (schoolId == null || schoolId!.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('A school is required'),
-                                    ),
+                                if (effectiveSchoolId == null ||
+                                    effectiveSchoolId.isEmpty) {
+                                  setStateDialog(
+                                    () =>
+                                        formError =
+                                            'Could not determine your school. '
+                                            'Sign out and sign in again.',
                                   );
                                   return;
                                 }
-                                if (appliesTo.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Pick at least one role kind',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                setStateDialog(() => isSaving = true);
+                                setStateDialog(() {
+                                  formError = null;
+                                  isSaving = true;
+                                });
                                 try {
-                                  final orderedAppliesTo = [
-                                    for (final k in AuthRoles.allKinds)
-                                      if (appliesTo.contains(k)) k,
-                                  ];
                                   if (isEdit) {
                                     final updated = role.copyWith(
                                       name: name,
@@ -455,9 +386,7 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                           description.isEmpty
                                               ? null
                                               : description,
-                                      schoolId: schoolId,
-                                      color: color,
-                                      appliesTo: orderedAppliesTo,
+                                      schoolId: effectiveSchoolId,
                                       isActive: isActive,
                                     );
                                     await FirebaseService.updateRole(updated);
@@ -469,13 +398,11 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                             description.isEmpty
                                                 ? null
                                                 : description,
-                                        schoolId: schoolId!,
-                                        color: color,
-                                        appliesTo: orderedAppliesTo,
+                                        schoolId: effectiveSchoolId,
                                       ),
                                     );
                                   }
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   Navigator.pop(dialogCtx);
                                   final msg =
                                       isEdit ? 'Role updated' : 'Role created';
@@ -485,10 +412,14 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                                   await _load();
                                   widget.onDataChanged?.call();
                                 } catch (e) {
-                                  setStateDialog(() => isSaving = false);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e')),
-                                  );
+                                  if (!dialogCtx.mounted) return;
+                                  setStateDialog(() {
+                                    isSaving = false;
+                                    formError = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
+                                  });
                                 }
                               },
                       style: ElevatedButton.styleFrom(
@@ -533,12 +464,10 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
                     return;
                   }
                   try {
-                    final cleared =
-                        await FirebaseService.clearRoleAssignments(
-                          roleId: role.id!,
-                          appliesTo: role.appliesTo,
-                          schoolId: role.schoolId,
-                        );
+                    final cleared = await FirebaseService.clearRoleAssignments(
+                      roleId: role.id!,
+                      schoolId: role.schoolId,
+                    );
                     await FirebaseService.deleteRole(role.id!);
                     if (!mounted) return;
                     Navigator.pop(dialogCtx);
@@ -567,46 +496,6 @@ class _CustomRolesScreenState extends State<CustomRolesScreen> {
               ),
             ],
           ),
-    );
-  }
-}
-
-class _ColorSwatch extends StatelessWidget {
-  final String hex;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ColorSwatch({
-    required this.hex,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _CustomRolesScreenState._parseColor(hex) ?? Colors.grey;
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color:
-                selected
-                    ? Theme.of(context).colorScheme.onSurface
-                    : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child:
-            selected
-                ? const Icon(Icons.check, color: Colors.white, size: 18)
-                : null,
-      ),
     );
   }
 }

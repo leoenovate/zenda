@@ -5,7 +5,10 @@ import '../models/student.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../services/firebase_service.dart';
+import '../utils/responsive_builder.dart';
 import '../widgets/dashboard/attendance_dashboard.dart';
+import '../widgets/navigation/mobile_bottom_nav_shell.dart';
+import '../widgets/navigation/mobile_nav_sheet.dart';
 import '../widgets/theme/theme_switcher.dart';
 
 class TeacherDashboardScreen extends StatefulWidget {
@@ -21,6 +24,25 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   List<Student> _filteredStudents = [];
   bool _isLoading = true;
   bool _showingAllSchoolStudents = false;
+  int _teacherTabIndex = 0;
+
+  static const _mobileDestinations = [
+    MobileNavDestination(
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+      label: 'Overview',
+    ),
+    MobileNavDestination(
+      icon: Icons.people_outline,
+      selectedIcon: Icons.people,
+      label: 'Students',
+    ),
+    MobileNavDestination(
+      icon: Icons.more_horiz,
+      selectedIcon: Icons.more_horiz,
+      label: 'More',
+    ),
+  ];
 
   @override
   void initState() {
@@ -149,8 +171,144 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
+  void _onTeacherNavTap(int index) {
+    if (index == 2) {
+      _showTeacherMoreSheet();
+      return;
+    }
+    if (index == _teacherTabIndex) return;
+    setState(() => _teacherTabIndex = index);
+  }
+
+  void _showTeacherMoreSheet() {
+    showMobileNavSheet(
+      context,
+      title: 'More',
+      items: [
+        MobileNavSheetItem(
+          icon: Icons.refresh_rounded,
+          label: 'Refresh',
+          onTap: _isLoading ? () {} : _loadStudents,
+        ),
+      ],
+      footerWidgets: [
+        const Divider(),
+        const ListTile(
+          title: Text('Theme'),
+          leading: Icon(Icons.palette_outlined),
+          trailing: ThemeSwitcher(onAppBar: false),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout),
+          title: const Text('Logout'),
+          onTap: _logout,
+        ),
+      ],
+    );
+  }
+
+  String get _mobileSectionTitle {
+    switch (_teacherTabIndex) {
+      case 0:
+        return 'Overview';
+      case 1:
+        return 'Students';
+      default:
+        return 'Teacher Dashboard';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return MobileBottomNavShell(
+        appBar: AppBar(
+          title: Text(_mobileSectionTitle),
+          automaticallyImplyLeading: false,
+        ),
+        body: SafeArea(child: _buildMobileTabBody(context)),
+        destinations: _mobileDestinations,
+        selectedIndex: _teacherTabIndex,
+        onDestinationSelected: _onTeacherNavTap,
+      );
+    }
+
+    return _buildDesktopLayout(context);
+  }
+
+  Widget _buildMobileTabBody(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadStudents,
+      child: switch (_teacherTabIndex) {
+        1 => _buildStudentsTab(context),
+        _ => _buildOverviewTab(context),
+      },
+    );
+  }
+
+  Widget _buildOverviewTab(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (_showingAllSchoolStudents)
+          const _InfoBanner(
+            text:
+                'No class is linked to this teacher yet, so all school students are shown.',
+          ),
+        AttendanceDashboard(students: _students),
+      ],
+    );
+  }
+
+  Widget _buildStudentsTab(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (_showingAllSchoolStudents)
+          const _InfoBanner(
+            text:
+                'No class is linked to this teacher yet, so all school students are shown.',
+          ),
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search_rounded),
+            hintText: 'Search assigned students',
+            filled: true,
+            fillColor: colorScheme.surfaceContainer,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_filteredStudents.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Center(
+              child: Text(
+                'No students found',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          )
+        else
+          ..._filteredStudents.map(_buildStudentCard),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -180,7 +338,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       if (_showingAllSchoolStudents)
-                        _InfoBanner(
+                        const _InfoBanner(
                           text:
                               'No class is linked to this teacher yet, so all school students are shown.',
                         ),

@@ -5,33 +5,63 @@ from pathlib import Path
 
 import potrace
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "icons" / "logo.png"
-OUT = ROOT / "assets" / "icons" / "logo.svg"
-SCALE = 4
+OUT = ROOT / "assets" / "logos" / "logo.svg"
+SCALE = 8
 PAD = 2
+OUTER_PAD = 1
+CURVE_PAD = 2
+# Softens pixel stair-steps before curve fitting; keeps IoU ~0.968.
+BLUR_RADIUS = 1.5
+OPTTOLERANCE = 0.65
+# Drop Potrace dust specks (px in output space); main logo contours are ~230×186.
+MIN_CURVE_BBOX = 4.0
 
 
-def _path_data(path: potrace.Path, scale: float) -> str:
+def _curve_bounds(curve: potrace.Curve, scale: float) -> tuple[float, float, float, float]:
+    inv = 1.0 / scale
+    xs = [curve.start_point.x * inv]
+    ys = [curve.start_point.y * inv]
+    for seg in curve.segments:
+        if seg.is_corner:
+            xs.extend((seg.c.x * inv, seg.end_point.x * inv))
+            ys.extend((seg.c.y * inv, seg.end_point.y * inv))
+        else:
+            xs.extend((seg.c1.x * inv, seg.c2.x * inv, seg.end_point.x * inv))
+            ys.extend((seg.c1.y * inv, seg.c2.y * inv, seg.end_point.y * inv))
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _keep_curves(curves: list[potrace.Curve], scale: float) -> list[potrace.Curve]:
+    kept: list[potrace.Curve] = []
+    for curve in curves:
+        min_x, min_y, max_x, max_y = _curve_bounds(curve, scale)
+        if max(max_x - min_x, max_y - min_y) >= MIN_CURVE_BBOX:
+            kept.append(curve)
+    return kept
+
+
+def _path_data(curves: list[potrace.Curve], scale: float, tx: float, ty: float) -> str:
     parts: list[str] = []
     inv = 1.0 / scale
-    for curve in path.curves:
-        sx = curve.start_point.x * inv
-        sy = curve.start_point.y * inv
+    for curve in curves:
+        sx = curve.start_point.x * inv + tx
+        sy = curve.start_point.y * inv + ty
         parts.append(f"M {sx:.3f} {sy:.3f}")
         for seg in curve.segments:
             if seg.is_corner:
                 parts.append(
-                    f"L {seg.c.x * inv:.3f} {seg.c.y * inv:.3f} "
-                    f"L {seg.end_point.x * inv:.3f} {seg.end_point.y * inv:.3f}"
+                    f"L {seg.c.x * inv + tx:.3f} {seg.c.y * inv + ty:.3f} "
+                    f"L {seg.end_point.x * inv + tx:.3f} {seg.end_point.y * inv + ty:.3f}"
                 )
             else:
                 parts.append(
-                    f"C {seg.c1.x * inv:.3f} {seg.c1.y * inv:.3f} "
-                    f"{seg.c2.x * inv:.3f} {seg.c2.y * inv:.3f} "
-                    f"{seg.end_point.x * inv:.3f} {seg.end_point.y * inv:.3f}"
+                    f"C {seg.c1.x * inv + tx:.3f} {seg.c1.y * inv + ty:.3f} "
+                    f"{seg.c2.x * inv + tx:.3f} {seg.c2.y * inv + ty:.3f} "
+                    f"{seg.end_point.x * inv + tx:.3f} {seg.end_point.y * inv + ty:.3f}"
                 )
         parts.append("Z")
     return " ".join(parts)
@@ -48,6 +78,16 @@ def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
 
 
+def _path_bounds(curves: list[potrace.Curve], scale: float) -> tuple[float, float, float, float]:
+    xs: list[float] = []
+    ys: list[float] = []
+    for curve in curves:
+        min_x, min_y, max_x, max_y = _curve_bounds(curve, scale)
+        xs.extend((min_x, max_x))
+        ys.extend((min_y, max_y))
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def main() -> None:
     img = Image.open(SRC).convert("RGBA")
     arr = np.array(img)
@@ -62,26 +102,41 @@ def main() -> None:
 
     # Potrace expects black shapes on white; Bitmap(bool) inverts internally.
     layer = Image.fromarray((~crop).astype(np.uint8) * 255, mode="L")
-    up = layer.resize((cw * SCALE, ch * SCALE), Image.Resampling.NEAREST)
+    up = layer.resize((cw * SCALE, ch * SCALE), Image.Resampling.LANCZOS)
+    if BLUR_RADIUS > 0:
+        up = up.filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS))
 
     traced = potrace.Bitmap(up).trace(
         turdsize=2,
         turnpolicy=potrace.POTRACE_TURNPOLICY_MINORITY,
-        alphamax=1.0,
+        alphamax=1.334,
         opticurve=True,
-        opttolerance=0.08,
+        opttolerance=OPTTOLERANCE,
     )
 
-    d = _path_data(traced, SCALE)
+    curves = _keep_curves(list(traced.curves), SCALE)
+
+    min_x, min_y, max_x, max_y = _path_bounds(curves, SCALE)
+    min_x -= CURVE_PAD
+    min_y -= CURVE_PAD
+    max_x += CURVE_PAD
+    max_y += CURVE_PAD
+    pw, ph = max_x - min_x, max_y - min_y
+    vw = pw + 2 * OUTER_PAD
+    vh = ph + 2 * OUTER_PAD
+    tx = OUTER_PAD - min_x
+    ty = OUTER_PAD - min_y
+
+    d = _path_data(curves, SCALE, tx, ty)
     svg = f"""<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {cw} {ch}" color="#1A5F5F" aria-hidden="true">
-  <!-- Mask-traced from logo.png (potrace {SCALE}x). Tint via color or ColorFilter. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {vw:.1f} {vh:.1f}" color="#1A5F5F" aria-hidden="true">
+  <!-- Mask-traced from logo.png (potrace {SCALE}x, blur={BLUR_RADIUS}, trimmed). Tint via currentColor. -->
   <path fill="currentColor" fill-rule="evenodd" d="{d}"/>
 </svg>
 """
     OUT.write_text(svg, encoding="utf-8")
 
-    print(f"Wrote {OUT} viewBox={cw}x{ch} curves={len(traced.curves)}")
+    print(f"Wrote {OUT} viewBox={vw:.1f}x{vh:.1f} curves={len(curves)}")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ enum ZendaLogoTone {
   accent,
 }
 
-/// Theme-aware Zenda logo rendered from [assets/icons/logo.svg].
+/// Theme-aware Zenda logo rendered from [assets/logos/logo.svg].
 class ZendaLogo extends StatelessWidget {
   const ZendaLogo({
     super.key,
@@ -31,7 +31,7 @@ class ZendaLogo extends StatelessWidget {
   final ZendaLogoTone tone;
   final String? semanticsLabel;
 
-  static const _assetPath = 'assets/icons/logo.svg';
+  static const _assetPath = 'assets/logos/logo.svg';
 
   Color _resolveColor(BuildContext context) {
     if (color != null) return color!;

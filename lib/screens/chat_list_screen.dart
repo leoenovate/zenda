@@ -11,12 +11,14 @@ class ChatListScreen extends StatefulWidget {
   final List<Student> students;
   final MessageSender userType;
   final String userName;
+  final bool embedded;
 
   const ChatListScreen({
     Key? key,
     required this.students,
     required this.userType,
     required this.userName,
+    this.embedded = false,
   }) : super(key: key);
 
   @override
@@ -99,6 +101,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final body = _buildBody(context);
+    if (widget.embedded) return body;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
@@ -111,50 +116,56 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
           ),
         ],
       ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Column(
-          children: [
-            // Search bar with responsive padding
-            Padding(
-              padding: EdgeInsets.all(context.spacingMd),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: context.isMobile ? 'Search...' : 'Search students...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+      body: body,
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(context.spacingMd),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText:
+                    context.isMobile ? 'Search...' : 'Search students...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
-            
-            // Student list
-            Expanded(
-              child: filteredStudents.isEmpty
-                  ? Center(
+          ),
+          Expanded(
+            child:
+                filteredStudents.isEmpty
+                    ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.search_off,
                             size: context.isMobile ? 48 : 64,
-                            color: Colors.grey.shade400,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           SizedBox(height: context.spacingMd),
                           Text(
                             'No students found',
                             style: TextStyle(
                               fontSize: context.isMobile ? 14 : 16,
-                              color: Colors.grey.shade600,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                     )
-                  : ListView.builder(
+                    : ListView.builder(
                       padding: EdgeInsets.symmetric(
                         vertical: context.spacingSm,
                       ),
@@ -163,7 +174,10 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                         final student = filteredStudents[index];
                         final unreadCount = unreadMessages[student.id] ?? 0;
 
-                        final double begin = (0.1 + index * 0.05).clamp(0.0, 0.4);
+                        final double begin = (0.1 + index * 0.05).clamp(
+                          0.0,
+                          0.4,
+                        );
                         final double end = (begin + 0.5).clamp(0.0, 1.0);
                         final itemAnimation = Tween<Offset>(
                           begin: const Offset(0, 0.3),
@@ -178,14 +192,14 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                             ),
                           ),
                         );
-                        
+
                         return SlideTransition(
                           key: ValueKey(student.id),
                           position: itemAnimation,
                           child: Padding(
                             padding: EdgeInsets.symmetric(
-                              horizontal: context.spacingSm, 
-                              vertical: context.isMobile ? 2 : 4
+                              horizontal: context.spacingSm,
+                              vertical: context.isMobile ? 2 : 4,
                             ),
                             child: Card(
                               elevation: 1,
@@ -202,31 +216,31 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                   ),
                                   child: Row(
                                     children: [
-                                      // Avatar
                                       CircleAvatar(
-                                        backgroundColor: Theme.of(context).colorScheme.primary,
+                                        backgroundColor: colorScheme.primary,
                                         radius: context.isMobile ? 20 : 24,
                                         child: Text(
                                           student.name[0].toUpperCase(),
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: colorScheme.onPrimary,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: context.isMobile ? 14 : 16,
+                                            fontSize:
+                                                context.isMobile ? 14 : 16,
                                           ),
                                         ),
                                       ),
                                       SizedBox(width: context.spacingMd),
-                                      
-                                      // Student info
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               student.name,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: context.isMobile ? 14 : 16,
+                                                fontSize:
+                                                    context.isMobile ? 14 : 16,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -238,29 +252,32 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                                       ? 'No session'
                                                       : '${student.sessionIds.length} session${student.sessionIds.length == 1 ? '' : 's'}'),
                                               style: TextStyle(
-                                                fontSize: context.isMobile ? 12 : 14,
-                                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                fontSize:
+                                                    context.isMobile ? 12 : 14,
+                                                color: colorScheme.onSurface
+                                                    .withOpacity(0.7),
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
                                         ),
                                       ),
-                                      
-                                      // Unread indicator
                                       if (unreadCount > 0)
                                         Container(
-                                          padding: EdgeInsets.all(context.isMobile ? 6 : 8),
-                                          decoration: BoxDecoration(
+                                          padding: EdgeInsets.all(
+                                            context.isMobile ? 6 : 8,
+                                          ),
+                                          decoration: const BoxDecoration(
                                             color: Colors.red,
                                             shape: BoxShape.circle,
                                           ),
                                           child: Text(
                                             unreadCount.toString(),
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: colorScheme.onPrimary,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: context.isMobile ? 10 : 12,
+                                              fontSize:
+                                                  context.isMobile ? 10 : 12,
                                             ),
                                           ),
                                         ),
@@ -273,9 +290,8 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                         );
                       },
                     ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

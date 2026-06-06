@@ -6,8 +6,11 @@ import '../models/message.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
+import 'chat_list_screen.dart';
 import 'chat_screen.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/navigation/mobile_bottom_nav_shell.dart';
+import '../widgets/navigation/mobile_nav_sheet.dart';
 import '../widgets/theme/theme_switcher.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
@@ -28,6 +31,30 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   Student? _selectedStudent;
   bool _isLoading = true;
+  int _parentTabIndex = 0;
+
+  static const _mobileDestinations = [
+    MobileNavDestination(
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      label: 'Home',
+    ),
+    MobileNavDestination(
+      icon: Icons.fact_check_outlined,
+      selectedIcon: Icons.fact_check,
+      label: 'Attendance',
+    ),
+    MobileNavDestination(
+      icon: Icons.chat_bubble_outline,
+      selectedIcon: Icons.chat_bubble,
+      label: 'Chat',
+    ),
+    MobileNavDestination(
+      icon: Icons.more_horiz,
+      selectedIcon: Icons.more_horiz,
+      label: 'More',
+    ),
+  ];
 
   @override
   void initState() {
@@ -60,6 +87,55 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     await AuthStorageService.clearStoredLogin();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+  }
+
+  Student get _activeStudent => _selectedStudent ?? widget.students.first;
+
+  String get _parentUserName =>
+      _activeStudent.fatherName ??
+      _activeStudent.motherName ??
+      'Parent';
+
+  void _onParentNavTap(int index) {
+    if (index == 3) {
+      _showParentMoreSheet();
+      return;
+    }
+    if (index == _parentTabIndex) return;
+    setState(() => _parentTabIndex = index);
+  }
+
+  void _showParentMoreSheet() {
+    showMobileNavSheet(
+      context,
+      title: 'More',
+      items: const [],
+      footerWidgets: [
+        const ListTile(
+          title: Text('Theme'),
+          leading: Icon(Icons.palette_outlined),
+          trailing: ThemeSwitcher(onAppBar: false),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout),
+          title: const Text('Logout'),
+          onTap: _logout,
+        ),
+      ],
+    );
+  }
+
+  String get _mobileSectionTitle {
+    switch (_parentTabIndex) {
+      case 0:
+        return 'Home';
+      case 1:
+        return 'Attendance';
+      case 2:
+        return 'Messages';
+      default:
+        return 'Parent Portal';
+    }
   }
 
   @override
@@ -100,20 +176,41 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       );
     }
 
-    final student = _selectedStudent ?? widget.students.first;
-    final attendanceData =
-        student.attendanceHistory.isEmpty ? <Attendance>[] : student.attendanceHistory;
+    if (context.isMobile) {
+      return MobileBottomNavShell(
+        appBar: AppBar(
+          title: Text(_mobileSectionTitle),
+          automaticallyImplyLeading: false,
+        ),
+        body: _buildMobileTabBody(context),
+        destinations: _mobileDestinations,
+        selectedIndex: _parentTabIndex,
+        onDestinationSelected: _onParentNavTap,
+      );
+    }
 
-    final present = attendanceData
-        .where((a) => a.status == AttendanceStatus.present)
-        .length;
-    final late =
-        attendanceData.where((a) => a.status == AttendanceStatus.late).length;
-    final absent = attendanceData
-        .where((a) => a.status == AttendanceStatus.absent)
-        .length;
-    final total = attendanceData.length;
-    final presentPercentage = total > 0 ? (present / total * 100) : 0.0;
+    return _buildDesktopLayout(context);
+  }
+
+  Widget _buildMobileTabBody(BuildContext context) {
+    switch (_parentTabIndex) {
+      case 1:
+        return _buildAttendanceTab(context);
+      case 2:
+        return ChatListScreen(
+          embedded: true,
+          students: widget.students,
+          userType: MessageSender.parent,
+          userName: _parentUserName,
+        );
+      case 0:
+      default:
+        return _buildHomeTab(context);
+    }
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    final student = _activeStudent;
 
     return Scaffold(
       appBar: AppBar(
@@ -130,9 +227,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     builder: (context) => ChatScreen(
                       student: student,
                       userType: MessageSender.parent,
-                      userName: student.fatherName ??
-                          student.motherName ??
-                          'Parent',
+                      userName: _parentUserName,
                     ),
                   ),
                 );
@@ -150,241 +245,151 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (widget.students.length > 1)
-              Container(
-                padding: EdgeInsets.all(context.spacingMd),
-                color: colorScheme.surfaceContainer,
-                child: DropdownButtonFormField<Student>(
-                  value: _selectedStudent ?? widget.students.first,
-                  decoration: const InputDecoration(
-                    labelText: 'Select Child',
-                  ),
-                  items: widget.students.map((s) {
-                    return DropdownMenuItem<Student>(
-                      value: s,
-                      child: Text(s.name),
-                    );
-                  }).toList(),
-                  onChanged: (Student? newStudent) {
-                    setState(() {
-                      _selectedStudent = newStudent;
-                    });
-                  },
-                ),
-              ),
+            if (widget.students.length > 1) _buildChildSelector(context),
             Expanded(
               child: ListView(
                 padding: EdgeInsets.all(context.spacingMd),
                 children: [
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(context.spacingMd),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: colorScheme.primary,
-                                radius: 30,
-                                child: Text(
-                                  student.name[0].toUpperCase(),
-                                  style: TextStyle(
-                                    color: colorScheme.onPrimary,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: context.spacingMd),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      student.name,
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: context.spacingXs),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.class_,
-                                          size: 16,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                        SizedBox(width: context.spacingXs),
-                                        Text(
-                                          student.sessionIds.isEmpty
-                                              ? 'No session'
-                                              : '${student.sessionIds.length} session${student.sessionIds.length == 1 ? '' : 's'}',
-                                          style: TextStyle(
-                                            color:
-                                                colorScheme.onSurfaceVariant,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        if (student.registrationNumber !=
-                                            null) ...[
-                                          SizedBox(width: context.spacingMd),
-                                          Icon(
-                                            Icons.badge,
-                                            size: 16,
-                                            color:
-                                                colorScheme.onSurfaceVariant,
-                                          ),
-                                          SizedBox(width: context.spacingXs),
-                                          Text(
-                                            student.registrationNumber!,
-                                            style: TextStyle(
-                                              color: colorScheme
-                                                  .onSurfaceVariant,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  _buildProfileCard(context, student),
+                  SizedBox(height: context.spacingMd),
+                  ..._buildAttendanceSection(context, student),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChildSelector(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.all(context.spacingMd),
+      color: colorScheme.surfaceContainer,
+      child: DropdownButtonFormField<Student>(
+        value: _activeStudent,
+        decoration: const InputDecoration(
+          labelText: 'Select Child',
+        ),
+        items: widget.students.map((s) {
+          return DropdownMenuItem<Student>(
+            value: s,
+            child: Text(s.name),
+          );
+        }).toList(),
+        onChanged: (Student? newStudent) {
+          setState(() {
+            _selectedStudent = newStudent;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(BuildContext context) {
+    final student = _activeStudent;
+    return SafeArea(
+      child: Column(
+        children: [
+          if (widget.students.length > 1) _buildChildSelector(context),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.all(context.spacingMd),
+              children: [
+                _buildProfileCard(context, student),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceTab(BuildContext context) {
+    final student = _activeStudent;
+    return SafeArea(
+      child: Column(
+        children: [
+          if (widget.students.length > 1) _buildChildSelector(context),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.all(context.spacingMd),
+              children: _buildAttendanceSection(context, student),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(BuildContext context, Student student) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(context.spacingMd),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: colorScheme.primary,
+              radius: 30,
+              child: Text(
+                student.name[0].toUpperCase(),
+                style: TextStyle(
+                  color: colorScheme.onPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            SizedBox(width: context.spacingMd),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.name,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: context.spacingMd),
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(context.spacingMd),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Attendance Statistics',
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: context.spacingMd),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                    'Present', present, total, Colors.green,
-                                    context),
-                              ),
-                              SizedBox(width: context.spacingSm),
-                              Expanded(
-                                child: _buildStatCard(
-                                    'Late', late, total, Colors.orange,
-                                    context),
-                              ),
-                              SizedBox(width: context.spacingSm),
-                              Expanded(
-                                child: _buildStatCard(
-                                    'Absent', absent, total, Colors.red,
-                                    context),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: context.spacingMd),
-                          Container(
-                            padding: EdgeInsets.all(context.spacingSm),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Overall Attendance Rate',
-                                  style: TextStyle(
-                                      color: colorScheme.onSurface),
-                                ),
-                                Text(
-                                  '${presentPercentage.toStringAsFixed(1)}%',
-                                  style: const TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                  SizedBox(height: context.spacingXs),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.class_,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ),
-                  ),
-                  SizedBox(height: context.spacingMd),
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(context.spacingMd),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Recent Attendance',
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: context.spacingMd),
-                          attendanceData.isEmpty
-                              ? Padding(
-                                  padding:
-                                      EdgeInsets.all(context.spacingMd),
-                                  child: Center(
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.calendar_today,
-                                          size: 48,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                        SizedBox(height: context.spacingSm),
-                                        Text(
-                                          'No attendance records yet',
-                                          style: TextStyle(
-                                            color:
-                                                colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics:
-                                      const NeverScrollableScrollPhysics(),
-                                  itemCount: attendanceData.length > 7
-                                      ? 7
-                                      : attendanceData.length,
-                                  itemBuilder: (context, index) {
-                                    final attendance = attendanceData[index];
-                                    return _buildAttendanceItem(
-                                      attendance,
-                                      context,
-                                    );
-                                  },
-                                ),
-                        ],
+                      SizedBox(width: context.spacingXs),
+                      Text(
+                        student.sessionIds.isEmpty
+                            ? 'No session'
+                            : '${student.sessionIds.length} session${student.sessionIds.length == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
+                      if (student.registrationNumber != null) ...[
+                        SizedBox(width: context.spacingMd),
+                        Icon(
+                          Icons.badge,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        SizedBox(width: context.spacingXs),
+                        Text(
+                          student.registrationNumber!,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -393,6 +398,157 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildAttendanceSection(BuildContext context, Student student) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final attendanceData =
+        student.attendanceHistory.isEmpty
+            ? <Attendance>[]
+            : student.attendanceHistory;
+
+    final present =
+        attendanceData
+            .where((a) => a.status == AttendanceStatus.present)
+            .length;
+    final late =
+        attendanceData.where((a) => a.status == AttendanceStatus.late).length;
+    final absent =
+        attendanceData.where((a) => a.status == AttendanceStatus.absent).length;
+    final total = attendanceData.length;
+    final presentPercentage = total > 0 ? (present / total * 100) : 0.0;
+
+    return [
+      Card(
+        child: Padding(
+          padding: EdgeInsets.all(context.spacingMd),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Attendance Statistics',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: context.spacingMd),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Present',
+                      present,
+                      total,
+                      Colors.green,
+                      context,
+                    ),
+                  ),
+                  SizedBox(width: context.spacingSm),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Late',
+                      late,
+                      total,
+                      Colors.orange,
+                      context,
+                    ),
+                  ),
+                  SizedBox(width: context.spacingSm),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Absent',
+                      absent,
+                      total,
+                      Colors.red,
+                      context,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.spacingMd),
+              Container(
+                padding: EdgeInsets.all(context.spacingSm),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Overall Attendance Rate',
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                    Text(
+                      '${presentPercentage.toStringAsFixed(1)}%',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      SizedBox(height: context.spacingMd),
+      Card(
+        child: Padding(
+          padding: EdgeInsets.all(context.spacingMd),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Recent Attendance',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: context.spacingMd),
+              attendanceData.isEmpty
+                  ? Padding(
+                    padding: EdgeInsets.all(context.spacingMd),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 48,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          SizedBox(height: context.spacingSm),
+                          Text(
+                            'No attendance records yet',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount:
+                        attendanceData.length > 7 ? 7 : attendanceData.length,
+                    itemBuilder: (context, index) {
+                      final attendance = attendanceData[index];
+                      return _buildAttendanceItem(attendance, context);
+                    },
+                  ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildStatCard(

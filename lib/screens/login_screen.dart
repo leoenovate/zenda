@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
 import '../utils/responsive_builder.dart';
 import '../widgets/theme/theme_switcher.dart';
+import '../widgets/zenda_logo.dart';
 
 export '../services/auth_service.dart' show UserRole;
 
@@ -224,20 +225,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final onBrand = colorScheme.onPrimary;
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            'Z',
-            style: TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.w800,
-              color: onBrand,
-            ),
-          ),
+        ZendaLogo(
+          size: context.isMobile ? 64 : 80,
+          tone: ZendaLogoTone.onBrand,
         ),
         const SizedBox(height: 24),
         Text(

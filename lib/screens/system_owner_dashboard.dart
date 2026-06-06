@@ -13,7 +13,10 @@ import '../services/role_constants.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/navigation/mobile_bottom_nav_shell.dart';
+import '../widgets/navigation/mobile_nav_sheet.dart';
 import '../widgets/theme/theme_switcher.dart';
+import '../widgets/zenda_logo.dart';
 import 'admin/teachers_screen.dart';
 import 'admin/classes_screen.dart';
 import 'admin/parents_screen.dart';
@@ -43,6 +46,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
 
   // Schools view state
   String _searchQuery = '';
+  _MobileSchoolDetail? _mobileSchoolDetail;
 
   @override
   void initState() {
@@ -109,34 +113,216 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
+  static const _mobileDestinations = [
+    MobileNavDestination(
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+      label: 'Dashboard',
+    ),
+    MobileNavDestination(
+      icon: Icons.school_outlined,
+      selectedIcon: Icons.school,
+      label: 'Schools',
+    ),
+    MobileNavDestination(
+      icon: Icons.fingerprint_outlined,
+      selectedIcon: Icons.fingerprint,
+      label: 'Devices',
+    ),
+    MobileNavDestination(
+      icon: Icons.insights_outlined,
+      selectedIcon: Icons.insights_rounded,
+      label: 'Reports',
+    ),
+    MobileNavDestination(
+      icon: Icons.more_horiz,
+      selectedIcon: Icons.more_horiz,
+      label: 'More',
+    ),
+  ];
+
+  int get _mobileNavIndex {
+    switch (_selectedIndex) {
+      case 0:
+        return 0;
+      case 1:
+        return 1;
+      case 2:
+        return 2;
+      case 9:
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
+  String get _mobileSectionTitle {
+    if (_mobileSchoolDetail != null) {
+      return _mobileSchoolDetail!.school.name;
+    }
+    switch (_selectedIndex) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Schools';
+      case 2:
+        return 'Devices';
+      case 3:
+        return 'Teachers';
+      case 4:
+        return 'Classes';
+      case 5:
+        return 'Parents';
+      case 6:
+        return 'Sessions';
+      case 7:
+        return 'Workers';
+      case 8:
+        return 'Time off';
+      case 9:
+        return 'Reports';
+      case 10:
+        return 'System';
+      default:
+        return 'Zenda Admin';
+    }
+  }
+
+  void _onMobileNavTap(int index) {
+    if (index == 4) {
+      _showMobileMoreSheet();
+      return;
+    }
+    final sectionIndex = switch (index) {
+      0 => 0,
+      1 => 1,
+      2 => 2,
+      3 => 9,
+      _ => _selectedIndex,
+    };
+    if (sectionIndex == _selectedIndex) return;
+    setState(() {
+      _selectedIndex = sectionIndex;
+      _mobileSchoolDetail = null;
+    });
+  }
+
+  void _showMobileMoreSheet() {
+    showMobileNavSheet(
+      context,
+      title: 'More',
+      items: [
+        MobileNavSheetItem(
+          icon: Icons.person_outline,
+          label: 'Teachers',
+          selected: _selectedIndex == 3,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 3;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.class_outlined,
+          label: 'Classes',
+          selected: _selectedIndex == 4,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 4;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.family_restroom,
+          label: 'Parents',
+          selected: _selectedIndex == 5,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 5;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.event_note_outlined,
+          label: 'Sessions',
+          selected: _selectedIndex == 6,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 6;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.engineering_outlined,
+          label: 'Workers',
+          selected: _selectedIndex == 7,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 7;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.event_busy_outlined,
+          label: 'Time off',
+          selected: _selectedIndex == 8,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 8;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.settings_outlined,
+          label: 'System',
+          selected: _selectedIndex == 10,
+          onTap:
+              () => setState(() {
+                _selectedIndex = 10;
+                _mobileSchoolDetail = null;
+              }),
+        ),
+      ],
+      footerWidgets: [
+        const Divider(),
+        const ListTile(
+          title: Text('Theme'),
+          leading: Icon(Icons.palette_outlined),
+          trailing: ThemeSwitcher(onAppBar: false),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout),
+          title: const Text('Logout'),
+          onTap: _logout,
+        ),
+      ],
+    );
+  }
+
   Widget _buildMobileLayout() {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      drawer: _buildMobileDrawer(),
+    final showingSchoolDetail = _mobileSchoolDetail != null;
+    return MobileBottomNavShell(
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         elevation: 0,
+        leading:
+            showingSchoolDetail
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => setState(() => _mobileSchoolDetail = null),
+                )
+                : null,
         title: Text(
-          'Zenda Admin',
+          _mobileSectionTitle,
           style: TextStyle(color: colorScheme.onSurface),
         ),
-        iconTheme: IconThemeData(color: colorScheme.onSurface),
-        actions: [
-          const ThemeSwitcher(onAppBar: false),
-          IconButton(
-            icon: Icon(
-              Icons.notifications,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: colorScheme.onSurfaceVariant),
-            onPressed: _logout,
-          ),
-        ],
+        automaticallyImplyLeading: showingSchoolDetail,
       ),
       body: _buildMainContent(),
+      destinations: _mobileDestinations,
+      selectedIndex: _mobileNavIndex,
+      onDestinationSelected: _onMobileNavTap,
     );
   }
 
@@ -170,27 +356,9 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 if (!_sidebarCollapsed)
                   Row(
                     children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Z',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                      const ZendaLogo(
+                        size: 32,
+                        tone: ZendaLogoTone.onBrand,
                       ),
                       const SizedBox(width: 10),
                       const Text(
@@ -303,162 +471,6 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
-  Widget _buildMobileDrawer() {
-    return Drawer(
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.school,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Zenda Admin',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(color: Colors.white.withOpacity(0.3)),
-          ListTile(
-            leading: const Icon(Icons.dashboard, color: Colors.white70),
-            title: const Text(
-              'Dashboard',
-              style: TextStyle(color: Colors.white),
-            ),
-            selected: _selectedIndex == 0,
-            onTap: () {
-              setState(() => _selectedIndex = 0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.school, color: Colors.white70),
-            title: const Text('Schools', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 1,
-            onTap: () {
-              setState(() => _selectedIndex = 1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.fingerprint, color: Colors.white70),
-            title: const Text('Devices', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 2,
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.person, color: Colors.white70),
-            title: const Text(
-              'Teachers',
-              style: TextStyle(color: Colors.white),
-            ),
-            selected: _selectedIndex == 3,
-            onTap: () {
-              setState(() => _selectedIndex = 3);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.class_, color: Colors.white70),
-            title: const Text('Classes', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 4,
-            onTap: () {
-              setState(() => _selectedIndex = 4);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.family_restroom, color: Colors.white70),
-            title: const Text('Parents', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 5,
-            onTap: () {
-              setState(() => _selectedIndex = 5);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.event_note, color: Colors.white70),
-            title: const Text(
-              'Sessions',
-              style: TextStyle(color: Colors.white),
-            ),
-            selected: _selectedIndex == 6,
-            onTap: () {
-              setState(() => _selectedIndex = 6);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.engineering, color: Colors.white70),
-            title: const Text('Workers', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 7,
-            onTap: () {
-              setState(() => _selectedIndex = 7);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.event_busy, color: Colors.white70),
-            title: const Text(
-              'Time off',
-              style: TextStyle(color: Colors.white),
-            ),
-            selected: _selectedIndex == 8,
-            onTap: () {
-              setState(() => _selectedIndex = 8);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.insights_rounded, color: Colors.white70),
-            title: const Text('Reports', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 9,
-            onTap: () {
-              setState(() => _selectedIndex = 9);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings, color: Colors.white70),
-            title: const Text('System', style: TextStyle(color: Colors.white)),
-            selected: _selectedIndex == 10,
-            onTap: () {
-              setState(() => _selectedIndex = 10);
-              Navigator.pop(context);
-            },
-          ),
-          const Spacer(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.white70),
-            title: const Text('Logout', style: TextStyle(color: Colors.white)),
-            onTap: _logout,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
     return Container(
@@ -522,6 +534,26 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       case 0:
         return _buildDashboard();
       case 1:
+        if (_mobileSchoolDetail != null) {
+          final detail = _mobileSchoolDetail!;
+          return _SchoolDetailsPanel(
+            embedded: true,
+            onClose: () => setState(() => _mobileSchoolDetail = null),
+            school: detail.school,
+            schoolDevices: detail.schoolDevices,
+            schoolAdmins: detail.schoolAdmins,
+            schoolSessions: detail.schoolSessions,
+            deviceCount: detail.deviceCount,
+            activeDeviceCount: detail.activeDeviceCount,
+            offlineDeviceCount: detail.offlineDeviceCount,
+            initial: detail.initial,
+            color: detail.color,
+            onAddAdmin: () => _showAddAdminDialog(detail.school.id!),
+            onEditAdmin: (admin) => _showEditAdminDialog(admin),
+            onResetPassword: (admin) => _showResetPasswordDialog(admin),
+            onDeactivateAdmin: (admin) => _showDeactivateAdminDialog(admin),
+          );
+        }
         return _buildSchoolsView();
       case 2:
         return _buildDevicesView();
@@ -2850,6 +2882,24 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       }
     }
 
+    if (!mounted) return;
+    if (context.isMobile) {
+      setState(() {
+        _mobileSchoolDetail = _MobileSchoolDetail(
+          school: school,
+          schoolDevices: schoolDevices,
+          schoolAdmins: schoolAdmins,
+          schoolSessions: schoolSessions,
+          deviceCount: deviceCount,
+          activeDeviceCount: activeDeviceCount,
+          offlineDeviceCount: offlineDeviceCount,
+          initial: initial,
+          color: color,
+        );
+      });
+      return;
+    }
+
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -4009,6 +4059,30 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 }
 
+class _MobileSchoolDetail {
+  final School school;
+  final List<Device> schoolDevices;
+  final List<app_user.AppUser> schoolAdmins;
+  final List<Session> schoolSessions;
+  final int deviceCount;
+  final int activeDeviceCount;
+  final int offlineDeviceCount;
+  final String initial;
+  final Color color;
+
+  const _MobileSchoolDetail({
+    required this.school,
+    required this.schoolDevices,
+    required this.schoolAdmins,
+    required this.schoolSessions,
+    required this.deviceCount,
+    required this.activeDeviceCount,
+    required this.offlineDeviceCount,
+    required this.initial,
+    required this.color,
+  });
+}
+
 class _SchoolDetailsPanel extends StatelessWidget {
   final School school;
   final List<Device> schoolDevices;
@@ -4023,6 +4097,8 @@ class _SchoolDetailsPanel extends StatelessWidget {
   final Function(app_user.AppUser) onEditAdmin;
   final Function(app_user.AppUser) onResetPassword;
   final Function(app_user.AppUser) onDeactivateAdmin;
+  final bool embedded;
+  final VoidCallback? onClose;
 
   const _SchoolDetailsPanel({
     required this.school,
@@ -4038,16 +4114,51 @@ class _SchoolDetailsPanel extends StatelessWidget {
     required this.onEditAdmin,
     required this.onResetPassword,
     required this.onDeactivateAdmin,
+    this.embedded = false,
+    this.onClose,
   });
+
+  void _close(BuildContext context) {
+    if (embedded) {
+      onClose?.call();
+      return;
+    }
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
     final panelWidth =
-        context.isMobile
-            ? MediaQuery.of(context).size.width
-            : (context.isTablet
-                ? MediaQuery.of(context).size.width * 0.6
-                : MediaQuery.of(context).size.width * 0.5);
+        embedded
+            ? null
+            : (context.isMobile
+                ? MediaQuery.of(context).size.width
+                : (context.isTablet
+                    ? MediaQuery.of(context).size.width * 0.6
+                    : MediaQuery.of(context).size.width * 0.5));
+
+    final panel = Container(
+      width: panelWidth,
+      height: embedded ? null : MediaQuery.of(context).size.height,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        boxShadow:
+            embedded
+                ? null
+                : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(-5, 0),
+                  ),
+                ],
+      ),
+      child: _buildPanelBody(context),
+    );
+
+    if (embedded) {
+      return SizedBox.expand(child: panel);
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -4060,100 +4171,91 @@ class _SchoolDetailsPanel extends StatelessWidget {
               child: Container(color: Colors.transparent),
             ),
           ),
-          // Right panel
-          Container(
-            width: panelWidth,
-            height: MediaQuery.of(context).size.height,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(-5, 0),
-                ),
-              ],
+          panel,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPanelBody(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            initial,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      school.name,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              school.name,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (school.tagline != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                school.tagline!,
-                                style: TextStyle(
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ],
+                    ),
+                    if (school.tagline != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        school.tagline!,
+                        style: TextStyle(
+                          color:
+                              Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+              ),
+              if (!embedded)
+                IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () => _close(context),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                         // Description Section - Always show
                         _buildSectionTitle(context, 'Description'),
                         const SizedBox(height: 8),
@@ -4510,11 +4612,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 

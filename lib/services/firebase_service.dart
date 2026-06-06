@@ -16,6 +16,7 @@ import '../models/staff_time_off.dart';
 import '../models/role.dart';
 import '../models/device_enrollment.dart';
 import 'auth_service.dart';
+import 'role_constants.dart';
 import 'dart:async';
 
 class FirebaseService {
@@ -604,7 +605,12 @@ class FirebaseService {
         final doc = await _getDocWithAuthRetry(
           _firestore.collection('schools').doc(schoolId),
         );
-        if (!doc.exists || doc.data() == null) return [];
+        if (!doc.exists || doc.data() == null) {
+          if (schoolId == AuthService.demoSchoolId) {
+            return [School(id: AuthService.demoSchoolId, name: 'Demo School')];
+          }
+          return [];
+        }
         return [School.fromFirestore(doc.data()!, doc.id)];
       }
 
@@ -1639,7 +1645,14 @@ class FirebaseService {
 
   static Future<String> addRole(Role role) async {
     try {
-      final data = role.toFirestore();
+      var schoolId = role.schoolId;
+      if (schoolId.isEmpty) {
+        schoolId = AuthService.currentSchoolId ?? '';
+      }
+      if (schoolId.isEmpty) {
+        throw Exception('A school is required to create a role');
+      }
+      final data = role.copyWith(schoolId: schoolId).toFirestore();
       data['createdAt'] = FieldValue.serverTimestamp();
       data['updatedAt'] = FieldValue.serverTimestamp();
       final ref = await _firestore.collection('roles').add(data);
@@ -1668,19 +1681,6 @@ class FirebaseService {
     } catch (e) {
       throw Exception('Failed to delete role: $e');
     }
-  }
-
-  /// Returns every active role for [schoolId] whose `appliesTo` array
-  /// contains [kind]. Defaults to the current session's school via
-  /// `_scoped`.
-  static Future<List<Role>> getRolesByApplyTo(
-    String kind, {
-    String? schoolId,
-  }) async {
-    final all = await getRoles(schoolId: schoolId);
-    return all
-        .where((r) => r.isActive && r.appliesTo.contains(kind.toLowerCase()))
-        .toList();
   }
 
   /// Resolves the Firestore collection that backs a given `assigneeKind`
@@ -1730,17 +1730,16 @@ class FirebaseService {
   }
 
   /// Clears `roleId` on every person currently assigned to [roleId] across
-  /// every collection that the role's [appliesTo] covers. Returns the
-  /// total number of records updated.
+  /// workers, teachers, and admin/staff users. Returns the total number of
+  /// records updated.
   static Future<int> clearRoleAssignments({
     required String roleId,
-    required List<String> appliesTo,
     String? schoolId,
   }) async {
-    if (roleId.isEmpty || appliesTo.isEmpty) return 0;
+    if (roleId.isEmpty) return 0;
     var total = 0;
     try {
-      for (final kind in appliesTo) {
+      for (final kind in AuthRoles.allKinds) {
         final collection = _collectionForKind(kind);
         if (collection == null) continue;
         final base = _scopedSchool(
@@ -1820,7 +1819,6 @@ class FirebaseService {
         final created = Role(
           name: legacy,
           schoolId: docSchoolId,
-          appliesTo: const ['worker'],
         );
         final newId = await addRole(created);
         roleIndex[key] = created.copyWith(id: newId);

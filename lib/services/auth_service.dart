@@ -96,6 +96,10 @@ class AuthService {
   static const String demoParentStudentNumber = 'STD001';
   static const String demoParentPassword = 'parent123';
 
+  /// Stable id used by demo admin/teacher sessions when Firestore has no
+  /// seeded school doc yet.
+  static const String demoSchoolId = 'demo-school';
+
   static AuthSession? get currentSession => _current;
   static UserRole? get currentRole => _current?.role;
   static String? get currentSchoolId => _current?.schoolId;
@@ -215,10 +219,15 @@ class AuthService {
     // app can still be explored on a blank database.
     if (_isDemoCredentials(normalizedEmail, password)) {
       final role = _demoRoleForEmail(normalizedEmail)!;
+      final demoSchoolId =
+          role == UserRole.schoolAdmin || role == UserRole.teacher
+              ? AuthService.demoSchoolId
+              : null;
       _current = AuthSession(
         role: role,
         email: normalizedEmail,
         name: 'Demo ${role.name}',
+        schoolId: demoSchoolId,
       );
       return _current!;
     }
@@ -374,11 +383,17 @@ class AuthService {
 
     // Cache-only restore (covers the demo accounts that have no Firestore
     // doc, and offline restarts).
+    var restoredSchoolId = cachedSchoolId;
+    if ((restoredSchoolId == null || restoredSchoolId.isEmpty) &&
+        uid == null &&
+        (role == UserRole.schoolAdmin || role == UserRole.teacher)) {
+      restoredSchoolId = demoSchoolId;
+    }
     _current = AuthSession(
       role: role,
       uid: uid,
       email: email,
-      schoolId: cachedSchoolId,
+      schoolId: restoredSchoolId,
     );
     return _current;
   }

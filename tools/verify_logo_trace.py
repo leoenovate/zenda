@@ -9,8 +9,8 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "icons" / "logo.png"
-SVG = ROOT / "assets" / "icons" / "logo.svg"
-SCALE = 4
+SVG = ROOT / "assets" / "logos" / "logo.svg"
+SCALE = 8
 PAD = 2
 
 
@@ -23,13 +23,13 @@ def logo_mask(arr: np.ndarray) -> np.ndarray:
 def rasterize_potrace(mask: np.ndarray) -> np.ndarray:
     ch, cw = mask.shape
     layer = Image.fromarray((~mask).astype(np.uint8) * 255, mode="L")
-    up = layer.resize((cw * SCALE, ch * SCALE), Image.Resampling.NEAREST)
+    up = layer.resize((cw * SCALE, ch * SCALE), Image.Resampling.LANCZOS)
     path = potrace.Bitmap(up).trace(
         turdsize=2,
         turnpolicy=potrace.POTRACE_TURNPOLICY_MINORITY,
-        alphamax=1.0,
+        alphamax=1.334,
         opticurve=True,
-        opttolerance=0.08,
+        opttolerance=0.35,
     )
 
     result = np.zeros((ch, cw), dtype=bool)

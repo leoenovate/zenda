@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../models/message.dart';
 import '../models/parent.dart' as app_parent;
-import '../models/role.dart';
 import '../models/school.dart';
 import '../models/session.dart';
 import '../models/student.dart';
@@ -18,22 +17,19 @@ import '../services/device_heartbeat_service.dart';
 import '../services/firebase_service.dart';
 import '../services/role_constants.dart';
 import '../utils/responsive_builder.dart';
+import '../widgets/navigation/mobile_bottom_nav_shell.dart';
+import '../widgets/navigation/mobile_nav_sheet.dart';
 import '../widgets/theme/theme_switcher.dart';
-import 'admin/admins_screen.dart';
-import 'admin/custom_roles_screen.dart';
+import '../widgets/zenda_logo.dart';
+import 'admin/all_people_screen.dart';
 import 'admin/device_enrollments_screen.dart';
-import 'admin/parents_screen.dart';
-import 'admin/role_employees_screen.dart';
 import 'admin/sessions_screen.dart';
-import 'admin/students_screen.dart';
-import 'admin/teachers_screen.dart';
 import 'admin/staff_time_off_screen.dart';
 import 'chat_list_screen.dart';
 import 'reports_screen.dart';
 
 /// Sidebar-driven dashboard for `UserRole.schoolAdmin`. Provides Dashboard,
-/// Devices, Sessions, Roles (expandable, dynamically populated from the
-/// school's data) and Reports sections. All data fetches use the
+/// Devices, Sessions, People, Time off and Reports sections. All data fetches use the
 /// school-scoped `FirebaseService` helpers, so the admin only ever sees
 /// records for their own school.
 class SchoolAdminDashboard extends StatefulWidget {
@@ -49,20 +45,14 @@ enum _Section {
   devices,
   sessions,
   timeOff,
+  people,
   reports,
-  rolesAdmins,
-  rolesTeachers,
-  rolesParents,
-  rolesStudents,
-  rolesCustom,
-  rolesUnassigned,
+  chat,
 }
 
 class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   _Section _selected = _Section.dashboard;
-  String? _selectedCustomRoleId;
   bool _sidebarCollapsed = false;
-  bool _rolesExpanded = true;
   bool _isLoading = true;
 
   School? _school;
@@ -70,15 +60,14 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   List<Teacher> _teachers = [];
   List<app_parent.Parent> _parents = [];
   List<Worker> _workers = [];
-  List<app_user.AppUser> _admins = [];
   List<app_user.AppUser> _users = [];
-  List<Role> _customRoles = [];
   List<Device> _devices = [];
   List<Session> _sessions = [];
   List<Map<String, dynamic>> _recentActivity = [];
 
   String _deviceSearchQuery = '';
   String _deviceStatusFilter = 'all';
+  Device? _mobileEnrollmentDevice;
 
   @override
   void initState() {
@@ -102,7 +91,6 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         FirebaseService.getDevices(),
         FirebaseService.getSessions(),
         FirebaseService.getRecentActivity(limit: 10),
-        FirebaseService.getRoles(),
       ]);
 
       final schools = results[0] as List<School>;
@@ -128,11 +116,9 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _parents = results[3] as List<app_parent.Parent>;
         _workers = results[4] as List<Worker>;
         _users = users;
-        _admins = users.where((u) => AuthRoles.isSchoolAdmin(u.role)).toList();
         _devices = results[6] as List<Device>;
         _sessions = results[7] as List<Session>;
         _recentActivity = results[8] as List<Map<String, dynamic>>;
-        _customRoles = results[9] as List<Role>;
         _isLoading = false;
       });
     } catch (e) {
@@ -177,6 +163,13 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   }
 
   void _openChat() {
+    if (context.isMobile) {
+      setState(() {
+        _selected = _Section.chat;
+        _mobileEnrollmentDevice = null;
+      });
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -190,214 +183,29 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  static const List<String> _roleColorPalette = [
-    '#FF7043',
-    '#26A69A',
-    '#5C6BC0',
-    '#AB47BC',
-    '#EC407A',
-    '#66BB6A',
-    '#FFA726',
-    '#42A5F5',
-  ];
-
-  static Color? _parseHexColor(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    var v = hex.replaceFirst('#', '');
-    if (v.length == 6) v = 'FF$v';
-    final parsed = int.tryParse(v, radix: 16);
-    if (parsed == null) return null;
-    return Color(parsed);
+  void _openMobileEnrollments(Device device) {
+    setState(() => _mobileEnrollmentDevice = device);
   }
 
-  /// Opens the form that creates a brand-new custom role record in Firestore.
-  /// After save, the dashboard refreshes and selects that role in the sidebar.
-  void _openAddRoleDialog({bool closeDrawer = false}) {
-    if (closeDrawer) {
-      Navigator.pop(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _openAddRoleDialog();
-      });
-      return;
-    }
+  void _closeMobileEnrollments() {
+    setState(() => _mobileEnrollmentDevice = null);
+  }
 
-    final schoolId = _schoolId ?? _school?.id;
-    if (schoolId == null || schoolId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot create a role without a school context'),
-        ),
-      );
-      return;
-    }
+  String get _mobileEnrollmentTitle {
+    final device = _mobileEnrollmentDevice;
+    if (device == null) return 'Devices';
+    final name = device.deviceName?.trim();
+    return (name != null && name.isNotEmpty) ? name : device.deviceId;
+  }
 
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-    String color = _roleColorPalette.first;
-    bool isSaving = false;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (dialogCtx) => StatefulBuilder(
-            builder: (dialogCtx, setStateDialog) {
-              final colorScheme = Theme.of(dialogCtx).colorScheme;
-              return AlertDialog(
-                backgroundColor: colorScheme.surface,
-                title: Text(
-                  'Add new role',
-                  style: TextStyle(color: colorScheme.onSurface),
-                ),
-                content: SizedBox(
-                  width: 420,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Define a custom role label for staff in your school.',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: nameController,
-                          autofocus: true,
-                          style: TextStyle(color: colorScheme.onSurface),
-                          decoration: const InputDecoration(
-                            labelText: 'Role name *',
-                            hintText: 'e.g. Librarian, Bus Driver',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: descriptionController,
-                          maxLines: 2,
-                          style: TextStyle(color: colorScheme.onSurface),
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Color',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final hex in _roleColorPalette)
-                              InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                onTap: () => setStateDialog(() => color = hex),
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: _parseHexColor(hex) ?? Colors.grey,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color:
-                                          color == hex
-                                              ? colorScheme.onSurface
-                                              : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child:
-                                      color == hex
-                                          ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 18,
-                                          )
-                                          : null,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed:
-                        isSaving
-                            ? null
-                            : () async {
-                              final name = nameController.text.trim();
-                              final description =
-                                  descriptionController.text.trim();
-                              if (name.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Role name is required'),
-                                  ),
-                                );
-                                return;
-                              }
-                              setStateDialog(() => isSaving = true);
-                              try {
-                                final roleId = await FirebaseService.addRole(
-                                  Role(
-                                    name: name,
-                                    description:
-                                        description.isEmpty
-                                            ? null
-                                            : description,
-                                    schoolId: schoolId,
-                                    color: color,
-                                  ),
-                                );
-                                if (!mounted) return;
-                                Navigator.pop(dialogCtx);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Role "$name" created'),
-                                  ),
-                                );
-                                await _loadData();
-                                if (!mounted) return;
-                                setState(() {
-                                  _selected = _Section.rolesCustom;
-                                  _selectedCustomRoleId = roleId;
-                                  _rolesExpanded = true;
-                                });
-                              } catch (e) {
-                                setStateDialog(() => isSaving = false);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
-                                );
-                              }
-                            },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(isSaving ? 'Saving...' : 'Create role'),
-                  ),
-                ],
-              );
-            },
-          ),
-    );
+  int get _totalPeopleCount {
+    final adminLike =
+        _users.where((u) => AuthRoles.isAdminLike(u.role)).length;
+    return _students.length +
+        _teachers.length +
+        _workers.length +
+        _parents.length +
+        adminLike;
   }
 
   // ------------------------------------------------------------------
@@ -418,33 +226,165 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
+  static const _mobileDestinations = [
+    MobileNavDestination(
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard,
+      label: 'Dashboard',
+    ),
+    MobileNavDestination(
+      icon: Icons.fingerprint_outlined,
+      selectedIcon: Icons.fingerprint,
+      label: 'Devices',
+    ),
+    MobileNavDestination(
+      icon: Icons.event_note_outlined,
+      selectedIcon: Icons.event_note,
+      label: 'Sessions',
+    ),
+    MobileNavDestination(
+      icon: Icons.groups_outlined,
+      selectedIcon: Icons.groups,
+      label: 'People',
+    ),
+    MobileNavDestination(
+      icon: Icons.more_horiz,
+      selectedIcon: Icons.more_horiz,
+      label: 'More',
+    ),
+  ];
+
+  int get _mobileNavIndex {
+    switch (_selected) {
+      case _Section.dashboard:
+        return 0;
+      case _Section.devices:
+        return 1;
+      case _Section.sessions:
+        return 2;
+      case _Section.people:
+        return 3;
+      case _Section.timeOff:
+      case _Section.reports:
+      case _Section.chat:
+        return 4;
+    }
+  }
+
+  String get _mobileSectionTitle {
+    switch (_selected) {
+      case _Section.dashboard:
+        return 'Dashboard';
+      case _Section.devices:
+        return 'Devices';
+      case _Section.sessions:
+        return 'Sessions';
+      case _Section.people:
+        return 'People';
+      case _Section.timeOff:
+        return 'Time off';
+      case _Section.reports:
+        return 'Reports';
+      case _Section.chat:
+        return 'Messages';
+    }
+  }
+
+  void _onMobileNavTap(int index) {
+    if (index == 4) {
+      _showMobileMoreSheet();
+      return;
+    }
+    final section = switch (index) {
+      0 => _Section.dashboard,
+      1 => _Section.devices,
+      2 => _Section.sessions,
+      3 => _Section.people,
+      _ => _selected,
+    };
+    if (section == _selected) return;
+    setState(() {
+      _selected = section;
+      _mobileEnrollmentDevice = null;
+    });
+  }
+
+  void _showMobileMoreSheet() {
+    showMobileNavSheet(
+      context,
+      title: 'More',
+      items: [
+        MobileNavSheetItem(
+          icon: Icons.event_busy_outlined,
+          label: 'Time off',
+          selected: _selected == _Section.timeOff,
+          onTap:
+              () => setState(() {
+                _selected = _Section.timeOff;
+                _mobileEnrollmentDevice = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.insights_outlined,
+          label: 'Reports',
+          selected: _selected == _Section.reports,
+          onTap:
+              () => setState(() {
+                _selected = _Section.reports;
+                _mobileEnrollmentDevice = null;
+              }),
+        ),
+        MobileNavSheetItem(
+          icon: Icons.chat_bubble_outline,
+          label: 'Messages',
+          selected: _selected == _Section.chat,
+          onTap:
+              () => setState(() {
+                _selected = _Section.chat;
+                _mobileEnrollmentDevice = null;
+              }),
+        ),
+      ],
+      footerWidgets: [
+        const Divider(),
+        const ListTile(
+          title: Text('Theme'),
+          leading: Icon(Icons.palette_outlined),
+          trailing: ThemeSwitcher(onAppBar: false),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout),
+          title: const Text('Logout'),
+          onTap: _logout,
+        ),
+      ],
+    );
+  }
+
   Widget _buildMobileLayout() {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      drawer: _buildMobileDrawer(),
+    final showingEnrollments = _mobileEnrollmentDevice != null;
+    return MobileBottomNavShell(
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         elevation: 0,
+        leading:
+            showingEnrollments
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _closeMobileEnrollments,
+                )
+                : null,
         title: Text(
-          _school?.name ?? 'School Admin',
+          showingEnrollments ? _mobileEnrollmentTitle : _mobileSectionTitle,
           style: TextStyle(color: colorScheme.onSurface),
         ),
-        iconTheme: IconThemeData(color: colorScheme.onSurface),
-        actions: [
-          const ThemeSwitcher(onAppBar: false),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: _openChat,
-            tooltip: 'Chat',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-            tooltip: 'Logout',
-          ),
-        ],
+        automaticallyImplyLeading: showingEnrollments,
       ),
       body: _buildMainContent(),
+      destinations: _mobileDestinations,
+      selectedIndex: _mobileNavIndex,
+      onDestinationSelected: _onMobileNavTap,
     );
   }
 
@@ -483,7 +423,12 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
                 _buildNavItem(Icons.fingerprint, 'Devices', _Section.devices),
                 _buildNavItem(Icons.event_note, 'Sessions', _Section.sessions),
                 _buildNavItem(Icons.event_busy, 'Time off', _Section.timeOff),
-                _buildRolesNavItem(),
+                _buildNavItem(
+                  Icons.groups,
+                  'People',
+                  _Section.people,
+                  badge: _totalPeopleCount,
+                ),
                 _buildNavItem(
                   Icons.insights_rounded,
                   'Reports',
@@ -509,26 +454,9 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
             Expanded(
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onPrimary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: colorScheme.onPrimary.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Z',
-                        style: TextStyle(
-                          color: colorScheme.onPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  const ZendaLogo(
+                    size: 32,
+                    tone: ZendaLogoTone.onBrand,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -635,13 +563,9 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     _Section section, {
     int indent = 0,
     int? badge,
-    String? customRoleId,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSelected =
-        _selected == section &&
-        (section != _Section.rolesCustom ||
-            customRoleId == _selectedCustomRoleId);
+    final isSelected = _selected == section;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -659,11 +583,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap:
-              () => setState(() {
-                _selected = section;
-                _selectedCustomRoleId = customRoleId;
-              }),
+          onTap: () => setState(() => _selected = section),
           child: Padding(
             padding: EdgeInsets.fromLTRB(10 + indent * 16.0, 8, 10, 8),
             child: Row(
@@ -722,527 +642,6 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
     );
   }
 
-  /// Counts every person across `workers/`, `teachers/`, and admin-like
-  /// `users/` whose `roleId` equals [roleId] (or whose `roleId` is null
-  /// when [roleId] itself is null — the Unassigned bucket). Person kind
-  /// is not filtered: any role can be assigned to any kind, so the
-  /// count reflects every assignment.
-  int _countAssignedToRole(String? roleId) {
-    var n = 0;
-    for (final w in _workers) {
-      if (roleId == null) {
-        if ((w.roleId == null) || w.roleId!.isEmpty) n++;
-      } else if (w.roleId == roleId) {
-        n++;
-      }
-    }
-    for (final t in _teachers) {
-      if (roleId == null) {
-        if ((t.roleId == null) || t.roleId!.isEmpty) n++;
-      } else if (t.roleId == roleId) {
-        n++;
-      }
-    }
-    for (final u in _adminLikeUsers) {
-      if (roleId == null) {
-        if ((u.roleId == null) || u.roleId!.isEmpty) n++;
-      } else if (u.roleId == roleId) {
-        n++;
-      }
-    }
-    return n;
-  }
-
-  /// Admin-like users that participate in the role system: school admins
-  /// and generic staff. (System owners and teachers don't show up here;
-  /// teachers come from the `teachers/` collection.)
-  List<app_user.AppUser> get _adminLikeUsers =>
-      _users.where((u) => AuthRoles.isAdminLike(u.role)).toList();
-
-  /// Children populated dynamically from the loaded dataset. The "user
-  /// kind" buckets (Admins / Teachers / Parents / Students) map to
-  /// distinct Firestore collections and are kept hardcoded here.
-  /// Custom roles are appended after, plus an Unassigned bucket for
-  /// people without a roleId.
-  List<_RoleEntry> _roleEntries() {
-    final entries = [
-      _RoleEntry(
-        Icons.admin_panel_settings,
-        'Admins',
-        _admins.length,
-        _Section.rolesAdmins,
-      ),
-      _RoleEntry(
-        Icons.person,
-        'Teachers',
-        _teachers.length,
-        _Section.rolesTeachers,
-      ),
-      _RoleEntry(
-        Icons.family_restroom,
-        'Parents',
-        _parents.length,
-        _Section.rolesParents,
-      ),
-      _RoleEntry(
-        Icons.school,
-        'Students',
-        _students.length,
-        _Section.rolesStudents,
-      ),
-    ];
-
-    final schoolId = _school?.id;
-    final scopedRoles =
-        _customRoles
-            .where((r) => schoolId == null || r.schoolId == schoolId)
-            .toList();
-
-    for (final role in scopedRoles) {
-      final assigned = _countAssignedToRole(role.id);
-      entries.add(
-        _RoleEntry(
-          Icons.badge_outlined,
-          role.name,
-          assigned,
-          _Section.rolesCustom,
-          alwaysShow: true,
-          customRoleId: role.id,
-        ),
-      );
-    }
-
-    // Unassigned bucket: every worker / teacher / admin / staff with no
-    // roleId set, regardless of school role definitions.
-    entries.add(
-      _RoleEntry(
-        Icons.help_outline,
-        'Unassigned',
-        _countAssignedToRole(null),
-        _Section.rolesUnassigned,
-        alwaysShow: true,
-      ),
-    );
-
-    return entries;
-  }
-
-  Widget _buildRolesNavItem() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final entries = _roleEntries();
-    final visible =
-        entries.where((e) => (e.count ?? 0) > 0 || e.alwaysShow).toList();
-    final isAnyChildSelected = entries.any(
-      (e) =>
-          e.section == _selected &&
-          (e.section != _Section.rolesCustom ||
-              e.customRoleId == _selectedCustomRoleId),
-    );
-
-    if (_sidebarCollapsed) {
-      return PopupMenuButton<_RoleEntry>(
-        tooltip: 'Roles',
-        position: PopupMenuPosition.over,
-        offset: const Offset(70, 0),
-        onSelected:
-            (entry) => setState(() {
-              _selected = entry.section;
-              _selectedCustomRoleId = entry.customRoleId;
-            }),
-        itemBuilder:
-            (_) => [
-              for (final e in visible)
-                PopupMenuItem<_RoleEntry>(
-                  value: e,
-                  child: Row(
-                    children: [
-                      Icon(
-                        e.icon,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(e.label),
-                      if (e.count != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${e.count}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-            ],
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color:
-                isAnyChildSelected
-                    ? colorScheme.onPrimary.withOpacity(0.2)
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border:
-                isAnyChildSelected
-                    ? Border.all(color: colorScheme.onPrimary.withOpacity(0.3))
-                    : null,
-          ),
-          child: Icon(
-            Icons.groups,
-            color:
-                isAnyChildSelected
-                    ? colorScheme.onPrimary
-                    : colorScheme.onPrimary.withOpacity(0.75),
-            size: 18,
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color:
-                isAnyChildSelected && !_rolesExpanded
-                    ? colorScheme.onPrimary.withOpacity(0.2)
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border:
-                isAnyChildSelected && !_rolesExpanded
-                    ? Border.all(color: colorScheme.onPrimary.withOpacity(0.3))
-                    : null,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => setState(() => _rolesExpanded = !_rolesExpanded),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.groups,
-                      color: colorScheme.onPrimary.withOpacity(
-                        isAnyChildSelected ? 1.0 : 0.75,
-                      ),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Roles',
-                        style: TextStyle(
-                          color: colorScheme.onPrimary.withOpacity(
-                            isAnyChildSelected ? 1.0 : 0.85,
-                          ),
-                          fontWeight:
-                              isAnyChildSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Add new role',
-                      onPressed: _openAddRoleDialog,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                      icon: Icon(
-                        Icons.add_circle_outline,
-                        color: colorScheme.onPrimary.withOpacity(0.85),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      _rolesExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: colorScheme.onPrimary.withOpacity(0.75),
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_rolesExpanded) ...[
-          if (visible.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(36, 4, 16, 8),
-              child: Text(
-                'No records yet',
-                style: TextStyle(
-                  color: colorScheme.onPrimary.withOpacity(0.6),
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            )
-          else
-            for (final e in visible)
-              _buildNavItem(
-                e.icon,
-                e.label,
-                e.section,
-                indent: 1,
-                badge: e.count,
-                customRoleId: e.customRoleId,
-              ),
-          _buildAddRoleNavButton(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildAddRoleNavButton() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: _openAddRoleDialog,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(26, 8, 10, 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.add_circle_outline,
-                  color: colorScheme.onPrimary.withOpacity(0.85),
-                  size: 18,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Add new role',
-                  style: TextStyle(
-                    color: colorScheme.onPrimary.withOpacity(0.85),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Mobile drawer
-  // ------------------------------------------------------------------
-
-  Widget _buildMobileDrawer() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final entries = _roleEntries();
-    return Drawer(
-      backgroundColor: colorScheme.primary,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.onPrimary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.school,
-                      color: colorScheme.onPrimary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _school?.name ?? 'School Admin',
-                      style: TextStyle(
-                        color: colorScheme.onPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: colorScheme.onPrimary.withOpacity(0.25)),
-            Expanded(
-              child: ListView(
-                children: [
-                  _drawerTile(Icons.dashboard, 'Dashboard', _Section.dashboard),
-                  _drawerTile(Icons.fingerprint, 'Devices', _Section.devices),
-                  _drawerTile(Icons.event_note, 'Sessions', _Section.sessions),
-                  _drawerTile(Icons.event_busy, 'Time off', _Section.timeOff),
-                  ExpansionTile(
-                    iconColor: colorScheme.onPrimary,
-                    collapsedIconColor: colorScheme.onPrimary.withOpacity(0.85),
-                    leading: Icon(
-                      Icons.groups,
-                      color: colorScheme.onPrimary.withOpacity(0.85),
-                    ),
-                    title: Text(
-                      'Roles',
-                      style: TextStyle(color: colorScheme.onPrimary),
-                    ),
-                    initiallyExpanded:
-                        _rolesExpanded ||
-                        entries.any(
-                          (e) =>
-                              e.section == _selected &&
-                              (e.section != _Section.rolesCustom ||
-                                  e.customRoleId == _selectedCustomRoleId),
-                        ),
-                    onExpansionChanged:
-                        (v) => setState(() => _rolesExpanded = v),
-                    children: [
-                      ListTile(
-                        contentPadding: const EdgeInsets.fromLTRB(56, 0, 16, 0),
-                        leading: Icon(
-                          Icons.add_circle_outline,
-                          color: colorScheme.onPrimary.withOpacity(0.85),
-                          size: 20,
-                        ),
-                        title: Text(
-                          'Add new role',
-                          style: TextStyle(color: colorScheme.onPrimary),
-                        ),
-                        onTap: () => _openAddRoleDialog(closeDrawer: true),
-                      ),
-                      for (final e in entries)
-                        if ((e.count ?? 0) > 0 || e.alwaysShow)
-                          ListTile(
-                            contentPadding: const EdgeInsets.fromLTRB(
-                              56,
-                              0,
-                              16,
-                              0,
-                            ),
-                            leading: Icon(
-                              e.icon,
-                              color: colorScheme.onPrimary.withOpacity(0.75),
-                              size: 20,
-                            ),
-                            title: Text(
-                              e.label,
-                              style: TextStyle(color: colorScheme.onPrimary),
-                            ),
-                            trailing:
-                                e.count == null
-                                    ? null
-                                    : Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.onPrimary
-                                            .withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '${e.count}',
-                                        style: TextStyle(
-                                          color: colorScheme.onPrimary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                            selected:
-                                _selected == e.section &&
-                                (e.section != _Section.rolesCustom ||
-                                    e.customRoleId == _selectedCustomRoleId),
-                            onTap: () {
-                              setState(() {
-                                _selected = e.section;
-                                _selectedCustomRoleId = e.customRoleId;
-                              });
-                              Navigator.pop(context);
-                            },
-                          ),
-                    ],
-                  ),
-                  _drawerTile(
-                    Icons.insights_rounded,
-                    'Reports',
-                    _Section.reports,
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: colorScheme.onPrimary.withOpacity(0.25)),
-            ListTile(
-              leading: Icon(
-                Icons.logout,
-                color: colorScheme.onPrimary.withOpacity(0.85),
-              ),
-              title: Text(
-                'Logout',
-                style: TextStyle(color: colorScheme.onPrimary),
-              ),
-              onTap: _logout,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _drawerTile(IconData icon, String label, _Section section) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: Icon(icon, color: colorScheme.onPrimary.withOpacity(0.85)),
-      title: Text(label, style: TextStyle(color: colorScheme.onPrimary)),
-      selected: _selected == section,
-      onTap: () {
-        setState(() {
-          _selected = section;
-          _selectedCustomRoleId = null;
-        });
-        Navigator.pop(context);
-      },
-    );
-  }
-
   // ------------------------------------------------------------------
   // Main content router
   // ------------------------------------------------------------------
@@ -1273,6 +672,15 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onChat: _openChat,
         );
       case _Section.devices:
+        if (context.isMobile && _mobileEnrollmentDevice != null) {
+          return DeviceEnrollmentsScreen(
+            embedded: true,
+            device: _mobileEnrollmentDevice!,
+            school: _school,
+            teachers: _teachers,
+            workers: _workers,
+          );
+        }
         return _DevicesView(
           devices: _devices,
           school: _school,
@@ -1283,6 +691,8 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onSearchChanged: (v) => setState(() => _deviceSearchQuery = v),
           onStatusFilterChanged: (v) => setState(() => _deviceStatusFilter = v),
           onChanged: _loadData,
+          onOpenEnrollmentsInShell:
+              context.isMobile ? _openMobileEnrollments : null,
         );
       case _Section.sessions:
         return SessionsScreen(
@@ -1296,95 +706,22 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
           onDataChanged: _loadData,
           showSchoolFilter: false,
         );
+      case _Section.people:
+        return AllPeopleScreen(
+          schools: schools,
+          onDataChanged: _loadData,
+        );
       case _Section.reports:
         return const ReportsView();
-      case _Section.rolesAdmins:
-        return AdminsScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-        );
-      case _Section.rolesTeachers:
-        return TeachersScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-        );
-      case _Section.rolesParents:
-        return ParentsScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-        );
-      case _Section.rolesStudents:
-        return StudentsScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-        );
-      case _Section.rolesCustom:
-        final selectedRole = _customRoles.cast<Role?>().firstWhere(
-          (role) => role?.id == _selectedCustomRoleId,
-          orElse: () => null,
-        );
-        if (selectedRole != null) {
-          return RoleEmployeesScreen(
-            key: ValueKey('role-${selectedRole.id}'),
-            role: selectedRole,
-            allRoles: _customRoles,
-            schools: schools,
-            onDataChanged: _loadData,
-          );
-        }
-        return CustomRolesScreen(
-          schools: schools,
-          onDataChanged: _loadData,
-          showSchoolFilter: false,
-          titleOverride: 'Roles',
-          subtitleOverride:
-              'Define additional staff role labels for your school',
-        );
-      case _Section.rolesUnassigned:
-        // Synthesize a virtual "Unassigned" Role with id == null so
-        // RoleEmployeesScreen knows to filter for people whose roleId
-        // is null. appliesTo carries every kind so the screen's
-        // informational helpers behave sensibly.
-        final unassignedRole = Role(
-          name: 'Unassigned',
-          schoolId: _school?.id ?? '',
-          appliesTo: AuthRoles.allKinds,
-        );
-        return RoleEmployeesScreen(
-          key: const ValueKey('role-unassigned'),
-          role: unassignedRole,
-          allRoles: _customRoles,
-          schools: schools,
-          onDataChanged: _loadData,
+      case _Section.chat:
+        return ChatListScreen(
+          embedded: true,
+          students: _students,
+          userType: MessageSender.school,
+          userName: _school?.name ?? 'School Admin',
         );
     }
   }
-}
-
-/// One row in the dynamic Roles submenu.
-class _RoleEntry {
-  final IconData icon;
-  final String label;
-  final int? count;
-  final _Section section;
-  final String? customRoleId;
-
-  /// When true, the entry is shown even if `count == 0` (so the user can
-  /// always reach the management screen).
-  final bool alwaysShow;
-
-  const _RoleEntry(
-    this.icon,
-    this.label,
-    this.count,
-    this.section, {
-    this.alwaysShow = false,
-    this.customRoleId,
-  });
 }
 
 // ----------------------------------------------------------------------
@@ -2023,6 +1360,7 @@ class _DevicesView extends StatefulWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onStatusFilterChanged;
   final VoidCallback onChanged;
+  final ValueChanged<Device>? onOpenEnrollmentsInShell;
 
   const _DevicesView({
     required this.devices,
@@ -2034,6 +1372,7 @@ class _DevicesView extends StatefulWidget {
     required this.onSearchChanged,
     required this.onStatusFilterChanged,
     required this.onChanged,
+    this.onOpenEnrollmentsInShell,
   });
 
   @override
@@ -2643,6 +1982,10 @@ class _DevicesViewState extends State<_DevicesView> {
   }
 
   void _openEnrollments(Device device) {
+    if (widget.onOpenEnrollmentsInShell != null) {
+      widget.onOpenEnrollmentsInShell!(device);
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(

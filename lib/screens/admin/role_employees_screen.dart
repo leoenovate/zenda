@@ -13,29 +13,8 @@ import '../../services/role_constants.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 import '../../widgets/admin/enrolled_badge.dart';
 
-const List<String> _kRoleColorPalette = [
-  '#FF7043',
-  '#26A69A',
-  '#5C6BC0',
-  '#AB47BC',
-  '#EC407A',
-  '#66BB6A',
-  '#FFA726',
-  '#42A5F5',
-];
-
-Color? _parseHexColor(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  var v = hex.replaceFirst('#', '');
-  if (v.length == 6) v = 'FF$v';
-  final parsed = int.tryParse(v, radix: 16);
-  if (parsed == null) return null;
-  return Color(parsed);
-}
-
 /// A unified row representing one assignable person — drawn from
-/// `workers/`, `teachers/` or `users/` depending on the role's
-/// `appliesTo` set.
+/// `workers/`, `teachers/` or `users/`.
 class _Person {
   final String kind;
   final String id;
@@ -62,13 +41,12 @@ class _Person {
   });
 }
 
-/// Lists every person assigned to a single custom [role] across all the
-/// person collections covered by `role.appliesTo`. Provides actions to
-/// add, move, or remove employees from the role.
+/// Lists every person assigned to a single custom [role] across workers,
+/// teachers, and admin/staff users. Provides actions to add, move, or
+/// remove employees from the role.
 ///
 /// When passed `role.id == null` the screen behaves as the special
-/// **Unassigned** bucket: it lists every person whose `roleId` is null in
-/// any of the kinds passed via [role.appliesTo].
+/// **Unassigned** bucket: it lists every person whose `roleId` is null.
 class RoleEmployeesScreen extends StatefulWidget {
   final Role role;
   final List<Role> allRoles;
@@ -220,8 +198,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
 
   /// People that match the focused [Role]: same school and either
   /// matching `roleId` (for normal roles) or missing `roleId` (for the
-  /// Unassigned bucket). The role's `appliesTo` is informational only —
-  /// any person assigned to the role shows up regardless of their kind.
+  /// Unassigned bucket).
   List<_Person> get _assigned {
     final roleSchoolId = widget.role.schoolId;
     return _people.where((p) {
@@ -689,12 +666,7 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
 
   Future<void> _openCreateNewPersonDialog() async {
     final roleId = _isUnassignedBucket ? null : widget.role.id;
-    final preferredKinds =
-        AuthRoles.allKinds
-            .where((kind) => widget.role.appliesTo.contains(kind))
-            .toList();
-    String kind =
-        preferredKinds.isNotEmpty ? preferredKinds.first : AuthRoles.kindWorker;
+    String kind = AuthRoles.kindWorker;
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final phoneController = TextEditingController();
@@ -1088,8 +1060,6 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
     final descriptionController = TextEditingController(
       text: role.description ?? '',
     );
-    String color = role.color ?? _kRoleColorPalette.first;
-    final Set<String> appliesTo = {...role.appliesTo};
     bool isActive = role.isActive;
     bool isSaving = false;
 
@@ -1146,77 +1116,6 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                           style: TextStyle(color: colorScheme.onSurface),
                           decoration: adminInputDecoration('Description'),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Color',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final hex in _kRoleColorPalette)
-                              InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                onTap: () => setStateDialog(() => color = hex),
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: _parseHexColor(hex) ?? Colors.grey,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color:
-                                          color == hex
-                                              ? colorScheme.onSurface
-                                              : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child:
-                                      color == hex
-                                          ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 18,
-                                          )
-                                          : null,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Applies to',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final kind in AuthRoles.allKinds)
-                              FilterChip(
-                                label: Text(AuthRoles.kindLabelPlural(kind)),
-                                selected: appliesTo.contains(kind),
-                                onSelected:
-                                    (v) => setStateDialog(() {
-                                      if (v) {
-                                        appliesTo.add(kind);
-                                      } else if (appliesTo.length > 1) {
-                                        appliesTo.remove(kind);
-                                      }
-                                    }),
-                              ),
-                          ],
-                        ),
                         const SizedBox(height: 8),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -1262,30 +1161,14 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                                 );
                                 return;
                               }
-                              if (appliesTo.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Pick at least one role kind',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
                               setStateDialog(() => isSaving = true);
                               try {
                                 final description =
                                     descriptionController.text.trim();
-                                final orderedAppliesTo = [
-                                  for (final k in AuthRoles.allKinds)
-                                    if (appliesTo.contains(k)) k,
-                                ];
                                 final updated = role.copyWith(
                                   name: name,
                                   description:
                                       description.isEmpty ? null : description,
-                                  color: color,
-                                  appliesTo: orderedAppliesTo,
                                   isActive: isActive,
                                 );
                                 await FirebaseService.updateRole(updated);
@@ -1348,7 +1231,6 @@ class _RoleEmployeesScreenState extends State<RoleEmployeesScreen> {
                   try {
                     final cleared = await FirebaseService.clearRoleAssignments(
                       roleId: role.id!,
-                      appliesTo: role.appliesTo,
                       schoolId: role.schoolId,
                     );
                     await FirebaseService.deleteRole(role.id!);

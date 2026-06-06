@@ -27,8 +27,8 @@ class AuthRoles {
   static const String staff = 'staff';
   static const String parent = 'parent';
 
-  // --- "kind" labels used by Role.appliesTo, Session.assigneeKind, ------
-  //     StaffTimeOff.assigneeKind, etc. -----------------------------------
+  // --- "kind" labels used by Session.assigneeKind, StaffTimeOff.assigneeKind,
+  //     role employee pickers, etc. ---------------------------------------
   //
   // These are *not* the same as the user.role string above:
   //   * `teacher` here means "from the teachers/ collection".

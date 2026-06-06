@@ -7,6 +7,7 @@ import '../../models/teacher.dart';
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
 import '../../services/zenda_device_api_service.dart';
+import '../../widgets/admin/enrollment_participant.dart';
 
 /// Screen for managing fingerprint slots on a single device.
 ///
@@ -23,6 +24,7 @@ class DeviceEnrollmentsScreen extends StatefulWidget {
   final School? school;
   final List<Teacher> teachers;
   final List<Worker> workers;
+  final bool embedded;
 
   const DeviceEnrollmentsScreen({
     super.key,
@@ -30,6 +32,7 @@ class DeviceEnrollmentsScreen extends StatefulWidget {
     required this.school,
     this.teachers = const [],
     this.workers = const [],
+    this.embedded = false,
   });
 
   @override
@@ -233,9 +236,53 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
     );
   }
 
+  Widget _buildContent(ColorScheme colorScheme) {
+    return RefreshIndicator(
+      onRefresh: _isEnrolling ? () async {} : _load,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, widget.embedded ? 96 : 96),
+        children: [
+          _buildHeaderCard(colorScheme),
+          const SizedBox(height: 16),
+          _buildActionsRow(),
+          const SizedBox(height: 16),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            _buildErrorCard(colorScheme)
+          else if (_enrollments.isEmpty)
+            _buildEmptyState(colorScheme)
+          else
+            _buildUsersList(colorScheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnrollFab() {
+    return FloatingActionButton.extended(
+      onPressed: _isLoading || _isEnrolling ? null : _openEnrollDialog,
+      icon: const Icon(Icons.person_add_alt_1),
+      label: const Text('Enroll user'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (widget.embedded) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildContent(colorScheme),
+          Positioned(right: 16, bottom: 16, child: _buildEnrollFab()),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -261,34 +308,8 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isLoading || _isEnrolling ? null : _openEnrollDialog,
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Enroll user'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _isEnrolling ? () async {} : _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-          children: [
-            _buildHeaderCard(colorScheme),
-            const SizedBox(height: 16),
-            _buildActionsRow(),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              _buildErrorCard(colorScheme)
-            else if (_enrollments.isEmpty)
-              _buildEmptyState(colorScheme)
-            else
-              _buildUsersList(colorScheme),
-          ],
-        ),
-      ),
+      floatingActionButton: _buildEnrollFab(),
+      body: _buildContent(colorScheme),
     );
   }
 
@@ -379,6 +400,14 @@ class _DeviceEnrollmentsScreenState extends State<DeviceEnrollmentsScreen> {
             label: const Text('Refresh'),
           ),
         ),
+        if (widget.embedded) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Clear all enrollments',
+            onPressed: _isEnrolling ? null : _confirmAndClear,
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+        ],
       ],
     );
   }
@@ -669,7 +698,7 @@ class _EnrollDialogState extends State<_EnrollDialog> {
   final _formKey = GlobalKey<FormState>();
   final _participantSearchController = TextEditingController();
 
-  _EnrollmentParticipant? _selectedParticipant;
+  EnrollmentParticipant? _selectedParticipant;
   String _participantSearch = '';
   bool _isSubmitting = false;
   String? _statusMessage;
@@ -680,35 +709,33 @@ class _EnrollDialogState extends State<_EnrollDialog> {
     super.dispose();
   }
 
-  int? _firstFreeSlot() {
-    for (var i = 1; i <= widget.maxSlot; i++) {
-      if (!widget.usedSlots.contains(i)) return i;
-    }
-    return null;
-  }
+  int? _firstFreeSlot() => DeviceEnrollmentFlow.firstFreeSlot(
+    widget.usedSlots,
+    maxSlot: widget.maxSlot,
+  );
 
-  void _applyParticipant(_EnrollmentParticipant participant) {
+  void _applyParticipant(EnrollmentParticipant participant) {
     setState(() {
       _selectedParticipant = participant;
     });
   }
 
-  List<_EnrollmentParticipant> get _teacherParticipants {
+  List<EnrollmentParticipant> get _teacherParticipants {
     return widget.teachers
         .where((t) => t.isActive)
-        .map(_EnrollmentParticipant.fromTeacher)
+        .map(EnrollmentParticipant.fromTeacher)
         .toList(growable: false);
   }
 
-  List<_EnrollmentParticipant> get _workerParticipants {
+  List<EnrollmentParticipant> get _workerParticipants {
     return widget.workers
         .where((w) => w.isActive)
-        .map(_EnrollmentParticipant.fromWorker)
+        .map(EnrollmentParticipant.fromWorker)
         .toList(growable: false);
   }
 
-  List<_EnrollmentParticipant> _filterParticipants(
-    List<_EnrollmentParticipant> participants,
+  List<EnrollmentParticipant> _filterParticipants(
+    List<EnrollmentParticipant> participants,
   ) {
     final q = _participantSearch.trim().toLowerCase();
     if (q.isEmpty) return participants;
@@ -752,25 +779,22 @@ class _EnrollDialogState extends State<_EnrollDialog> {
 
     setState(() {
       _isSubmitting = true;
-      _statusMessage = 'Sending enroll command...';
+      _statusMessage = null;
     });
 
     try {
-      await ZendaDeviceApiService.postEnroll(
+      final enrollment = await DeviceEnrollmentFlow.submitEnrollment(
         deviceId: widget.deviceId,
-        id: slot,
-        cardId: participant.cardId,
-        name: participant.name,
-        phone: participant.phone.isEmpty ? null : participant.phone,
+        schoolId: widget.schoolId,
+        slot: slot,
+        participant: participant,
+        onStatus: (msg) {
+          if (mounted) setState(() => _statusMessage = msg);
+        },
+        isMounted: () => mounted,
       );
       if (!mounted) return;
-      setState(() {
-        _statusMessage =
-            'Command sent. Place the same finger on the device twice when prompted.';
-      });
-      final confirmed = await _pollEnrollmentStatus(slot);
-      if (!mounted) return;
-      if (!confirmed) {
+      if (enrollment == null) {
         setState(() {
           _isSubmitting = false;
           _statusMessage =
@@ -779,32 +803,6 @@ class _EnrollDialogState extends State<_EnrollDialog> {
         });
         return;
       }
-
-      // Persist to Firestore as the system of record so the next
-      // enroll picks the next free slot — even if the api-v2
-      // server's `/api/users/:deviceId` snapshot has collapsed
-      // around the most recent enrollment.
-      final enrollment = DeviceEnrollment(
-        deviceId: widget.deviceId,
-        schoolId: widget.schoolId,
-        slotId: slot,
-        name: participant.name,
-        cardId: participant.cardId,
-        phone: participant.phone.isEmpty ? null : participant.phone,
-        enrolledAt: DateTime.now(),
-      );
-      try {
-        await FirebaseService.upsertDeviceEnrollment(enrollment);
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _isSubmitting = false;
-          _statusMessage =
-              'Enrolled on the device but failed to save the record: $e';
-        });
-        return;
-      }
-      if (!mounted) return;
       Navigator.pop(context, enrollment);
     } catch (e) {
       if (!mounted) return;
@@ -813,49 +811,6 @@ class _EnrollDialogState extends State<_EnrollDialog> {
         _statusMessage = 'Failed: $e';
       });
     }
-  }
-
-  /// Polls the api-v2 server for an enrollment confirmation. The device
-  /// enrollment flow needs two finger placements, so keep the dialog in
-  /// a waiting state long enough for both scans instead of re-sending
-  /// the enroll command after the first pass.
-  Future<bool> _pollEnrollmentStatus(int slot) async {
-    const maxAttempts = 90;
-    for (var i = 0; i < maxAttempts; i++) {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
-      try {
-        final status = await ZendaDeviceApiService.getEnrollmentStatus(
-          deviceId: widget.deviceId,
-          enrollmentId: slot,
-        );
-        if (!mounted) return false;
-        if (status.found) {
-          setState(() {
-            _statusMessage = _formatEnrollmentStatus(status);
-          });
-          if (status.success) return true;
-        } else if (i == 10 && mounted) {
-          setState(() {
-            _statusMessage =
-                'Waiting for the device. Place the same finger twice when prompted.';
-          });
-        }
-      } catch (_) {}
-    }
-    return false;
-  }
-
-  String _formatEnrollmentStatus(EnrollmentStatus status) {
-    if (status.success) return 'Enrollment confirmed.';
-    final message = (status.message ?? '').trim();
-    if (message.isNotEmpty) return message;
-    final step = status.step;
-    if (step == null) return 'Waiting for the second fingerprint scan...';
-    if (step <= 1) {
-      return 'First scan received. Place the same finger again to finish enrollment.';
-    }
-    return 'Waiting for device confirmation (step $step)...';
   }
 
   @override
@@ -1042,7 +997,7 @@ class _EnrollDialogState extends State<_EnrollDialog> {
     );
   }
 
-  Widget _buildParticipantList(List<_EnrollmentParticipant> participants) {
+  Widget _buildParticipantList(List<EnrollmentParticipant> participants) {
     final colorScheme = Theme.of(context).colorScheme;
     if (participants.isEmpty) {
       return Center(
@@ -1094,61 +1049,3 @@ class _EnrollDialogState extends State<_EnrollDialog> {
   }
 }
 
-class _EnrollmentParticipant {
-  final String key;
-  final String name;
-  final String cardId;
-  final String phone;
-  final String subtitle;
-  final IconData icon;
-
-  const _EnrollmentParticipant({
-    required this.key,
-    required this.name,
-    required this.cardId,
-    required this.phone,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  factory _EnrollmentParticipant.fromTeacher(Teacher teacher) {
-    final cardId = _firstNonEmpty([teacher.employeeId, teacher.id]);
-    final detail = _joinNonEmpty(['Teacher', teacher.subject, teacher.phone]);
-    return _EnrollmentParticipant(
-      key: 'teacher-${teacher.id ?? teacher.employeeId ?? teacher.name}',
-      name: teacher.name,
-      cardId: cardId,
-      phone: teacher.phone ?? '',
-      subtitle: detail,
-      icon: Icons.school_outlined,
-    );
-  }
-
-  factory _EnrollmentParticipant.fromWorker(Worker worker) {
-    final cardId = _firstNonEmpty([worker.employeeId, worker.id]);
-    final detail = _joinNonEmpty(['Worker', worker.role, worker.phone]);
-    return _EnrollmentParticipant(
-      key: 'worker-${worker.id ?? worker.employeeId ?? worker.name}',
-      name: worker.name,
-      cardId: cardId,
-      phone: worker.phone ?? '',
-      subtitle: detail,
-      icon: Icons.engineering_outlined,
-    );
-  }
-
-  static String _firstNonEmpty(List<String?> values) {
-    for (final value in values) {
-      final trimmed = value?.trim() ?? '';
-      if (trimmed.isNotEmpty) return trimmed;
-    }
-    return '';
-  }
-
-  static String _joinNonEmpty(List<String?> values) {
-    return values
-        .map((v) => v?.trim() ?? '')
-        .where((v) => v.isNotEmpty)
-        .join(' · ');
-  }
-}
