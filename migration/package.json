@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "migrate": "node migrate.js",
-    "verify": "node verify.js"
+    "verify": "node verify.js",
+    "seed-demo": "node seed_demo.js --commit"
   },
   "engines": {
     "node": ">=18"

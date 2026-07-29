@@ -1,7 +1,10 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import '../../models/student.dart';
 import '../../models/attendance.dart';
 import '../../models/session.dart';
+import '../../models/session_date_override.dart';
 import '../../services/firebase_service.dart';
 import '../../utils/responsive_builder.dart';
 import 'package:intl/intl.dart';
@@ -30,10 +33,33 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
   List<Session> _sessions = [];
   bool _loadingSessions = true;
 
+  // Per-occurrence counts pulled from the `attendance` collection when a
+  // specific session is selected (covers all roles, not just students).
+  int _sPresent = 0;
+  int _sLate = 0;
+  int _sAbsent = 0;
+  int _sExcused = 0;
+  int _sTotal = 0;
+  bool _loadingSessionData = false;
+
   @override
   void initState() {
     super.initState();
     _loadSessions();
+    _bestEffortIngest();
+  }
+
+  /// Best-effort pull of recent fingerprint scans into per-session attendance
+  /// so the dashboard reflects device activity without a manual sync. Fully
+  /// guarded: any failure (permissions, offline) is silently ignored.
+  void _bestEffortIngest() {
+    unawaited(
+      FirebaseService.ingestDeviceScans(
+        since: DateTime.now().subtract(const Duration(days: 2)),
+      ).then((_) {
+        if (mounted && _sessionFilterId != null) _loadSessionData();
+      }).catchError((_) {}),
+    );
   }
 
   Future<void> _loadSessions() async {
@@ -50,10 +76,79 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
     }
   }
 
+  Session? get _selectedSession {
+    if (_sessionFilterId == null) return null;
+    for (final s in _sessions) {
+      if (s.id == _sessionFilterId) return s;
+    }
+    return null;
+  }
+
+  /// Loads attendance + roster size for the selected session occurrence and
+  /// caches the per-status counts. No-op when no session is selected.
+  Future<void> _loadSessionData() async {
+    final session = _selectedSession;
+    if (session == null || session.id == null) {
+      setState(() {
+        _sPresent = 0;
+        _sLate = 0;
+        _sAbsent = 0;
+        _sExcused = 0;
+        _sTotal = 0;
+        _loadingSessionData = false;
+      });
+      return;
+    }
+    setState(() => _loadingSessionData = true);
+    try {
+      final dateKey = SessionDateOverride.formatDateKey(_selectedDate);
+      final records = await FirebaseService.getSessionAttendance(
+        session.id!,
+        dateKey,
+      );
+      final roster = await FirebaseService.resolveSessionRoster(
+        session,
+        _selectedDate,
+      );
+      if (!mounted) return;
+      var present = 0, late = 0, absent = 0, excused = 0;
+      for (final r in records) {
+        switch (r.status) {
+          case AttendanceStatus.present:
+            present++;
+            break;
+          case AttendanceStatus.late:
+            late++;
+            break;
+          case AttendanceStatus.absent:
+            absent++;
+            break;
+          case AttendanceStatus.excused:
+            excused++;
+            break;
+          case AttendanceStatus.unknown:
+            break;
+        }
+      }
+      setState(() {
+        _sPresent = present;
+        _sLate = late;
+        _sAbsent = absent;
+        _sExcused = excused;
+        _sTotal = roster.length;
+        _loadingSessionData = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingSessionData = false);
+    }
+  }
+
   void _selectPreviousDay() {
     setState(() {
       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
     });
+    _loadSessionData();
   }
 
   void _selectNextDay() {
@@ -62,6 +157,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
       setState(() {
         _selectedDate = tomorrow;
       });
+      _loadSessionData();
     }
   }
 
@@ -77,6 +173,7 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
       setState(() {
         _selectedDate = picked;
       });
+      _loadSessionData();
     }
   }
 
@@ -121,42 +218,63 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
 
     final students = _filteredStudents;
 
+    // When a specific session is selected in day view, show that occurrence's
+    // attendance straight from the `attendance` collection (covers every
+    // audience kind). Otherwise fall back to the legacy per-student history.
+    final bool sessionDayMode =
+        _viewMode == ViewMode.day && _sessionFilterId != null;
+
     int present = 0;
     int absent = 0;
     int late = 0;
-    final int totalStudents = students.length;
+    int excused = 0;
+    int totalStudents;
 
-    for (final student in students) {
-      final filteredAttendance = student.attendanceHistory.where((a) {
-        if (_viewMode == ViewMode.day) {
-          return a.date.day == _selectedDate.day &&
-              a.date.month == _selectedDate.month &&
-              a.date.year == _selectedDate.year;
-        } else {
-          return a.date.isAfter(_startDate.subtract(const Duration(days: 1))) &&
-              a.date.isBefore(_endDate.add(const Duration(days: 1)));
-        }
-      });
+    if (sessionDayMode) {
+      present = _sPresent;
+      late = _sLate;
+      absent = _sAbsent;
+      excused = _sExcused;
+      totalStudents = _sTotal;
+    } else {
+      totalStudents = students.length;
+      for (final student in students) {
+        final filteredAttendance = student.attendanceHistory.where((a) {
+          if (_viewMode == ViewMode.day) {
+            return a.date.day == _selectedDate.day &&
+                a.date.month == _selectedDate.month &&
+                a.date.year == _selectedDate.year;
+          } else {
+            return a.date
+                    .isAfter(_startDate.subtract(const Duration(days: 1))) &&
+                a.date.isBefore(_endDate.add(const Duration(days: 1)));
+          }
+        });
 
-      for (final attendance in filteredAttendance) {
-        switch (attendance.status) {
-          case AttendanceStatus.present:
-            present++;
-            break;
-          case AttendanceStatus.absent:
-            absent++;
-            break;
-          case AttendanceStatus.late:
-            late++;
-            break;
-          case AttendanceStatus.unknown:
-            break;
+        for (final attendance in filteredAttendance) {
+          switch (attendance.status) {
+            case AttendanceStatus.present:
+              present++;
+              break;
+            case AttendanceStatus.absent:
+              absent++;
+              break;
+            case AttendanceStatus.late:
+              late++;
+              break;
+            case AttendanceStatus.excused:
+              excused++;
+              break;
+            case AttendanceStatus.unknown:
+              break;
+          }
         }
       }
     }
 
-    final int totalRecorded = present + absent + late;
-    final int missingRecords = _viewMode == ViewMode.day ? totalStudents - totalRecorded : 0;
+    final int totalRecorded = present + absent + late + excused;
+    final int missingRecords =
+        _viewMode == ViewMode.day ? (totalStudents - totalRecorded) : 0;
 
     final bool isToday = _viewMode == ViewMode.day &&
         _selectedDate.day == DateTime.now().day &&
@@ -284,6 +402,28 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
 
             SizedBox(height: context.spacingSm),
 
+            if (sessionDayMode && _loadingSessionData)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+
+            if (sessionDayMode && excused > 0)
+              Padding(
+                padding: EdgeInsets.only(bottom: context.spacingSm),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Excused: $excused',
+                    style: TextStyle(
+                      fontSize: context.isMobile ? 12 : 14,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+
             if (_viewMode == ViewMode.day && missingRecords > 0)
               Container(
                 width: double.infinity,
@@ -304,7 +444,9 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
                     SizedBox(width: context.spacingSm),
                     Expanded(
                       child: Text(
-                        'Missing attendance records for $missingRecords student${missingRecords == 1 ? '' : 's'}',
+                        sessionDayMode
+                            ? 'Not yet marked: $missingRecords ${missingRecords == 1 ? 'person' : 'people'}'
+                            : 'Missing attendance records for $missingRecords student${missingRecords == 1 ? '' : 's'}',
                         style: TextStyle(
                           fontSize: context.isMobile ? 12 : 14,
                           color: Colors.amber[800],
@@ -397,7 +539,10 @@ class _AttendanceDashboardState extends State<AttendanceDashboard> {
               ),
             ),
       ],
-      onChanged: (v) => setState(() => _sessionFilterId = v),
+      onChanged: (v) {
+        setState(() => _sessionFilterId = v);
+        _loadSessionData();
+      },
     );
   }
 

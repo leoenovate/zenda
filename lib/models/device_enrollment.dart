@@ -66,7 +66,7 @@ class DeviceEnrollment {
     return DeviceEnrollment(
       id: id,
       deviceId: (data['deviceId'] ?? '').toString(),
-      schoolId: (data['schoolId'] ?? '').toString(),
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '').toString(),
       slotId: _parseInt(data['slotId'] ?? data['userId']),
       name: (data['name'] ?? data['userName'] ?? '').toString(),
       cardId: (data['cardId'] ?? '').toString(),
@@ -82,7 +82,7 @@ class DeviceEnrollment {
   Map<String, dynamic> toFirestore() {
     return {
       'deviceId': deviceId,
-      'schoolId': schoolId,
+      'orgId': schoolId,
       'slotId': slotId,
       'userId': slotId,
       'name': name,

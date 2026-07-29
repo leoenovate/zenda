@@ -471,6 +471,8 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         return Icons.schedule_rounded;
       case AttendanceStatus.absent:
         return Icons.cancel_rounded;
+      case AttendanceStatus.excused:
+        return Icons.event_busy_rounded;
       case AttendanceStatus.unknown:
         return Icons.help_rounded;
     }

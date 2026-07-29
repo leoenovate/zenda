@@ -13,8 +13,14 @@ class ThemeSwitcher extends StatelessWidget {
   /// scaffolds without a colored AppBar).
   final bool onAppBar;
   final bool compact;
+  final bool iconOnly;
 
-  const ThemeSwitcher({super.key, this.onAppBar = true, this.compact = false});
+  const ThemeSwitcher({
+    super.key,
+    this.onAppBar = true,
+    this.compact = false,
+    this.iconOnly = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +31,51 @@ class ThemeSwitcher extends StatelessWidget {
             ? theme.appBarTheme.foregroundColor ?? theme.colorScheme.onPrimary
             : theme.colorScheme.onSurface;
     final modeLabel = controller.isDarkResolved ? 'Light' : 'Dark';
+
+    if (iconOnly) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Switch to $modeLabel mode',
+            onPressed: controller.toggleMode,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(
+              controller.isDarkResolved
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+              color: controlColor,
+              size: 18,
+            ),
+          ),
+          PopupMenuButton<AppPrimary>(
+            tooltip: 'Primary color',
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.palette_outlined, color: controlColor, size: 18),
+            position: PopupMenuPosition.over,
+            onSelected: controller.setPrimary,
+            itemBuilder:
+                (context) => [
+                  _paletteItem(
+                    value: AppPrimary.teal,
+                    label: 'Teal primary',
+                    swatch: AppColors.tealDark,
+                    accent: AppColors.orangeMid,
+                    selected: controller.primary == AppPrimary.teal,
+                  ),
+                  _paletteItem(
+                    value: AppPrimary.orange,
+                    label: 'Orange primary',
+                    swatch: AppColors.orangeDark,
+                    accent: AppColors.tealMid,
+                    selected: controller.primary == AppPrimary.orange,
+                  ),
+                ],
+          ),
+        ],
+      );
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,

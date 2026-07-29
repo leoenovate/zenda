@@ -86,16 +86,20 @@ class StaffTimeOff {
     final kind = (data['assigneeKind'] as String?)?.trim().isNotEmpty == true
         ? data['assigneeKind'] as String
         : 'worker';
-    final aid = (data['assigneeId'] as String?)?.trim().isNotEmpty == true
-        ? data['assigneeId'] as String
-        : (data['workerId'] as String? ?? '');
-    final aname = (data['assigneeName'] as String?)?.trim().isNotEmpty == true
-        ? data['assigneeName'] as String
-        : (data['workerName'] as String? ?? '');
+    final aid = (data['memberId'] as String?)?.trim().isNotEmpty == true
+        ? data['memberId'] as String
+        : (data['assigneeId'] as String?)?.trim().isNotEmpty == true
+            ? data['assigneeId'] as String
+            : (data['workerId'] as String? ?? '');
+    final aname = (data['memberName'] as String?)?.trim().isNotEmpty == true
+        ? data['memberName'] as String
+        : (data['assigneeName'] as String?)?.trim().isNotEmpty == true
+            ? data['assigneeName'] as String
+            : (data['workerName'] as String? ?? '');
 
     return StaffTimeOff(
       id: id,
-      schoolId: data['schoolId'] ?? '',
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '') as String,
       assigneeKind: kind,
       assigneeId: aid,
       assigneeName: aname,
@@ -115,10 +119,10 @@ class StaffTimeOff {
 
   Map<String, dynamic> toFirestore() {
     final m = <String, dynamic>{
-      'schoolId': schoolId,
+      'orgId': schoolId,
       'assigneeKind': assigneeKind,
-      'assigneeId': assigneeId,
-      'assigneeName': assigneeName,
+      'memberId': assigneeId,
+      'memberName': assigneeName,
       'startDate': Timestamp.fromDate(
         DateTime(startDate.year, startDate.month, startDate.day),
       ),
@@ -147,10 +151,6 @@ class StaffTimeOff {
           attachmentFileName!.trim().isNotEmpty) {
         m['attachmentFileName'] = attachmentFileName!.trim();
       }
-    }
-    if (assigneeKind == 'worker') {
-      m['workerId'] = assigneeId;
-      m['workerName'] = assigneeName;
     }
     return m;
   }

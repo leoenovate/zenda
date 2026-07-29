@@ -15,9 +15,7 @@ BRAND = ROOT / "assets" / "brand"
 
 # Canvas sizes for launcher / favicon generation.
 MASTER_SIZE = 1024
-LAUNCHER_BG = "#FAF7F2"
-FAVICON_LIGHT_BG = "#FAF7F2"
-FAVICON_DARK_BG = "#0F1414"
+TRANSPARENT = (0, 0, 0, 0)
 
 ANDROID_SIZES = {
     "mipmap-mdpi": 48,
@@ -102,7 +100,12 @@ def _render_svg(svg_path: Path, size: int, bg: str | None = None) -> Image.Image
     return img
 
 
-def _fit_logo_on_square(img: Image.Image, canvas_size: int, bg: str, padding: float = 0.12) -> Image.Image:
+def _fit_logo_on_square(
+    img: Image.Image,
+    canvas_size: int,
+    bg: tuple[int, int, int, int] = TRANSPARENT,
+    padding: float = 0.12,
+) -> Image.Image:
     canvas = Image.new("RGBA", (canvas_size, canvas_size), bg)
     inner = int(canvas_size * (1 - 2 * padding))
     fitted = img.copy()
@@ -139,7 +142,6 @@ def render_primary(primary: str) -> None:
     master = _fit_logo_on_square(
         _render_svg(colored_svg, MASTER_SIZE, bg="none"),
         MASTER_SIZE,
-        LAUNCHER_BG,
     )
     _save_png(master, out_root / "master_1024.png")
 
@@ -163,17 +165,15 @@ def render_primary(primary: str) -> None:
     for rel, px in WEB_ICON_SIZES.items():
         write_resized(f"web/{rel}", px)
 
-    # Favicons: brand color on light bg, white logo on dark bg.
+    # Favicons: brand color for light tabs, white logo for dark tabs (no canvas bg).
     fav_dir = BRAND / "favicon"
     light_logo = _fit_logo_on_square(
         _render_svg(colored_svg, 64, bg="none"),
         64,
-        FAVICON_LIGHT_BG,
     )
     dark_logo = _fit_logo_on_square(
         _render_svg(LOGOS / "logo_white.svg", 64, bg="none"),
         64,
-        FAVICON_DARK_BG,
     )
     _save_png(light_logo, fav_dir / f"{primary}_light.png")
     _save_png(dark_logo, fav_dir / f"{primary}_dark.png")

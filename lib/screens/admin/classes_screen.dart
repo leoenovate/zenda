@@ -78,10 +78,10 @@ class _ClassesScreenState extends State<ClassesScreen> {
 
     final filtered = _filtered;
     return AdminListScaffold(
-      title: 'Classes',
+      title: 'Groups',
       subtitle: widget.showSchoolFilter
-          ? 'Manage class groups and student assignments'
-          : 'Class groups and student assignments',
+          ? 'Manage groups and member assignments'
+          : 'Groups and member assignments',
       searchHint: 'Search by name, grade, or level...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
@@ -89,10 +89,10 @@ class _ClassesScreenState extends State<ClassesScreen> {
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
       showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
-      addButtonLabel: 'Add Class',
+      addButtonLabel: 'Add Group',
       onAddPressed: () => _showFormDialog(),
       listContent: filtered.isEmpty
-          ? const AdminEmptyState(icon: Icons.class_outlined, message: 'No classes found')
+          ? const AdminEmptyState(icon: Icons.class_outlined, message: 'No groups found')
           : AdminListCard(
               child: ListView.separated(
                 shrinkWrap: true,
@@ -196,7 +196,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
           return AlertDialog(
             backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
             title: Text(
-              isEdit ? 'Edit Class' : 'Add Class',
+              isEdit ? 'Edit Group' : 'Add Group',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
             content: SizedBox(
@@ -350,9 +350,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text('Delete Class', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        title: Text('Delete Group', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
-          'Delete class "${c.name}"? This action cannot be undone.',
+          'Delete group "${c.name}"? This action cannot be undone.',
           style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [

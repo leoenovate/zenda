@@ -57,24 +57,24 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final emailOrStudentNumber = _emailController.text.trim();
+      final identifier = _emailController.text.trim();
       final password = _passwordController.text;
 
       AuthSession session;
-      if (_isStudentNumber(emailOrStudentNumber)) {
-        session = await AuthService.signInAsParent(
-          studentNumber: emailOrStudentNumber,
+      if (_isPhone(identifier)) {
+        session = await AuthService.signInWithPhone(
+          phone: identifier,
           password: password,
         );
       } else {
         session = await AuthService.signInWithEmail(
-          email: emailOrStudentNumber,
+          email: identifier,
           password: password,
         );
       }
 
       if (_rememberUser) {
-        await AuthStorageService.saveLastLoginIdentifier(emailOrStudentNumber);
+        await AuthStorageService.saveLastLoginIdentifier(identifier);
       } else {
         await AuthStorageService.clearLastLoginIdentifier();
       }
@@ -85,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
         uid: session.uid,
         schoolId: session.schoolId,
         studentNumber: session.studentNumber,
+        phone: session.phone,
       );
 
       if (!mounted) return;
@@ -94,11 +95,12 @@ class _LoginScreenState extends State<LoginScreen> {
         case UserRole.parent:
           target = ParentDashboardScreen(
             phoneNumber:
-                session.students.isNotEmpty
+                session.phone ??
+                (session.students.isNotEmpty
                     ? (session.students.first.fatherPhone ??
                         session.students.first.motherPhone ??
                         '')
-                    : '',
+                    : ''),
             students: session.students,
           );
           break;
@@ -134,7 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  bool _isStudentNumber(String value) => !value.contains('@');
+  /// Anything without an `@` is treated as a guardian phone number; emails
+  /// (staff/admin/owner/teacher) always contain `@`.
+  bool _isPhone(String value) => !value.contains('@');
 
   @override
   Widget build(BuildContext context) {
@@ -348,13 +352,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.text,
                   decoration: InputDecoration(
-                    labelText: 'Email or Student Number',
-                    hintText: 'email@school.com or STD001',
-                    prefixIcon: _FieldPrefix(label: 'ID'),
+                    labelText: 'Email or Phone',
+                    hintText: 'email@school.com or 0780000001',
+                    prefixIcon: const _FieldPrefix(icon: Icons.person_outline),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email or student number';
+                      return 'Please enter your email or phone number';
                     }
                     return null;
                   },
@@ -366,13 +370,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Password',
                     hintText: 'Enter your password',
-                    prefixIcon: _FieldPrefix(label: 'PW'),
-                    suffixIcon: TextButton(
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(56, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                    prefixIcon: const _FieldPrefix(icon: Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
-                      child: Text(_obscurePassword ? 'Show' : 'Hide'),
+                      color: colorScheme.primary,
+                      tooltip:
+                          _obscurePassword ? 'Show password' : 'Hide password',
                       onPressed: () {
                         setState(() {
                           _obscurePassword = !_obscurePassword;
@@ -472,7 +479,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         'teacher@school.com',
                         'teacher123',
                       ),
-                      _buildDemoCredential('Parent', 'STD001', 'parent123'),
+                      _buildDemoCredential(
+                        'Guardian',
+                        '0780000001',
+                        'guardian123',
+                      ),
                     ],
                   ),
                 ),
@@ -539,9 +550,9 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class _FieldPrefix extends StatelessWidget {
-  final String label;
+  final IconData icon;
 
-  const _FieldPrefix({required this.label});
+  const _FieldPrefix({required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -556,14 +567,7 @@ class _FieldPrefix extends StatelessWidget {
           color: colorScheme.primary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: colorScheme.primary,
-          ),
-        ),
+        child: Icon(icon, size: 16, color: colorScheme.primary),
       ),
     );
   }

@@ -9,51 +9,10 @@ import 'screens/parent_dashboard_screen.dart';
 import 'screens/teacher_dashboard_screen.dart';
 import 'services/auth_service.dart';
 import 'services/auth_storage_service.dart';
-import 'services/firebase_service.dart';
-import 'models/student.dart';
-import 'models/attendance.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'utils/web_brand_sync.dart';
-
-// Synthetic student used when the demo parent (STD001) resumes a session but
-// no matching student exists in Firestore. Kept in sync with the equivalent
-// helper in `login_screen.dart` so the parent UI is usable end-to-end.
-Student _buildDemoStudent() {
-  final today = DateTime.now();
-  return Student(
-    id: 'demo-student-std001',
-    name: 'Demo Student',
-    sessionIds: const [],
-    registrationNumber: 'STD001',
-    gender: 'Male',
-    birthdate: DateTime(today.year - 10, 1, 1).toIso8601String(),
-    fatherName: 'Demo Father',
-    fatherPhone: '0780000001',
-    motherName: 'Demo Mother',
-    motherPhone: '0780000002',
-    country: 'Rwanda',
-    province: 'Kigali',
-    district: 'Gasabo',
-    sector: 'Kimironko',
-    cell: 'Kibagabaga',
-    attendanceHistory: [
-      Attendance(
-        date: today.subtract(const Duration(days: 1)),
-        status: AttendanceStatus.present,
-      ),
-      Attendance(
-        date: today.subtract(const Duration(days: 2)),
-        status: AttendanceStatus.late,
-      ),
-      Attendance(
-        date: today.subtract(const Duration(days: 3)),
-        status: AttendanceStatus.present,
-      ),
-    ],
-  );
-}
 
 void main() async {
   try {
@@ -177,7 +136,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuthStatus() async {
     try {
-      // Restore the local Firestore-backed session cache.
+      // Restore the local Firestore-backed session cache. restoreSession()
+      // re-reads users/{uid} for staff + guardians and resolves linked
+      // students, so the wrapper just routes by the restored role.
       final stored = await AuthStorageService.getStoredSession();
       if (stored == null) {
         if (mounted) {
@@ -189,78 +150,34 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return;
       }
 
-      final role = stored['role'] as UserRole;
-      final uid = stored['uid'] as String?;
-      final studentNumber = stored['studentNumber'] as String?;
-
-      Widget? targetScreen;
-
-      if (role == UserRole.parent && studentNumber != null) {
-        final isDemoParent = studentNumber.trim().toUpperCase() == 'STD001';
-        List<Student> students = [];
-        try {
-          students = await FirebaseService.getStudentsByStudentNumber(
-            studentNumber,
-          );
-        } catch (e) {
-          print('Error fetching students for parent: $e');
-          if (!isDemoParent) {
-            targetScreen = const LoginScreen();
-          }
-        }
-
-        if (targetScreen == null) {
-          if (students.isEmpty && isDemoParent) {
-            students = [_buildDemoStudent()];
-          }
-
-          if (students.isNotEmpty) {
-            AuthService.setSession(
-              AuthSession(
-                role: UserRole.parent,
-                studentNumber: studentNumber,
-                students: students,
-              ),
-            );
-            final phone =
-                students.first.fatherPhone ?? students.first.motherPhone ?? '';
-            targetScreen = ParentDashboardScreen(
-              phoneNumber: phone,
-              students: students,
-            );
-          } else {
-            targetScreen = const LoginScreen();
-          }
-        }
-      } else if (uid != null && uid.isNotEmpty) {
-        final restored = await AuthService.restoreSession();
-        if (restored == null) {
-          await AuthStorageService.clearStoredLogin();
-          targetScreen = const LoginScreen();
-        } else {
-          switch (restored.role) {
-            case UserRole.systemOwner:
-              targetScreen = const SystemOwnerDashboard();
-              break;
-            case UserRole.schoolAdmin:
-              targetScreen = const SchoolAdminDashboard();
-              break;
-            case UserRole.teacher:
-              targetScreen = const TeacherDashboardScreen();
-              break;
-            case UserRole.parent:
-              targetScreen = const LoginScreen();
-              break;
-          }
-        }
-      } else {
+      Widget targetScreen;
+      final restored = await AuthService.restoreSession();
+      if (restored == null) {
         await AuthStorageService.clearStoredLogin();
         targetScreen = const LoginScreen();
+      } else {
+        switch (restored.role) {
+          case UserRole.systemOwner:
+            targetScreen = const SystemOwnerDashboard();
+            break;
+          case UserRole.schoolAdmin:
+            targetScreen = const SchoolAdminDashboard();
+            break;
+          case UserRole.teacher:
+            targetScreen = const TeacherDashboardScreen();
+            break;
+          case UserRole.parent:
+            targetScreen = ParentDashboardScreen(
+              phoneNumber: restored.phone ?? '',
+              students: restored.students,
+            );
+            break;
+        }
       }
 
       if (mounted) {
         setState(() {
-          _initialScreen = targetScreen ?? const LoginScreen();
+          _initialScreen = targetScreen;
           _isLoading = false;
         });
       }

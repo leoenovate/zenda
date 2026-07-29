@@ -43,12 +43,12 @@ class ClassGroup {
     return ClassGroup(
       id: id,
       name: data['name'] ?? '',
-      schoolId: data['schoolId'] ?? '',
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '') as String,
       grade: data['grade'],
       level: data['level'],
-      teacherId: data['teacherId'],
+      teacherId: (data['supervisorId'] ?? data['teacherId']) as String?,
       teacherName: data['teacherName'],
-      studentIds: (data['studentIds'] as List<dynamic>? ?? const [])
+      studentIds: ((data['memberIds'] ?? data['studentIds']) as List<dynamic>? ?? const [])
           .map((e) => e.toString())
           .toList(),
       isActive: data['isActive'] ?? true,
@@ -59,12 +59,12 @@ class ClassGroup {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
-      'schoolId': schoolId,
+      'orgId': schoolId,
       if (grade != null) 'grade': grade,
       if (level != null) 'level': level,
-      if (teacherId != null) 'teacherId': teacherId,
+      if (teacherId != null) 'supervisorId': teacherId,
       if (teacherName != null) 'teacherName': teacherName,
-      'studentIds': studentIds,
+      'memberIds': studentIds,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
     };

@@ -154,6 +154,66 @@ class Session {
     );
   }
 
+  /// True when [day] is a scheduled occurrence of this session, ignoring
+  /// per-day skips. Non-repeating sessions occur on every date inside
+  /// `[date, endDate]`; recurring sessions form an unbounded series that
+  /// begins on [date]. Mirrors the calendar logic in `sessions_screen.dart`.
+  bool occursOn(DateTime day) {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    final d = DateTime(day.year, day.month, day.day);
+    if (d.isBefore(start)) return false;
+
+    final r = recurrence.toLowerCase();
+    if (r == 'none' || r.isEmpty) {
+      return !d.isAfter(end);
+    }
+    switch (r) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        return d.weekday == start.weekday;
+      case 'monthly':
+        return d.day == start.day;
+      case 'yearly':
+        return d.month == start.month && d.day == start.day;
+      default:
+        return d.isAtSameMomentAs(start);
+    }
+  }
+
+  /// True when [day] is a scheduled occurrence that has not been skipped
+  /// via a per-day override.
+  bool occursAndNotSkipped(DateTime day) => occursOn(day) && !isSkipped(day);
+
+  /// Concrete (non-skipped) occurrence dates within `[rangeStart, rangeEnd]`
+  /// inclusive, date-only. Used to populate the occurrence picker.
+  List<DateTime> occurrenceDatesInRange(DateTime rangeStart, DateTime rangeEnd) {
+    final out = <DateTime>[];
+    var d = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final end = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+    while (!d.isAfter(end)) {
+      if (occursAndNotSkipped(d)) out.add(d);
+      d = d.add(const Duration(days: 1));
+    }
+    return out;
+  }
+
+  /// The most recent occurrence on or before [reference] (date-only),
+  /// searching back up to [lookbackDays]. Falls back to [date] when none is
+  /// found in the window (e.g. a session scheduled entirely in the future).
+  DateTime defaultOccurrenceOnOrBefore(
+    DateTime reference, {
+    int lookbackDays = 366,
+  }) {
+    var d = DateTime(reference.year, reference.month, reference.day);
+    for (var i = 0; i <= lookbackDays; i++) {
+      if (occursAndNotSkipped(d)) return d;
+      d = d.subtract(const Duration(days: 1));
+    }
+    return DateTime(date.year, date.month, date.day);
+  }
+
   static DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
 
@@ -272,8 +332,8 @@ class Session {
       assigneeKind ??= 'worker';
     }
 
-    var classIds = _stringList(data['classIds']);
-    var classNames = _stringList(data['classNames']);
+    var classIds = _stringList(data['groupIds'] ?? data['classIds']);
+    var classNames = _stringList(data['groupNames'] ?? data['classNames']);
     if (classIds.isEmpty && classId != null && classId.isNotEmpty) {
       classIds = [classId];
     }
@@ -311,10 +371,7 @@ class Session {
 
     return Session(
       id: id,
-      schoolId:
-          data['schoolId'] is String
-              ? (data['schoolId'] as String)
-              : (data['schoolId']?.toString() ?? ''),
+      schoolId: (data['orgId'] ?? data['schoolId'])?.toString() ?? '',
       name: _optionalString(data['name']),
       date: dateValue,
       endDate: endDateValue,
@@ -344,7 +401,7 @@ class Session {
 
   Map<String, dynamic> toFirestore() {
     final m = <String, dynamic>{
-      'schoolId': schoolId,
+      'orgId': schoolId,
       if (name != null && name!.trim().isNotEmpty) 'name': name!.trim(),
       'date': Timestamp.fromDate(date),
       'endDate': Timestamp.fromDate(endDate),
@@ -355,8 +412,8 @@ class Session {
       if (lateTime != null) 'lateTime': lateTime,
       if (className != null) 'className': className,
       if (classId != null) 'classId': classId,
-      if (classIds.isNotEmpty) 'classIds': classIds,
-      if (classNames.isNotEmpty) 'classNames': classNames,
+      if (classIds.isNotEmpty) 'groupIds': classIds,
+      if (classNames.isNotEmpty) 'groupNames': classNames,
       if (teacherId != null) 'teacherId': teacherId,
       if (teacherName != null) 'teacherName': teacherName,
       'audienceType': audienceType,

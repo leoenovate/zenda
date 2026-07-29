@@ -31,7 +31,7 @@ class Message {
     final data = doc.data() as Map<String, dynamic>;
     return Message(
       id: doc.id,
-      studentId: data['studentId'] ?? '',
+      studentId: data['memberId'] ?? data['studentId'] ?? '',
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       sender: data['sender'] == 'school' ? MessageSender.school : MessageSender.parent,
@@ -44,7 +44,7 @@ class Message {
   // Convert message to map for Firestore
   Map<String, dynamic> toMap() {
     return {
-      'studentId': studentId,
+      'memberId': studentId,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       'sender': sender == MessageSender.school ? 'school' : 'parent',

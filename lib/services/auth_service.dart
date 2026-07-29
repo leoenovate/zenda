@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
-import '../models/parent.dart' as app_parent;
 import '../models/student.dart';
 import '../models/user.dart' as app_user;
 import 'auth_storage_service.dart';
@@ -50,12 +49,18 @@ class AuthSession {
   final UserRole role;
   final String? uid;
   final String? email;
+
+  /// Organization id (new schema `orgId`). Kept under the `schoolId` name to
+  /// avoid churning every screen + the `FirebaseService._scoped` callers.
   final String? schoolId;
   final String? studentNumber;
+
+  /// Guardian sessions: the phone number used to sign in.
+  final String? phone;
   final String? name;
 
-  /// For parent sessions, the students that this phone/student-number resolved
-  /// to. Empty list for admin roles.
+  /// For guardian/parent sessions, the students resolved from the guardian's
+  /// `linkedStudentIds`. Empty list for admin roles.
   final List<Student> students;
 
   const AuthSession({
@@ -64,9 +69,13 @@ class AuthSession {
     this.email,
     this.schoolId,
     this.studentNumber,
+    this.phone,
     this.name,
     this.students = const [],
   });
+
+  /// Alias for [schoolId] — the active organization id in the new schema.
+  String? get orgId => schoolId;
 }
 
 /// Centralized authentication service. Backed entirely by Firestore — no
@@ -93,8 +102,10 @@ class AuthService {
     'email': 'isaacngendahayo2020@gmail.com',
     'password': 'admin123',
   };
-  static const String demoParentStudentNumber = 'STD001';
-  static const String demoParentPassword = 'parent123';
+  /// Demo guardian (phone + password). `0780000001` matches the demo
+  /// student's guardian phone used by [_buildDemoStudent].
+  static const String demoGuardianPhone = '0780000001';
+  static const String demoGuardianPassword = 'guardian123';
 
   /// Stable id used by demo admin/teacher sessions when Firestore has no
   /// seeded school doc yet.
@@ -209,7 +220,7 @@ class AuthService {
         role: role,
         uid: doc.id,
         email: normalizedEmail,
-        schoolId: data['schoolId'] as String?,
+        schoolId: (data['orgId'] ?? data['schoolId']) as String?,
         name: data['name'] as String?,
       );
       return _current!;
@@ -240,95 +251,108 @@ class AuthService {
     throw Exception('No account found with this email');
   }
 
-  /// Parent sign-in by student registration number + password. Looks up the
-  /// matching students, optionally records a `parents/{id}` doc for the
-  /// contact phone, and caches the session.
-  static Future<AuthSession> signInAsParent({
-    required String studentNumber,
+  /// Guardian (parent) sign-in by phone + password. Looks up the guardian
+  /// `users` doc by phone, verifies the salted hash, and resolves the
+  /// linked student `members` for the dashboard.
+  static Future<AuthSession> signInWithPhone({
+    required String phone,
     required String password,
   }) async {
-    final normalized = studentNumber.trim();
+    final normalized = FirebaseService.normalizePhone(phone);
     if (normalized.isEmpty) {
-      throw Exception('Student number is required');
+      throw Exception('Phone number is required');
     }
-    if (password.length < 6) {
-      throw Exception('Password must be at least 6 characters');
+    if (password.isEmpty) {
+      throw Exception('Password is required');
     }
 
     final isDemo =
-        normalized.toUpperCase() == demoParentStudentNumber &&
-        password == demoParentPassword;
+        normalized == demoGuardianPhone && password == demoGuardianPassword;
 
-    List<Student> students = [];
-    try {
-      students = await FirebaseService.getStudentsByStudentNumber(normalized);
-    } catch (_) {
-      if (!isDemo) rethrow;
-    }
-
-    if (students.isEmpty) {
-      if (isDemo) {
-        students = [_buildDemoStudent(normalized)];
-      } else {
-        throw Exception('No student found with this student number');
-      }
-    }
-
-    final phone = students.first.fatherPhone ?? students.first.motherPhone;
-
-    // Best-effort parent record upsert so the Parents admin screen can see
-    // this contact and so we have a stable parent ID. Failures are ignored;
-    // this isn't critical for login to succeed.
-    if (!isDemo && phone != null && phone.trim().isNotEmpty) {
-      unawaited(
-        _upsertParentRecord(
-          phone: phone,
-          name: students.first.fatherName ?? students.first.motherName,
-          studentIds: students.map((s) => s.id!).toList(),
-        ),
-      );
-    }
-
-    _current = AuthSession(
-      role: UserRole.parent,
-      studentNumber: normalized,
-      name: students.first.name,
-      students: students,
-    );
-    return _current!;
-  }
-
-  static Future<void> _upsertParentRecord({
-    required String phone,
-    String? name,
-    required List<String> studentIds,
-  }) async {
+    DocumentSnapshot<Map<String, dynamic>>? doc;
     try {
       final snap =
           await _firestore
-              .collection('parents')
-              .where('phone', isEqualTo: phone.trim())
-              .limit(1)
+              .collection('users')
+              .where('phone', isEqualTo: normalized)
+              .limit(5)
               .get();
-      if (snap.docs.isEmpty) {
-        await _firestore.collection('parents').add({
-          'phone': phone.trim(),
-          if (name != null && name.isNotEmpty) 'name': name,
-          'studentIds': studentIds,
-          'isActive': true,
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastLogin': FieldValue.serverTimestamp(),
-        });
-      } else {
-        await snap.docs.first.reference.update({
-          'lastLogin': FieldValue.serverTimestamp(),
-          'studentIds': studentIds,
-          if (name != null && name.isNotEmpty) 'name': name,
-        });
+      for (final d in snap.docs) {
+        final u = app_user.AppUser.fromFirestore(d.data(), d.id);
+        if (u.isGuardian) {
+          doc = d;
+          break;
+        }
       }
     } catch (_) {
-      // Intentionally swallowed.
+      // Network / rules failure — fall through to demo handling below.
     }
+
+    if (doc != null) {
+      final data = doc.data() ?? {};
+      if (data['isActive'] == false) {
+        throw Exception('This account has been deactivated');
+      }
+      final hash = data['passwordHash'] as String?;
+      final salt = data['passwordSalt'] as String?;
+      final legacyPassword =
+          (data['password'] ?? data['temporaryPassword']) as String?;
+      final hasHash = hash != null && hash.isNotEmpty;
+
+      if (hasHash) {
+        if (!_verifyPassword(password, hash: hash, salt: salt)) {
+          throw Exception('Incorrect password');
+        }
+      } else if (legacyPassword != null && legacyPassword.isNotEmpty) {
+        if (legacyPassword != password) {
+          throw Exception('Incorrect password');
+        }
+      } else if (!isDemo) {
+        throw Exception(
+          'No password set for this account yet. Contact your school.',
+        );
+      }
+
+      final orgId = (data['orgId'] ?? data['schoolId']) as String?;
+      final linked =
+          (data['linkedStudentIds'] as List<dynamic>? ?? const [])
+              .map((e) => e.toString())
+              .toList();
+      List<Student> students = [];
+      try {
+        students = await FirebaseService.getStudentsByIds(linked);
+      } catch (_) {
+        // Non-fatal; the dashboard can still render with no children.
+      }
+
+      unawaited(
+        doc.reference.update({'lastLogin': FieldValue.serverTimestamp()}),
+      );
+
+      _current = AuthSession(
+        role: UserRole.parent,
+        uid: doc.id,
+        phone: normalized,
+        name: data['name'] as String?,
+        schoolId: orgId,
+        students: students,
+      );
+      return _current!;
+    }
+
+    // No matching Firestore guardian. Allow the built-in demo guardian so the
+    // app can still be explored on a blank database.
+    if (isDemo) {
+      _current = AuthSession(
+        role: UserRole.parent,
+        phone: normalized,
+        name: 'Demo Guardian',
+        students: [_buildDemoStudent('STD001')],
+      );
+      return _current!;
+    }
+
+    throw Exception('No guardian account found with this phone number');
   }
 
   /// Restore the in-memory session from the SharedPreferences cache. Returns
@@ -344,18 +368,62 @@ class AuthService {
     final email = stored['email'] as String?;
     final uid = stored['uid'] as String?;
     final cachedSchoolId = stored['schoolId'] as String?;
-    final studentNumber = stored['studentNumber'] as String?;
+    final phone = stored['phone'] as String?;
 
     if (role == null) return null;
 
-    if (role == UserRole.parent && studentNumber != null) {
-      // Parents are restored entirely from cache; the live student lookup
-      // happens in main.dart so it can synthesise the demo student when
-      // Firestore is empty.
+    if (role == UserRole.parent) {
+      // Guardian restore: prefer the live users/{uid} doc so linked students
+      // and org stay fresh.
+      if (uid != null && uid.isNotEmpty) {
+        try {
+          final doc = await _firestore.collection('users').doc(uid).get();
+          if (doc.exists) {
+            final data = doc.data() ?? {};
+            if (data['isActive'] == false) return null;
+            final orgId =
+                (data['orgId'] ?? data['schoolId']) as String? ??
+                cachedSchoolId;
+            final linked =
+                (data['linkedStudentIds'] as List<dynamic>? ?? const [])
+                    .map((e) => e.toString())
+                    .toList();
+            List<Student> students = [];
+            try {
+              students = await FirebaseService.getStudentsByIds(linked);
+            } catch (_) {
+              // Non-fatal.
+            }
+            _current = AuthSession(
+              role: UserRole.parent,
+              uid: uid,
+              phone: phone ?? data['phone'] as String?,
+              name: data['name'] as String?,
+              schoolId: orgId,
+              students: students,
+            );
+            return _current;
+          }
+        } catch (_) {
+          // Fall through to demo / cache-only restore.
+        }
+      }
+      // Demo guardian (no Firestore doc): synthesise a student so the portal
+      // stays explorable on a blank database.
+      if (phone != null && phone == demoGuardianPhone) {
+        _current = AuthSession(
+          role: UserRole.parent,
+          phone: phone,
+          name: 'Demo Guardian',
+          students: [_buildDemoStudent('STD001')],
+        );
+        return _current;
+      }
       _current = AuthSession(
-        role: role,
-        studentNumber: studentNumber,
-        email: email,
+        role: UserRole.parent,
+        uid: uid,
+        phone: phone,
+        schoolId: cachedSchoolId,
       );
       return _current;
     }
@@ -371,7 +439,9 @@ class AuthService {
             role: freshRole,
             uid: uid,
             email: email ?? data['email'] as String?,
-            schoolId: data['schoolId'] as String? ?? cachedSchoolId,
+            schoolId:
+                (data['orgId'] ?? data['schoolId']) as String? ??
+                cachedSchoolId,
             name: data['name'] as String?,
           );
           return _current;
@@ -420,26 +490,16 @@ class AuthService {
     }
   }
 
-  /// Fetch the `parents/{id}` doc for the current parent session, if any.
-  static Future<app_parent.Parent?> currentParentRecord() async {
+  /// Fetch the guardian `users/{uid}` doc for the current guardian session.
+  static Future<app_user.AppUser?> currentGuardianRecord() async {
     final session = _current;
     if (session == null || session.role != UserRole.parent) return null;
-    final phone =
-        session.students.isNotEmpty
-            ? (session.students.first.fatherPhone ??
-                session.students.first.motherPhone)
-            : null;
-    if (phone == null) return null;
+    final uid = session.uid;
+    if (uid == null || uid.isEmpty) return null;
     try {
-      final snap =
-          await _firestore
-              .collection('parents')
-              .where('phone', isEqualTo: phone.trim())
-              .limit(1)
-              .get();
-      if (snap.docs.isEmpty) return null;
-      final doc = snap.docs.first;
-      return app_parent.Parent.fromFirestore(doc.data(), doc.id);
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) return null;
+      return app_user.AppUser.fromFirestore(doc.data() ?? {}, doc.id);
     } catch (_) {
       return null;
     }

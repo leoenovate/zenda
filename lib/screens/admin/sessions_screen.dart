@@ -12,6 +12,7 @@ import '../../models/user.dart' as app_user;
 import '../../models/worker.dart';
 import '../../services/firebase_service.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
+import 'session_attendance_screen.dart';
 
 class SessionsScreen extends StatefulWidget {
   final List<School> schools;
@@ -408,6 +409,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     children: [
                       if (s.isRecurring) _recurrencePill(colorScheme, s),
                       _statusPill(statusColor, s.isActive),
+                      IconButton(
+                        icon: Icon(
+                          Icons.fact_check_outlined,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
+                        tooltip: 'Take attendance',
+                        onPressed: () => _openAttendance(s),
+                      ),
                       if (s.isActive)
                         IconButton(
                           icon: const Icon(
@@ -464,6 +474,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
                       child: _recurrencePill(colorScheme, s),
                     ),
                   _statusPill(statusColor, s.isActive),
+                  IconButton(
+                    icon: Icon(
+                      Icons.fact_check_outlined,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                    tooltip: 'Take attendance',
+                    onPressed: () => _openAttendance(s),
+                  ),
                   if (s.isActive)
                     IconButton(
                       icon: const Icon(
@@ -2218,6 +2237,31 @@ class _SessionsScreenState extends State<SessionsScreen> {
               ),
             ],
           ),
+    );
+  }
+
+  void _openAttendance(Session s) {
+    if (s.id == null) {
+      _snack('Save the session before taking attendance.');
+      return;
+    }
+    School? school;
+    for (final sc in widget.schools) {
+      if (sc.id == s.schoolId) {
+        school = sc;
+        break;
+      }
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SessionAttendanceScreen(
+          session: s,
+          school: school,
+          onSaved: () {
+            widget.onDataChanged?.call();
+          },
+        ),
+      ),
     );
   }
 

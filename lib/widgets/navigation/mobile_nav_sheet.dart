@@ -24,13 +24,12 @@ Future<void> showMobileNavSheet(
   required List<MobileNavSheetItem> items,
   List<Widget>? footerWidgets,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
-
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (sheetContext) {
+      final colorScheme = Theme.of(sheetContext).colorScheme;
       return SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
@@ -9,8 +11,9 @@ import '../models/session.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage_service.dart';
+import '../services/device_heartbeat_service.dart';
 import '../services/role_constants.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../utils/responsive_builder.dart';
 import '../widgets/navigation/mobile_bottom_nav_shell.dart';
@@ -44,6 +47,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   List<Student> students = [];
   List<Map<String, dynamic>> recentActivity = [];
 
+  // Live device heartbeat state (drives online/offline status).
+  Timer? _heartbeatTimer;
+  Timer? _heartbeatUiTimer;
+  Map<String, DeviceHeartbeat> _heartbeats = const {};
+
   // Schools view state
   String _searchQuery = '';
   _MobileSchoolDetail? _mobileSchoolDetail;
@@ -52,6 +60,22 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   void initState() {
     super.initState();
     _loadData();
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshHeartbeats(),
+    );
+    // Re-render every second so fresh heartbeats can age out to offline.
+    _heartbeatUiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel();
+    _heartbeatUiTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -73,6 +97,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         recentActivity = results[4] as List<Map<String, dynamic>>;
         _isLoading = false;
       });
+      _refreshHeartbeats();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -81,6 +106,64 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
       }
     }
+  }
+
+  Future<void> _refreshHeartbeats() async {
+    if (devices.isEmpty) {
+      if (_heartbeats.isNotEmpty && mounted) {
+        setState(() => _heartbeats = const {});
+      }
+      return;
+    }
+    try {
+      final heartbeats = await DeviceHeartbeatService.fetchHeartbeats(devices);
+      if (!mounted) return;
+      setState(() => _heartbeats = heartbeats);
+    } catch (_) {
+      if (!mounted) return;
+      // Rebuild so existing heartbeat timestamps can age out to offline.
+      setState(() {});
+    }
+  }
+
+  DeviceHeartbeat? _heartbeatFor(Device device) =>
+      _heartbeats[device.deviceId];
+
+  /// Effective live status for a device: a manual `maintenance` flag always
+  /// wins, otherwise the device is `active` only while its heartbeat is fresh.
+  String _effectiveStatus(Device device) {
+    if (device.status == 'maintenance') return 'maintenance';
+    final heartbeat = _heartbeatFor(device);
+    if (heartbeat == null || !heartbeat.hasSignal) return 'offline';
+    return heartbeat.isOnlineNow() ? 'active' : 'offline';
+  }
+
+  Duration? _timeUntilOffline(DeviceHeartbeat? heartbeat) {
+    final lastSeen = heartbeat?.lastSeen;
+    if (lastSeen == null) return null;
+    final age = DateTime.now().difference(lastSeen.toLocal());
+    final remaining = DeviceHeartbeatService.freshnessWindow - age;
+    if (remaining.isNegative) return Duration.zero;
+    return remaining;
+  }
+
+  String _formatDuration(Duration value) {
+    final seconds = value.inSeconds;
+    if (seconds <= 0) return 'now';
+    final minutes = seconds ~/ 60;
+    final remainder = seconds % 60;
+    if (minutes == 0) return '${remainder}s';
+    return '${minutes}m ${remainder.toString().padLeft(2, '0')}s';
+  }
+
+  String _formatRelativeTime(DateTime? value) {
+    if (value == null) return 'never';
+    final age = DateTime.now().difference(value.toLocal());
+    if (age.isNegative || age.inSeconds < 10) return 'just now';
+    if (age.inSeconds < 60) return '${age.inSeconds}s ago';
+    if (age.inMinutes < 60) return '${age.inMinutes}m ago';
+    if (age.inHours < 24) return '${age.inHours}h ago';
+    return '${age.inDays}d ago';
   }
 
   Future<void> _logout() async {
@@ -94,23 +177,16 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final isTablet = context.isTablet;
-    final controller = context.watch<ThemeController>();
-    // This dashboard was authored as a light-mode screen; we force a light
-    // theme but let the primary hue follow the user's teal/orange choice.
-    return Theme(
-      data: AppTheme.light(primary: controller.primary),
-      child:
-          isMobile
-              ? _buildMobileLayout()
-              : Scaffold(
-                body: Row(
-                  children: [
-                    _buildSidebar(isTablet: isTablet),
-                    Expanded(child: _buildMainContent()),
-                  ],
-                ),
-              ),
-    );
+    return isMobile
+        ? _buildMobileLayout()
+        : Scaffold(
+          body: Row(
+            children: [
+              _buildSidebar(isTablet: isTablet),
+              Expanded(child: _buildMainContent()),
+            ],
+          ),
+        );
   }
 
   static const _mobileDestinations = [
@@ -120,9 +196,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       label: 'Dashboard',
     ),
     MobileNavDestination(
-      icon: Icons.school_outlined,
-      selectedIcon: Icons.school,
-      label: 'Schools',
+      icon: Icons.business_outlined,
+      selectedIcon: Icons.business,
+      label: 'Organizations',
+      shortLabel: 'Schools',
     ),
     MobileNavDestination(
       icon: Icons.fingerprint_outlined,
@@ -164,15 +241,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       case 0:
         return 'Dashboard';
       case 1:
-        return 'Schools';
+        return 'Organizations';
       case 2:
         return 'Devices';
       case 3:
         return 'Teachers';
       case 4:
-        return 'Classes';
+        return 'Groups';
       case 5:
-        return 'Parents';
+        return 'Guardians';
       case 6:
         return 'Sessions';
       case 7:
@@ -224,7 +301,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         ),
         MobileNavSheetItem(
           icon: Icons.class_outlined,
-          label: 'Classes',
+          label: 'Groups',
           selected: _selectedIndex == 4,
           onTap:
               () => setState(() {
@@ -234,7 +311,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         ),
         MobileNavSheetItem(
           icon: Icons.family_restroom,
-          label: 'Parents',
+          label: 'Guardians',
           selected: _selectedIndex == 5,
           onTap:
               () => setState(() {
@@ -395,11 +472,11 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
                 _buildNavItem(Icons.dashboard, 'Dashboard', 0),
-                _buildNavItem(Icons.school, 'Schools', 1),
+                _buildNavItem(Icons.business, 'Organizations', 1),
                 _buildNavItem(Icons.fingerprint, 'Devices', 2),
                 _buildNavItem(Icons.person, 'Teachers', 3),
-                _buildNavItem(Icons.class_, 'Classes', 4),
-                _buildNavItem(Icons.family_restroom, 'Parents', 5),
+                _buildNavItem(Icons.class_, 'Groups', 4),
+                _buildNavItem(Icons.family_restroom, 'Guardians', 5),
                 _buildNavItem(Icons.event_note, 'Sessions', 6),
                 _buildNavItem(Icons.engineering, 'Workers', 7),
                 _buildNavItem(Icons.event_busy, 'Time off', 8),
@@ -408,66 +485,101 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               ],
             ),
           ),
-          // User profile section
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  radius: 16,
-                  child: const Text(
-                    'S',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                if (!_sidebarCollapsed) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'System Owner',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          'Full Access',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const ThemeSwitcher(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.logout,
-                      color: Colors.white70,
-                      size: 18,
-                    ),
-                    onPressed: _logout,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          _buildSidebarFooter(),
         ],
       ),
+    );
+  }
+
+  Widget _buildSidebarFooter() {
+    final avatar = CircleAvatar(
+      backgroundColor: Colors.white.withOpacity(0.2),
+      radius: _sidebarCollapsed ? 14 : 15,
+      child: Text(
+        'S',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: _sidebarCollapsed ? 12 : 13,
+        ),
+      ),
+    );
+
+    final logoutButton = IconButton(
+      tooltip: 'Logout',
+      onPressed: _logout,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: const Icon(Icons.logout, color: Colors.white70, size: 18),
+    );
+
+    final themeControls = const ThemeSwitcher(onAppBar: true, iconOnly: true);
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: _sidebarCollapsed ? 8 : 10,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+        ),
+      ),
+      child:
+          _sidebarCollapsed
+              ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  avatar,
+                  const SizedBox(height: 6),
+                  themeControls,
+                  logoutButton,
+                ],
+              )
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      avatar,
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'System Owner',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              'Full Access',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [themeControls, logoutButton],
+                  ),
+                ],
+              ),
     );
   }
 
@@ -546,6 +658,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             deviceCount: detail.deviceCount,
             activeDeviceCount: detail.activeDeviceCount,
             offlineDeviceCount: detail.offlineDeviceCount,
+            onlineDeviceIds: {
+              for (final d in detail.schoolDevices)
+                if (_effectiveStatus(d) == 'active') d.deviceId,
+            },
             initial: detail.initial,
             color: detail.color,
             onAddAdmin: () => _showAddAdminDialog(detail.school.id!),
@@ -579,8 +695,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   Widget _buildDashboard() {
-    final activeDevices = devices.where((d) => d.status == 'active').length;
-    final offlineDevices = devices.where((d) => d.status == 'offline').length;
+    final activeDevices =
+        devices.where((d) => _effectiveStatus(d) == 'active').length;
+    final offlineDevices =
+        devices.where((d) => _effectiveStatus(d) == 'offline').length;
     final adminUsers =
         users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length;
 
@@ -671,22 +789,30 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     ],
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.dark_mode,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    onPressed: () {},
-                    tooltip: 'Toggle theme',
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
+                Builder(
+                  builder: (bannerContext) {
+                    final themeController =
+                        bannerContext.watch<ThemeController>();
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          themeController.isDarkResolved
+                              ? Icons.light_mode_outlined
+                              : Icons.dark_mode_outlined,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        onPressed: themeController.toggleMode,
+                        tooltip: 'Toggle theme',
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 6),
                 Container(
@@ -904,7 +1030,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -975,18 +1101,32 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   Widget _buildSchoolsSummaryCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final studentCount = students.length;
+    final adminCount =
+        users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length;
+    final deviceCount = devices.length;
+    final hasChartData = studentCount > 0 || adminCount > 0 || deviceCount > 0;
+
+    const studentColor = AppColors.info;
+    const adminColor = Color(0xFF8B6FC0);
+    final deviceColor = colorScheme.secondary;
+
+    final sections = <PieChartSectionData>[
+      if (studentCount > 0) _pieSection(studentCount.toDouble(), studentColor),
+      if (adminCount > 0) _pieSection(adminCount.toDouble(), adminColor),
+      if (deviceCount > 0) _pieSection(deviceCount.toDouble(), deviceColor),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1,
-        ),
+        border: Border.all(color: colorScheme.outlineVariant, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: colorScheme.shadow.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -998,135 +1138,85 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.business,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
+              Icon(Icons.business, color: colorScheme.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Schools Summary',
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 180,
-            child:
-                students.isEmpty && users.isEmpty && devices.isEmpty
-                    ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.pie_chart_outline,
-                            color: Theme.of(context).colorScheme.outline,
-                            size: 48,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No data available',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.outline,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    : PieChart(
-                      PieChartData(
-                        sections: [
-                          if (students.isNotEmpty)
-                            PieChartSectionData(
-                              value: students.length.toDouble(),
-                              color: Colors.blue,
-                              title: '${students.length}',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          if (users
-                              .where((u) => AuthRoles.isSchoolAdmin(u.role))
-                              .isNotEmpty)
-                            PieChartSectionData(
-                              value:
-                                  users
-                                      .where(
-                                        (u) => AuthRoles.isSchoolAdmin(u.role),
-                                      )
-                                      .length
-                                      .toDouble(),
-                              color: Colors.purple,
-                              title:
-                                  '${users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length}',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          if (devices.isNotEmpty)
-                            PieChartSectionData(
-                              value: devices.length.toDouble(),
-                              color: Colors.orange,
-                              title: '${devices.length}',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                        ],
-                        centerSpaceRadius: 50,
-                        sectionsSpace: 2,
-                      ),
+          const SizedBox(height: 20),
+          if (!hasChartData)
+            SizedBox(
+              height: 180,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.pie_chart_outline,
+                      color: colorScheme.outline,
+                      size: 48,
                     ),
-          ),
-          SizedBox(height: context.isMobile ? 12 : 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildLegendItem(Colors.blue, 'Students', students.length),
-              _buildLegendItem(
-                Colors.purple,
-                'Admins',
-                users.where((u) => AuthRoles.isSchoolAdmin(u.role)).length,
+                    const SizedBox(height: 8),
+                    Text(
+                      'No data available',
+                      style: TextStyle(color: colorScheme.outline, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-              _buildLegendItem(Colors.orange, 'Devices', devices.length),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              '${schools.length} Total Schools',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            )
+          else
+            _buildDonutChart(
+              sections: sections,
+              center: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${schools.length}',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Schools',
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+          SizedBox(height: context.isMobile ? 14 : 16),
+          _buildChartLegend([
+            _buildLegendItem(studentColor, 'Students', studentCount),
+            _buildLegendItem(adminColor, 'Admins', adminCount),
+            _buildLegendItem(deviceColor, 'Devices', deviceCount),
+          ]),
         ],
       ),
     );
   }
 
   Widget _buildDeviceStatusCard() {
-    final activeDevices = devices.where((d) => d.status == 'active').length;
-    final offlineDevices = devices.where((d) => d.status == 'offline').length;
+    final activeDevices =
+        devices.where((d) => _effectiveStatus(d) == 'active').length;
+    final offlineDevices =
+        devices.where((d) => _effectiveStatus(d) == 'offline').length;
     final maintenanceDevices =
-        devices.where((d) => d.status == 'maintenance').length;
+        devices.where((d) => _effectiveStatus(d) == 'maintenance').length;
     final total = devices.length;
     final onlinePercent = total > 0 ? (activeDevices / total * 100) : 0;
 
@@ -1141,7 +1231,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -1202,72 +1292,58 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                         ],
                       ),
                     )
-                    : PieChart(
-                      PieChartData(
-                        sections: [
-                          if (activeDevices > 0)
-                            PieChartSectionData(
-                              value: activeDevices.toDouble(),
-                              color: Colors.green,
-                              title: '$activeDevices',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                    : _buildDonutChart(
+                      sections: [
+                        if (activeDevices > 0)
+                          _pieSection(
+                            activeDevices.toDouble(),
+                            AppColors.success,
+                          ),
+                        if (offlineDevices > 0)
+                          _pieSection(offlineDevices.toDouble(), AppColors.danger),
+                        if (maintenanceDevices > 0)
+                          _pieSection(
+                            maintenanceDevices.toDouble(),
+                            AppColors.warning,
+                          ),
+                      ],
+                      centerSpaceRadius: 42,
+                      center: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${onlinePercent.toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              color: AppColors.success,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              height: 1,
                             ),
-                          if (offlineDevices > 0)
-                            PieChartSectionData(
-                              value: offlineDevices.toDouble(),
-                              color: Colors.red,
-                              title: '$offlineDevices',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Online',
+                            style: TextStyle(
+                              color:
+                                  Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
-                          if (maintenanceDevices > 0)
-                            PieChartSectionData(
-                              value: maintenanceDevices.toDouble(),
-                              color: Colors.orange,
-                              title: '$maintenanceDevices',
-                              radius: 60,
-                              titleStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                          ),
                         ],
-                        centerSpaceRadius: 40,
-                        sectionsSpace: 2,
                       ),
                     ),
           ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              '${onlinePercent.toStringAsFixed(0)}% Online',
-              style: const TextStyle(
-                color: Colors.green,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          SizedBox(height: context.isMobile ? 8 : 12),
+          SizedBox(height: context.isMobile ? 12 : 14),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStatusLegend(Colors.green, 'Active', activeDevices),
+              _buildStatusLegend(AppColors.success, 'Active', activeDevices),
               const SizedBox(height: 4),
-              _buildStatusLegend(Colors.red, 'Offline', offlineDevices),
+              _buildStatusLegend(AppColors.danger, 'Offline', offlineDevices),
               const SizedBox(height: 4),
               _buildStatusLegend(
-                Colors.orange,
+                AppColors.warning,
                 'Maintenance',
                 maintenanceDevices,
               ),
@@ -1290,7 +1366,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -1368,9 +1444,44 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             Colors.deepPurple,
             _runWorkerRolesMigration,
           ),
+          const SizedBox(height: 8),
+          _buildQuickActionButton(
+            Icons.sync,
+            'Sync device scans',
+            Colors.indigo,
+            _runDeviceScanSync,
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _runDeviceScanSync() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Syncing device scans...')),
+    );
+    try {
+      final summary = await FirebaseService.ingestDeviceScans(
+        since: DateTime.now().subtract(const Duration(days: 7)),
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Scans ${summary['scans']}, matched ${summary['matched']}, '
+            'recorded ${summary['written']}, '
+            'kept manual ${summary['skippedManual']}.',
+          ),
+        ),
+      );
+      await _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Device scan sync failed: $e')),
+      );
+    }
   }
 
   Future<void> _runWorkerRolesMigration() async {
@@ -1537,7 +1648,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -1695,8 +1806,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   Widget _buildDevicesOverviewCard() {
-    final activeDevices = devices.where((d) => d.status == 'active').length;
-    final offlineDevices = devices.where((d) => d.status == 'offline').length;
+    final activeDevices =
+        devices.where((d) => _effectiveStatus(d) == 'active').length;
+    final offlineDevices =
+        devices.where((d) => _effectiveStatus(d) == 'offline').length;
 
     // Responsive padding
     final padding =
@@ -1709,7 +1822,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -1843,7 +1956,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
   }
 
   Widget _buildDeviceListItem(Device device) {
-    final isActive = device.status == 'active';
+    final isActive = _effectiveStatus(device) == 'active';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -1948,20 +2061,69 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     );
   }
 
+  double get _pieRadius => context.isMobile ? 54 : 62;
+
+  PieChartSectionData _pieSection(double value, Color color) {
+    return PieChartSectionData(
+      value: value,
+      color: color,
+      showTitle: false,
+      radius: _pieRadius,
+    );
+  }
+
+  Widget _buildDonutChart({
+    required List<PieChartSectionData> sections,
+    required Widget center,
+    double height = 180,
+    double centerSpaceRadius = 46,
+  }) {
+    return SizedBox(
+      height: height,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sections: sections,
+              centerSpaceRadius: centerSpaceRadius,
+              sectionsSpace: 0,
+              borderData: FlBorderData(show: false),
+              pieTouchData: PieTouchData(enabled: false),
+            ),
+          ),
+          center,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartLegend(List<Widget> items) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: items,
+    );
+  }
+
   Widget _buildLegendItem(Color color, String label, int count) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: 10,
+          height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Text(
           '$label ($count)',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 10,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -2011,7 +2173,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       if (device.schoolId != null) {
         deviceCounts[device.schoolId!] =
             (deviceCounts[device.schoolId!] ?? 0) + 1;
-        if (device.status == 'active') {
+        if (_effectiveStatus(device) == 'active') {
           activeDeviceCounts[device.schoolId!] =
               (activeDeviceCounts[device.schoolId!] ?? 0) + 1;
         }
@@ -2038,7 +2200,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Schools Management',
+                    'Organizations',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: context.isMobile ? 24 : 28,
@@ -2158,7 +2320,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: Theme.of(context).colorScheme.outlineVariant,
@@ -2270,7 +2432,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -2330,7 +2492,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -2447,7 +2609,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                     Text(
                       deviceCount == 0
                           ? '0 devices'
-                          : '$deviceCount device${deviceCount > 1 ? 's' : ''} â€¢ $activeDeviceCount active',
+                          : '$deviceCount device${deviceCount > 1 ? 's' : ''} · $activeDeviceCount active',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 13,
@@ -2468,7 +2630,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   Icons.more_vert,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 onSelected: (value) {
                   if (value == 'edit') {
                     _showEditSchoolDialog(school);
@@ -2854,6 +3016,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final schoolDevices =
         devices.where((d) => d.schoolId == school.id).toList();
     final offlineDeviceCount = deviceCount - activeDeviceCount;
+    final onlineDeviceIds = {
+      for (final d in schoolDevices)
+        if (_effectiveStatus(d) == 'active') d.deviceId,
+    };
     final schoolAdmins =
         users
             .where(
@@ -2912,6 +3078,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
               deviceCount: deviceCount,
               activeDeviceCount: activeDeviceCount,
               offlineDeviceCount: offlineDeviceCount,
+              onlineDeviceIds: onlineDeviceIds,
               initial: initial,
               color: color,
               onAddAdmin: () => _showAddAdminDialog(school.id!),
@@ -3354,7 +3521,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     final filtered =
         devices.where((d) {
           if (_deviceStatusFilter != 'all' &&
-              (d.status ?? 'offline') != _deviceStatusFilter) {
+              _effectiveStatus(d) != _deviceStatusFilter) {
             return false;
           }
           if (_deviceSchoolFilter != 'all' &&
@@ -3373,37 +3540,40 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           return true;
         }).toList();
 
+    final activeCount =
+        devices.where((d) => _effectiveStatus(d) == 'active').length;
+    final offlineCount =
+        devices.where((d) => _effectiveStatus(d) == 'offline').length;
+    final maintenanceCount =
+        devices.where((d) => _effectiveStatus(d) == 'maintenance').length;
+    final isMobile = context.isMobile;
+
     return SingleChildScrollView(
       padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Devices',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Manage fingerprint scanners and other hardware',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
+          if (isMobile) ...[
+            Text(
+              'Devices',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
-              ElevatedButton.icon(
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Manage fingerprint scanners and other hardware',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
                 onPressed: () => _showDeviceFormDialog(),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Device'),
@@ -3416,92 +3586,238 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search by name, ID, or location...',
-                    prefixIcon: Icon(Icons.search),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Devices',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manage fingerprint scanners and other hardware',
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
-                  onChanged: (v) => setState(() => _deviceSearchQuery = v),
                 ),
-              ),
-              const SizedBox(width: 12),
-              _buildDeviceDropdown(
-                value: _deviceStatusFilter,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All statuses')),
-                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                  DropdownMenuItem(value: 'offline', child: Text('Offline')),
-                  DropdownMenuItem(
-                    value: 'maintenance',
-                    child: Text('Maintenance'),
+                ElevatedButton.icon(
+                  onPressed: () => _showDeviceFormDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Device'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
                   ),
-                ],
-                onChanged:
-                    (v) => setState(() => _deviceStatusFilter = v ?? 'all'),
-              ),
-              const SizedBox(width: 12),
-              _buildDeviceDropdown(
-                value: _deviceSchoolFilter,
-                items: [
-                  const DropdownMenuItem(
-                    value: 'all',
-                    child: Text('All schools'),
-                  ),
-                  ...schools.map(
-                    (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
-                  ),
-                ],
-                onChanged:
-                    (v) => setState(() => _deviceSchoolFilter = v ?? 'all'),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _buildDeviceStatCard(
+          if (isMobile) ...[
+            TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search by name, ID, or location...',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (v) => setState(() => _deviceSearchQuery = v),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDeviceDropdown(
+                    expanded: true,
+                    value: _deviceStatusFilter,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('All statuses'),
+                      ),
+                      DropdownMenuItem(value: 'active', child: Text('Active')),
+                      DropdownMenuItem(
+                        value: 'offline',
+                        child: Text('Offline'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'maintenance',
+                        child: Text('Maintenance'),
+                      ),
+                    ],
+                    onChanged:
+                        (v) =>
+                            setState(() => _deviceStatusFilter = v ?? 'all'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeviceDropdown(
+                    expanded: true,
+                    value: _deviceSchoolFilter,
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'all',
+                        child: Text('All schools'),
+                      ),
+                      ...schools.map(
+                        (s) => DropdownMenuItem(
+                          value: s.id,
+                          child: Text(
+                            s.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged:
+                        (v) =>
+                            setState(() => _deviceSchoolFilter = v ?? 'all'),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search by name, ID, or location...',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (v) => setState(() => _deviceSearchQuery = v),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _buildDeviceDropdown(
+                  value: _deviceStatusFilter,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All statuses')),
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(value: 'offline', child: Text('Offline')),
+                    DropdownMenuItem(
+                      value: 'maintenance',
+                      child: Text('Maintenance'),
+                    ),
+                  ],
+                  onChanged:
+                      (v) => setState(() => _deviceStatusFilter = v ?? 'all'),
+                ),
+                const SizedBox(width: 12),
+                _buildDeviceDropdown(
+                  value: _deviceSchoolFilter,
+                  items: [
+                    const DropdownMenuItem(
+                      value: 'all',
+                      child: Text('All schools'),
+                    ),
+                    ...schools.map(
+                      (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
+                    ),
+                  ],
+                  onChanged:
+                      (v) => setState(() => _deviceSchoolFilter = v ?? 'all'),
+                ),
+              ],
+            ),
+          const SizedBox(height: 20),
+          if (isMobile)
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 2.15,
+              children: [
+                _buildDeviceStatCard(
                   Colors.green,
                   Icons.check_circle,
-                  '${devices.where((d) => d.status == 'active').length}',
+                  '$activeCount',
                   'Active',
+                  compact: true,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildDeviceStatCard(
+                _buildDeviceStatCard(
                   Colors.red,
                   Icons.error_outline,
-                  '${devices.where((d) => d.status == 'offline').length}',
+                  '$offlineCount',
                   'Offline',
+                  compact: true,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildDeviceStatCard(
+                _buildDeviceStatCard(
                   Colors.orange,
                   Icons.build_circle,
-                  '${devices.where((d) => d.status == 'maintenance').length}',
+                  '$maintenanceCount',
                   'Maintenance',
+                  compact: true,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildDeviceStatCard(
+                _buildDeviceStatCard(
                   Theme.of(context).colorScheme.primary,
                   Icons.devices_other,
                   '${devices.length}',
                   'Total',
+                  compact: true,
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildDeviceStatCard(
+                    Colors.green,
+                    Icons.check_circle,
+                    '$activeCount',
+                    'Active',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeviceStatCard(
+                    Colors.red,
+                    Icons.error_outline,
+                    '$offlineCount',
+                    'Offline',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeviceStatCard(
+                    Colors.orange,
+                    Icons.build_circle,
+                    '$maintenanceCount',
+                    'Maintenance',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeviceStatCard(
+                    Theme.of(context).colorScheme.primary,
+                    Icons.devices_other,
+                    '${devices.length}',
+                    'Total',
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 20),
           if (filtered.isEmpty)
             Container(
@@ -3535,7 +3851,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
           else
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant,
@@ -3562,8 +3878,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     required String value,
     required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
+    bool expanded = false,
   }) {
     return Container(
+      width: expanded ? double.infinity : null,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainer,
@@ -3572,6 +3890,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       ),
       child: DropdownButton<String>(
         value: value,
+        isExpanded: expanded,
         items: items,
         onChanged: onChanged,
         underline: const SizedBox.shrink(),
@@ -3588,54 +3907,83 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
     Color color,
     IconData icon,
     String value,
-    String label,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    String label, {
+    bool compact = false,
+  }) {
+    final iconBox = Container(
+      width: compact ? 36 : 40,
+      height: compact ? 36 : 40,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: color, size: compact ? 18 : 20),
+    );
+
+    final valueText = Text(
+      value,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: compact ? 22 : 20,
+        fontWeight: FontWeight.bold,
+        height: 1.1,
+      ),
+    );
+
+    final labelText = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 12,
+      ),
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 16,
+        vertical: compact ? 12 : 16,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    height: 1.1,
+      child:
+          compact
+              ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      iconBox,
+                      const SizedBox(width: 10),
+                      valueText,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
+                  const SizedBox(height: 6),
+                  labelText,
+                ],
+              )
+              : Row(
+                children: [
+                  iconBox,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        valueText,
+                        const SizedBox(height: 2),
+                        labelText,
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+                ],
+              ),
     );
   }
 
@@ -3648,8 +3996,10 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
             )
             .name;
 
+    final heartbeat = _heartbeatFor(device);
+    final status = _effectiveStatus(device);
     Color statusColor;
-    switch (device.status) {
+    switch (status) {
       case 'active':
         statusColor = Colors.green;
         break;
@@ -3666,6 +4016,15 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
       schoolName,
       if (device.location != null && device.location!.trim().isNotEmpty)
         device.location!,
+      if (heartbeat?.lastSeen != null)
+        'Last heartbeat ${_formatRelativeTime(heartbeat!.lastSeen)}',
+      if (heartbeat?.lastSeen != null)
+        status == 'active'
+            ? 'Offline in ${_formatDuration(_timeUntilOffline(heartbeat)!)}'
+            : 'Heartbeat expired',
+      if ((heartbeat?.ip ?? '').isNotEmpty && heartbeat!.ip != 'Unknown')
+        'IP ${heartbeat.ip}',
+      if (heartbeat?.rssi != null) 'RSSI ${heartbeat!.rssi} dBm',
     ];
 
     return Padding(
@@ -3730,7 +4089,7 @@ class _SystemOwnerDashboardState extends State<SystemOwnerDashboard> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  (device.status ?? 'offline').toUpperCase(),
+                  status.toUpperCase(),
                   style: TextStyle(
                     color: statusColor,
                     fontWeight: FontWeight.bold,
@@ -4091,6 +4450,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
   final int deviceCount;
   final int activeDeviceCount;
   final int offlineDeviceCount;
+  final Set<String> onlineDeviceIds;
   final String initial;
   final Color color;
   final VoidCallback onAddAdmin;
@@ -4108,6 +4468,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
     required this.deviceCount,
     required this.activeDeviceCount,
     required this.offlineDeviceCount,
+    this.onlineDeviceIds = const {},
     required this.initial,
     required this.color,
     required this.onAddAdmin,
@@ -4376,8 +4737,11 @@ class _SchoolDetailsPanel extends StatelessWidget {
                             ),
                           )
                         else
-                          ...schoolDevices.map(
-                            (device) => Container(
+                          ...schoolDevices.map((device) {
+                            final isOnline = onlineDeviceIds.contains(
+                              device.deviceId,
+                            );
+                            return Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -4394,9 +4758,7 @@ class _SchoolDetailsPanel extends StatelessWidget {
                                     height: 8,
                                     decoration: BoxDecoration(
                                       color:
-                                          device.status == 'active'
-                                              ? Colors.green
-                                              : Colors.red,
+                                          isOnline ? Colors.green : Colors.red,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -4414,21 +4776,17 @@ class _SchoolDetailsPanel extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    device.status == 'active'
-                                        ? 'â€¢ Active'
-                                        : 'â€¢ Offline',
+                                    isOnline ? '· Active' : '· Offline',
                                     style: TextStyle(
                                       color:
-                                          device.status == 'active'
-                                              ? Colors.green
-                                              : Colors.red,
+                                          isOnline ? Colors.green : Colors.red,
                                       fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
+                            );
+                          }),
                         const SizedBox(height: 24),
 
                         // School Sessions Section - Always show

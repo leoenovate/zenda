@@ -3,6 +3,7 @@ enum AttendanceStatus {
   present, 
   late, 
   absent,
+  excused,
   unknown
 }
 

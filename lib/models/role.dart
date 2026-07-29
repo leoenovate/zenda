@@ -42,7 +42,7 @@ class Role {
       id: id,
       name: (data['name'] ?? '') as String,
       description: data['description'] as String?,
-      schoolId: (data['schoolId'] ?? '') as String,
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '') as String,
       isActive: data['isActive'] ?? true,
       createdAt: _parseDate(data['createdAt']),
       updatedAt: _parseDate(data['updatedAt']),
@@ -53,7 +53,7 @@ class Role {
     return {
       'name': name,
       if (description != null) 'description': description,
-      'schoolId': schoolId,
+      'orgId': schoolId,
       'isActive': isActive,
       if (createdAt != null) 'createdAt': createdAt,
       if (updatedAt != null) 'updatedAt': updatedAt,

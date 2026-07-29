@@ -160,14 +160,10 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
             [
               SwitchListTile(
                 value: _config.maintenanceMode,
-                activeColor: Colors.orange,
-                title: Text(
-                  'Maintenance mode',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                ),
-                subtitle: Text(
+                title: const Text('Maintenance mode'),
+                subtitle: const Text(
                   'When enabled, non-owner users see a maintenance banner.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(fontSize: 12),
                 ),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(maintenanceMode: v);
@@ -181,30 +177,24 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
             [
               SwitchListTile(
                 value: _config.fingerprintEnabled,
-                activeColor: Theme.of(context).colorScheme.primary,
-                title: Text('Fingerprint scanning',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                title: const Text('Fingerprint scanning'),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(fingerprintEnabled: v);
                 }),
               ),
               SwitchListTile(
                 value: _config.messagingEnabled,
-                activeColor: Theme.of(context).colorScheme.primary,
-                title: Text('Parent messaging',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                title: const Text('Parent messaging'),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(messagingEnabled: v);
                 }),
               ),
               SwitchListTile(
                 value: _config.multiSchoolEnabled,
-                activeColor: Theme.of(context).colorScheme.primary,
-                title: Text('Multi-school mode',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-                subtitle: Text(
+                title: const Text('Multi-school mode'),
+                subtitle: const Text(
                   'Scopes every query by schoolId for non-owner users.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(fontSize: 12),
                 ),
                 onChanged: (v) => setState(() {
                   _config = _config.copyWith(multiSchoolEnabled: v);
@@ -225,86 +215,28 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildSection(
-            'Data migration',
-            [
-              Text(
-                'Assign every student that currently has no schoolId to the '
-                'school selected below. Run this once after enabling '
-                'multi-school mode.',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String?>(
-                      value: _backfillSchoolId,
-                      decoration: const InputDecoration(
-                        labelText: 'Target school',
-                      ),
-                      dropdownColor: Theme.of(context).colorScheme.surface,
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                      items: _schools
-                          .map((s) => DropdownMenuItem<String?>(
-                                value: s.id,
-                                child: Text(s.name),
-                              ))
-                          .toList(),
-                      onChanged: (v) =>
-                          setState(() => _backfillSchoolId = v),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: _isBackfilling ? null : _runBackfill,
-                    icon: _isBackfilling
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.upgrade, size: 18),
-                    label: Text(_isBackfilling ? 'Running...' : 'Run backfill'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          _buildSection('Data migration', [_buildDataMigrationControls()]),
           const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: _isSaving ? null : _save,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.save, size: 18),
-              label: Text(_isSaving ? 'Saving...' : 'Save changes'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
-            ),
-          ),
+          _buildSaveButton(),
         ],
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration(String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: colorScheme.surfaceContainer,
+      labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
       ),
     );
   }
@@ -314,30 +246,138 @@ class _SystemConfigScreenState extends State<SystemConfigScreen> {
     TextEditingController controller, {
     TextInputType? keyboardType,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-        ),
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: _fieldDecoration(label),
+    );
+  }
+
+  Widget _buildSchoolDropdown() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DropdownButtonFormField<String?>(
+      value: _backfillSchoolId,
+      isExpanded: true,
+      decoration: _fieldDecoration('Target school'),
+      dropdownColor: colorScheme.surface,
+      style: TextStyle(color: colorScheme.onSurface),
+      items: _schools
+          .map(
+            (s) => DropdownMenuItem<String?>(
+              value: s.id,
+              child: Text(
+                s.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (v) => setState(() => _backfillSchoolId = v),
+    );
+  }
+
+  Widget _buildBackfillButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ElevatedButton.icon(
+      onPressed: _isBackfilling ? null : _runBackfill,
+      icon:
+          _isBackfilling
+              ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.onPrimary,
+                  ),
+                ),
+              )
+              : const Icon(Icons.upgrade, size: 18),
+      label: Text(_isBackfilling ? 'Running...' : 'Run backfill'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       ),
     );
   }
 
+  Widget _buildDataMigrationControls() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isMobile = context.isMobile;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Assign every student that currently has no schoolId to the '
+          'school selected below. Run this once after enabling multi-school mode.',
+          style: TextStyle(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 13,
+            height: 1.45,
+          ),
+        ),
+        SizedBox(height: isMobile ? 20 : 16),
+        if (isMobile) ...[
+          _buildSchoolDropdown(),
+          const SizedBox(height: 12),
+          SizedBox(width: double.infinity, child: _buildBackfillButton()),
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildSchoolDropdown()),
+              const SizedBox(width: 12),
+              _buildBackfillButton(),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final button = ElevatedButton.icon(
+      onPressed: _isSaving ? null : _save,
+      icon:
+          _isSaving
+              ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.onPrimary,
+                  ),
+                ),
+              )
+              : const Icon(Icons.save, size: 18),
+      label: Text(_isSaving ? 'Saving...' : 'Save changes'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      ),
+    );
+
+    if (context.isMobile) {
+      return SizedBox(width: double.infinity, child: button);
+    }
+    return Align(alignment: Alignment.centerRight, child: button);
+  }
+
   Widget _buildSection(String title, List<Widget> children) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

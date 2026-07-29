@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../models/attendance.dart';
 import '../models/school.dart';
 import '../models/session.dart';
+import '../models/session_attendance.dart';
+import '../models/session_date_override.dart';
 import '../models/student.dart';
 import '../services/auth_service.dart';
 import '../services/firebase_service.dart';
@@ -65,13 +67,26 @@ class _ReportsViewState extends State<ReportsView> {
         );
       }
 
+      // Pull per-session attendance for the widest selectable range so the
+      // session-load card can show real recorded counts. Permission-safe.
+      final sinceKey = SessionDateOverride.formatDateKey(
+        _dateOnly(DateTime.now()).subtract(
+          Duration(days: _ReportRange.ninetyDays.days - 1),
+        ),
+      );
+
       final coreResults = await Future.wait([
         FirebaseService.getStudents(),
         FirebaseService.getSessions(schoolId: scopedSchoolId),
+        FirebaseService.getSchoolAttendance(
+          schoolId: scopedSchoolId,
+          sinceDateKey: sinceKey,
+        ),
       ]);
 
       final students = coreResults[0] as List<Student>;
       final sessions = coreResults[1] as List<Session>;
+      final attendance = coreResults[2] as List<SessionAttendanceRecord>;
 
       List<School> schools = const [];
       if (isOwner) {
@@ -96,6 +111,7 @@ class _ReportsViewState extends State<ReportsView> {
           sessions: sessions,
           schools: schools,
           recentActivity: recentActivity,
+          attendance: attendance,
         );
         _isLoading = false;
       });
@@ -157,58 +173,30 @@ class _ReportsViewState extends State<ReportsView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final spacing = context.spacingMd;
-          final twoColumns = constraints.maxWidth >= 1040;
-          final cardWidth =
-              twoColumns
-                  ? (constraints.maxWidth - spacing) / 2
-                  : constraints.maxWidth;
+          final reportCards = [
+            _buildAttendanceMixCard(metrics),
+            _buildDailyMixCard(metrics),
+            _buildTrendCard(metrics),
+            _buildSessionsFlowCard(metrics),
+            _buildWeekdayRhythmCard(metrics),
+            _buildSchoolShareCard(metrics),
+            _buildSessionLoadCard(metrics),
+            _buildHeatmapCard(metrics),
+            _buildRecentSessionsCard(metrics),
+          ];
 
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: context.screenPadding,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildHeroCard(metrics),
                 SizedBox(height: spacing),
-                Wrap(
+                _buildReportGrid(
+                  maxWidth: constraints.maxWidth,
                   spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildAttendanceMixCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildDailyMixCard(metrics),
-                    ),
-                    SizedBox(width: cardWidth, child: _buildTrendCard(metrics)),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildSessionsFlowCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildWeekdayRhythmCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildSchoolShareCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildSessionLoadCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildHeatmapCard(metrics),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _buildRecentSessionsCard(metrics),
-                    ),
-                  ],
+                  cards: reportCards,
                 ),
                 if (_loadError != null) ...[
                   SizedBox(height: spacing),
@@ -219,6 +207,61 @@ class _ReportsViewState extends State<ReportsView> {
           );
         },
       ),
+    );
+  }
+
+  int _reportGridColumns(double maxWidth) {
+    if (maxWidth >= 1280) return 3;
+    if (maxWidth >= 760) return 2;
+    return 1;
+  }
+
+  Widget _buildReportGrid({
+    required double maxWidth,
+    required double spacing,
+    required List<Widget> cards,
+  }) {
+    final columns = _reportGridColumns(maxWidth);
+    if (columns == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing),
+            cards[i],
+          ],
+        ],
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += columns) {
+      final rowCards = cards.sublist(i, math.min(i + columns, cards.length));
+
+      if (rowCards.length == 1) {
+        rows.add(rowCards.first);
+      } else {
+        rows.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var j = 0; j < rowCards.length; j++) ...[
+                if (j > 0) SizedBox(width: spacing),
+                Expanded(child: rowCards[j]),
+              ],
+            ],
+          ),
+        );
+      }
+
+      if (i + columns < cards.length) {
+        rows.add(SizedBox(height: spacing));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 
@@ -286,23 +329,70 @@ class _ReportsViewState extends State<ReportsView> {
       (sum, student) => sum + student.sessionIds.length,
     );
 
+    // Per-session attendance tallies from the `attendance` collection, scoped
+    // to the selected range. Index 0 = recorded, then present/late/absent/excused.
+    final startKey = SessionDateOverride.formatDateKey(start);
+    final endKey = SessionDateOverride.formatDateKey(today);
+    final tallyBySession = <String, List<int>>{};
+    for (final r in snapshot.attendance) {
+      if (r.dateKey.compareTo(startKey) < 0 || r.dateKey.compareTo(endKey) > 0) {
+        continue;
+      }
+      final t = tallyBySession.putIfAbsent(
+        r.sessionId,
+        () => <int>[0, 0, 0, 0, 0],
+      );
+      t[0]++;
+      switch (r.status) {
+        case AttendanceStatus.present:
+          t[1]++;
+          break;
+        case AttendanceStatus.late:
+          t[2]++;
+          break;
+        case AttendanceStatus.absent:
+          t[3]++;
+          break;
+        case AttendanceStatus.excused:
+          t[4]++;
+          break;
+        case AttendanceStatus.unknown:
+          break;
+      }
+    }
+
     final sessionLoads =
         snapshot.sessions.where((session) => session.id != null).map((session) {
           final count =
               snapshot.students.where((student) {
                 return student.sessionIds.contains(session.id);
               }).length;
-          return _SessionLoadPoint(session: session, count: count);
+          final t = tallyBySession[session.id] ?? const [0, 0, 0, 0, 0];
+          return _SessionLoadPoint(
+            session: session,
+            count: count,
+            recorded: t[0],
+            present: t[1],
+            late: t[2],
+            absent: t[3],
+            excused: t[4],
+          );
         }).toList();
 
-    final hasStudentMappings = sessionLoads.any((entry) => entry.count > 0);
+    final hasStudentMappings = sessionLoads.any(
+      (entry) => entry.count > 0 || entry.recorded > 0,
+    );
     final topSessionLoads =
         (hasStudentMappings
-              ? sessionLoads.where((entry) => entry.count > 0).toList()
+              ? sessionLoads
+                  .where((entry) => entry.count > 0 || entry.recorded > 0)
+                  .toList()
               : sessionLoads)
           ..sort((a, b) {
             final countDiff = b.count.compareTo(a.count);
             if (countDiff != 0) return countDiff;
+            final recordedDiff = b.recorded.compareTo(a.recorded);
+            if (recordedDiff != 0) return recordedDiff;
             return b.session.date.compareTo(a.session.date);
           });
 
@@ -1489,6 +1579,22 @@ class _ReportsViewState extends State<ReportsView> {
                               fontSize: 12,
                             ),
                           ),
+                          if (entry.recorded > 0) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${entry.recorded} recorded · '
+                              '${entry.presentRate.toStringAsFixed(0)}% present · '
+                              '${entry.late} late · ${entry.absent} absent'
+                              '${entry.excused > 0 ? ' · ${entry.excused} excused' : ''}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );
@@ -1741,6 +1847,7 @@ class _ReportsViewState extends State<ReportsView> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.all(context.isMobile ? 16 : 20),
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -2168,12 +2275,17 @@ class _ReportsSnapshot {
     required this.sessions,
     required this.schools,
     required this.recentActivity,
+    this.attendance = const [],
   });
 
   final List<Student> students;
   final List<Session> sessions;
   final List<School> schools;
   final List<Map<String, dynamic>> recentActivity;
+
+  /// Per-session attendance records pulled from the `attendance` collection
+  /// (covers every audience kind, not just students).
+  final List<SessionAttendanceRecord> attendance;
 }
 
 class _ReportMetrics {
@@ -2245,12 +2357,13 @@ class _DailyAttendancePoint {
   int present = 0;
   int late = 0;
   int absent = 0;
+  int excused = 0;
 
-  int get total => present + late + absent;
+  int get total => present + late + absent + excused;
 
   double get attendanceRate {
     if (total == 0) return 0.0;
-    return ((present + late) / total) * 100;
+    return ((present + late + excused) / total) * 100;
   }
 
   double get onTimeRate {
@@ -2268,6 +2381,9 @@ class _DailyAttendancePoint {
         break;
       case AttendanceStatus.absent:
         absent++;
+        break;
+      case AttendanceStatus.excused:
+        excused++;
         break;
       case AttendanceStatus.unknown:
         break;
@@ -2312,10 +2428,33 @@ class _WeekdayRhythmPoint {
 }
 
 class _SessionLoadPoint {
-  const _SessionLoadPoint({required this.session, required this.count});
+  const _SessionLoadPoint({
+    required this.session,
+    required this.count,
+    this.recorded = 0,
+    this.present = 0,
+    this.late = 0,
+    this.absent = 0,
+    this.excused = 0,
+  });
 
   final Session session;
+
+  /// Number of students assigned to the session (chart sizing / back-compat).
   final int count;
+
+  /// Attendance records logged against this session in range (all kinds).
+  final int recorded;
+  final int present;
+  final int late;
+  final int absent;
+  final int excused;
+
+  /// Share of recorded people who showed up (present + late + excused).
+  double get presentRate {
+    if (recorded == 0) return 0.0;
+    return ((present + late + excused) / recorded) * 100;
+  }
 }
 
 class _SchoolSessionPoint {

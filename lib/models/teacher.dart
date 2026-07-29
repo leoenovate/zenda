@@ -49,11 +49,11 @@ class Teacher {
     return Teacher(
       id: id,
       name: data['name'] ?? '',
-      schoolId: data['schoolId'] ?? '',
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '') as String,
       email: data['email'],
       phone: data['phone'],
       subject: data['subject'],
-      classId: data['classId'],
+      classId: (data['legacyClassId'] ?? data['classId']) as String?,
       employeeId: data['employeeId'],
       roleId: data['roleId'] as String?,
       isActive: data['isActive'] ?? true,
@@ -63,12 +63,13 @@ class Teacher {
 
   Map<String, dynamic> toFirestore() {
     return {
+      'kind': 'teacher',
       'name': name,
-      'schoolId': schoolId,
+      'orgId': schoolId,
       if (email != null) 'email': email,
       if (phone != null) 'phone': phone,
       if (subject != null) 'subject': subject,
-      if (classId != null) 'classId': classId,
+      if (classId != null) 'legacyClassId': classId,
       if (employeeId != null) 'employeeId': employeeId,
       if (roleId != null) 'roleId': roleId,
       'isActive': isActive,

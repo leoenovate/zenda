@@ -111,6 +111,7 @@ class School {
 
   Map<String, dynamic> toFirestore() {
     return {
+      'type': 'school',
       'name': name,
       if (code != null) 'code': code,
       if (tagline != null) 'tagline': tagline,

@@ -4,4 +4,6 @@ package-lock.json
 # Never commit credentials.
 serviceAccountKey.json
 *serviceAccountKey*.json
+*firebase-adminsdk*.json
+*.json.key
 .env

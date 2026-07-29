@@ -160,8 +160,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                             SizedBox(height: context.spacingXs),
                             Text(
-                              '${snapshot.error}',
-                              style: Theme.of(context).textTheme.bodyMedium,
+                              _messageLoadErrorText(snapshot.error),
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -394,6 +396,18 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  String _messageLoadErrorText(Object? error) {
+    final message = error?.toString() ?? 'Unknown error';
+    if (message.contains('failed-precondition') &&
+        message.contains('requires an index')) {
+      return 'Messages are still syncing. Pull to refresh in a moment, or ask an admin to deploy Firestore indexes.';
+    }
+    if (message.length > 180) {
+      return 'Could not load messages. Check your connection and try again.';
+    }
+    return message;
   }
 
   Widget _buildInfoItem(String label, String value) {

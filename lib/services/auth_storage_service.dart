@@ -11,6 +11,7 @@ class AuthStorageService {
   static const String _keyUid = 'auth_uid';
   static const String _keySchoolId = 'auth_school_id';
   static const String _keyStudentNumber = 'auth_student_number';
+  static const String _keyPhone = 'auth_phone';
   static const String _keyLastLoginIdentifier = 'auth_last_login_identifier';
 
   /// Save the latest session. All fields except role are optional.
@@ -20,6 +21,7 @@ class AuthStorageService {
     String? uid,
     String? schoolId,
     String? studentNumber,
+    String? phone,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -43,6 +45,11 @@ class AuthStorageService {
         await prefs.setString(_keyStudentNumber, studentNumber);
       } else {
         await prefs.remove(_keyStudentNumber);
+      }
+      if (phone != null) {
+        await prefs.setString(_keyPhone, phone);
+      } else {
+        await prefs.remove(_keyPhone);
       }
     } catch (e) {
       print('AuthStorage: Error saving session: $e');
@@ -70,6 +77,7 @@ class AuthStorageService {
         'uid': prefs.getString(_keyUid),
         'schoolId': prefs.getString(_keySchoolId),
         'studentNumber': prefs.getString(_keyStudentNumber),
+        'phone': prefs.getString(_keyPhone),
       };
     } catch (e) {
       print('AuthStorage: Error reading stored session: $e');
@@ -111,5 +119,6 @@ class AuthStorageService {
     await prefs.remove(_keyUid);
     await prefs.remove(_keySchoolId);
     await prefs.remove(_keyStudentNumber);
+    await prefs.remove(_keyPhone);
   }
 }

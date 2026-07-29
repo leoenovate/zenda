@@ -621,6 +621,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         statusIcon = Icons.cancel;
         statusText = 'Absent';
         break;
+      case AttendanceStatus.excused:
+        statusColor = Colors.blue;
+        statusIcon = Icons.event_busy;
+        statusText = 'Excused';
+        break;
       default:
         statusColor = colorScheme.onSurfaceVariant;
         statusIcon = Icons.help_outline;

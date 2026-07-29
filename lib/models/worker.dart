@@ -60,9 +60,9 @@ class Worker {
     return Worker(
       id: id,
       name: data['name'] ?? '',
-      schoolId: data['schoolId'] ?? '',
+      schoolId: (data['orgId'] ?? data['schoolId'] ?? '') as String,
       employeeId: data['employeeId'],
-      legacyRoleName: data['role'] as String?,
+      legacyRoleName: (data['legacyRoleLabel'] ?? data['role']) as String?,
       roleId: data['roleId'] as String?,
       phone: data['phone'],
       email: data['email'],
@@ -75,8 +75,9 @@ class Worker {
 
   Map<String, dynamic> toFirestore() {
     return {
+      'kind': 'worker',
       'name': name,
-      'schoolId': schoolId,
+      'orgId': schoolId,
       if (employeeId != null) 'employeeId': employeeId,
       if (roleId != null) 'roleId': roleId,
       if (phone != null) 'phone': phone,

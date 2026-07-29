@@ -201,9 +201,33 @@ function transformUser(id, data) {
   return { data: out, deletes };
 }
 
-// 6. parents -> users (guardian account). Needs the org's Guardian role id.
-function transformParentToUser(id, data) {
-  const orgId = data.schoolId !== undefined ? data.schoolId : null;
+/**
+ * Resolve a parent's org. Parents created via the parent-login flow have no
+ * schoolId, so fall back to the org of their first linked student.
+ * `studentOrgById` is a { studentId: schoolId } lookup.
+ */
+function resolveParentOrgId(parentData, studentOrgById) {
+  if (parentData.schoolId) return parentData.schoolId;
+  const ids = Array.isArray(parentData.studentIds) ? parentData.studentIds : [];
+  for (const sid of ids) {
+    const org = studentOrgById && studentOrgById[sid];
+    if (org) return org;
+  }
+  return null;
+}
+
+/** A parent with no linked students is an empty account; skip it on migrate. */
+function parentHasLinkedStudents(parentData) {
+  return Array.isArray(parentData.studentIds) && parentData.studentIds.length > 0;
+}
+
+// 6. parents -> users (guardian account). `opts.orgId` is the resolved org
+//    (see resolveParentOrgId); without it, falls back to the parent's own
+//    schoolId so the function stays usable standalone.
+function transformParentToUser(id, data, opts = {}) {
+  const orgId = Object.prototype.hasOwnProperty.call(opts, 'orgId')
+    ? opts.orgId
+    : (data.schoolId !== undefined ? data.schoolId : null);
   const out = {
     orgId,
     memberId: null,
@@ -350,7 +374,9 @@ const COUNT_COLLECTIONS = [
 ];
 
 // Brand-new collections where orgId is mandatory (hard-flagged by verify).
-const ORG_REQUIRED_COLLECTIONS = ['organizations', 'members', 'groups', 'time_off'];
+// `organizations` is intentionally excluded: an org IS the root entity, keyed
+// by its own doc id, so it has no orgId field pointing elsewhere.
+const ORG_REQUIRED_COLLECTIONS = ['members', 'groups', 'time_off'];
 
 module.exports = {
   PROJECT_ID,
@@ -365,6 +391,8 @@ module.exports = {
   canLogIn,
   guardianRoleId,
   guardianRoleDoc,
+  resolveParentOrgId,
+  parentHasLinkedStudents,
   // transforms (exported so verify.js can recompute expectations)
   transformSchool,
   transformRole,

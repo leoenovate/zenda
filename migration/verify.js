@@ -186,6 +186,17 @@ async function spotCheckGuardianUsers(db) {
     console.log('  (no guardian-origin users found)');
     return 0;
   }
+  // Same org derivation migrate.js used (parent schoolId -> linked student's).
+  const studentOrgById = {};
+  try {
+    const studentsSnap = await db.collection('students').get();
+    for (const s of studentsSnap.docs) {
+      const org = s.data().schoolId;
+      if (org) studentOrgById[s.id] = org;
+    }
+  } catch (_) {
+    // best effort; falls back to parent.schoolId
+  }
   for (const d of sample(guardians, SAMPLE_SIZE)) {
     const o = await db.collection('parents').doc(d.id).get();
     if (!o.exists) {
@@ -193,7 +204,8 @@ async function spotCheckGuardianUsers(db) {
       flags++;
       continue;
     }
-    const expected = M.transformParentToUser(d.id, o.data()).data;
+    const orgId = M.resolveParentOrgId(o.data(), studentOrgById);
+    const expected = M.transformParentToUser(d.id, o.data(), { orgId }).data;
     const problems = diffExpected(expected, d.data());
     if (problems.length) {
       console.log(`  [FLAG] users/${d.id}: ${problems.join('; ')}`);
@@ -221,9 +233,14 @@ async function flagOrgIdRequired(db) {
     }
     let bad = 0;
     for (const d of snap.docs) {
-      const o = d.data().orgId;
+      const dd = d.data();
+      const o = dd.orgId;
       if (o === null || o === undefined) {
-        console.log(`  [FLAG] ${coll}/${d.id}: orgId is ${o}`);
+        const hint = [
+          dd.kind ? `kind=${dd.kind}` : null,
+          dd.name ? `name="${dd.name}"` : null,
+        ].filter(Boolean).join(' ');
+        console.log(`  [FLAG] ${coll}/${d.id}: orgId is ${o}${hint ? `  (${hint})` : ''}`);
         bad++;
       }
     }

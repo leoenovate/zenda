@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
 import '../../models/device_enrollment.dart';
-import '../../models/parent.dart' as app_parent;
 import '../../models/role.dart';
 import '../../models/school.dart';
 import '../../models/student.dart';
@@ -52,7 +51,9 @@ class _SchoolPerson {
   final Teacher? teacher;
   final Worker? worker;
   final app_user.AppUser? user;
-  final app_parent.Parent? parent;
+
+  /// Guardian (parent) login account, when [kind] == `parent`.
+  final app_user.AppUser? parent;
 
   const _SchoolPerson({
     required this.kind,
@@ -103,7 +104,7 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
         FirebaseService.getTeachers(),
         FirebaseService.getWorkers(),
         FirebaseService.getUsers(),
-        FirebaseService.getParents(),
+        FirebaseService.getGuardians(),
         FirebaseService.getDevices(),
         FirebaseService.getRoles(),
         FirebaseService.getDeviceEnrollments(),
@@ -114,7 +115,7 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
       final teachers = results[1] as List<Teacher>;
       final workers = results[2] as List<Worker>;
       final users = results[3] as List<app_user.AppUser>;
-      final parents = results[4] as List<app_parent.Parent>;
+      final parents = results[4] as List<app_user.AppUser>;
       final devices = results[5] as List<Device>;
       final roles = results[6] as List<Role>;
       final allEnrollments = results[7] as List<DeviceEnrollment>;
@@ -165,7 +166,7 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
     required List<Teacher> teachers,
     required List<Worker> workers,
     required List<app_user.AppUser> users,
-    required List<app_parent.Parent> parents,
+    required List<app_user.AppUser> parents,
     required Map<String, String> roleNames,
   }) {
     final out = <_SchoolPerson>[];
@@ -258,11 +259,11 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
           id: p.id!,
           name: (p.name != null && p.name!.trim().isNotEmpty)
               ? p.name!.trim()
-              : p.phone,
+              : (p.phone ?? '(guardian)'),
           subtitle: [
-            if ((p.relationship ?? '').isNotEmpty) p.relationship!,
-            p.phone,
-            if ((p.email ?? '').isNotEmpty) p.email!,
+            if ((p.phone ?? '').isNotEmpty) p.phone!,
+            if (p.email.isNotEmpty) p.email,
+            '${p.linkedStudentIds.length} children',
           ].where((x) => x.isNotEmpty).join(' · '),
           parent: p,
         ),
@@ -434,9 +435,9 @@ class _AllPeopleScreenState extends State<AllPeopleScreen> {
     }
   }
 
-  List<Student> _linkedStudentsForParent(app_parent.Parent parent) {
-    if (parent.studentIds.isEmpty) return const [];
-    final ids = parent.studentIds.toSet();
+  List<Student> _linkedStudentsForParent(app_user.AppUser parent) {
+    if (parent.linkedStudentIds.isEmpty) return const [];
+    final ids = parent.linkedStudentIds.toSet();
     return _people
         .where((p) => p.student?.id != null && ids.contains(p.student!.id))
         .map((p) => p.student!)

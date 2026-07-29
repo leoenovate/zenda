@@ -101,6 +101,14 @@ guardian `users`) are always written in the faithful new shape regardless of
   into login-capable users, so the auto-created `Guardian` role overrides
   `canLogIn` to `true`. The role doc id is deterministic (`guardian-<orgId>`)
   so the migration is idempotent and dry-run-safe.
+- **Guardian org is derived from linked students.** Parent docs created via
+  the parent-login flow have no `schoolId`, so each parent's `orgId` (and thus
+  their `Guardian` role) is taken from the `schoolId` of their first linked
+  student. Parents with no `schoolId` and no resolvable student org keep
+  `orgId`/`roleId` = null (logged as a `[warn]`).
+- **Parents with no linked students are skipped.** A guardian account with an
+  empty `studentIds` is an empty account, so it is not migrated to `users`
+  (logged as `[skipped] ... no linked students`). Originals are untouched.
 - **Migrated guardian users have no password.** The script creates the user
   doc (`phone`, `linkedStudentIds`, `roleId`, `memberId: null`) but cannot set
   a credential the spec never defined. How guardians authenticate

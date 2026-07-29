@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../models/device.dart';
 import '../models/message.dart';
-import '../models/parent.dart' as app_parent;
 import '../models/school.dart';
 import '../models/session.dart';
 import '../models/student.dart';
@@ -58,7 +57,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
   School? _school;
   List<Student> _students = [];
   List<Teacher> _teachers = [];
-  List<app_parent.Parent> _parents = [];
+  List<app_user.AppUser> _parents = [];
   List<Worker> _workers = [];
   List<app_user.AppUser> _users = [];
   List<Device> _devices = [];
@@ -85,7 +84,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         FirebaseService.getSchools(),
         FirebaseService.getStudents(),
         FirebaseService.getTeachers(),
-        FirebaseService.getParents(),
+        FirebaseService.getGuardians(),
         FirebaseService.getWorkers(),
         FirebaseService.getUsers(),
         FirebaseService.getDevices(),
@@ -113,7 +112,7 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
         _school = matched;
         _students = results[1] as List<Student>;
         _teachers = results[2] as List<Teacher>;
-        _parents = results[3] as List<app_parent.Parent>;
+        _parents = results[3] as List<app_user.AppUser>;
         _workers = results[4] as List<Worker>;
         _users = users;
         _devices = results[6] as List<Device>;
@@ -492,68 +491,101 @@ class _SchoolAdminDashboardState extends State<SchoolAdminDashboard> {
 
   Widget _buildSidebarFooter() {
     final colorScheme = Theme.of(context).colorScheme;
+    final initial = (AuthService.currentSession?.email ?? 'A')[0].toUpperCase();
+    final email = AuthService.currentSession?.email ?? '';
+
+    final avatar = CircleAvatar(
+      backgroundColor: colorScheme.onPrimary.withOpacity(0.2),
+      radius: _sidebarCollapsed ? 14 : 15,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: colorScheme.onPrimary,
+          fontWeight: FontWeight.bold,
+          fontSize: _sidebarCollapsed ? 12 : 13,
+        ),
+      ),
+    );
+
+    final logoutButton = IconButton(
+      tooltip: 'Logout',
+      onPressed: _logout,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: Icon(
+        Icons.logout,
+        color: colorScheme.onPrimary.withOpacity(0.85),
+        size: 18,
+      ),
+    );
+
+    final themeControls = const ThemeSwitcher(onAppBar: true, iconOnly: true);
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.symmetric(
+        horizontal: _sidebarCollapsed ? 8 : 10,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: colorScheme.onPrimary.withOpacity(0.3)),
         ),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: colorScheme.onPrimary.withOpacity(0.2),
-            radius: 16,
-            child: Text(
-              (AuthService.currentSession?.email ?? 'A')[0].toUpperCase(),
-              style: TextStyle(
-                color: colorScheme.onPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          if (!_sidebarCollapsed) ...[
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child:
+          _sidebarCollapsed
+              ? Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'School Admin',
-                    style: TextStyle(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  avatar,
+                  const SizedBox(height: 6),
+                  themeControls,
+                  logoutButton,
+                ],
+              )
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      avatar,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'School Admin',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colorScheme.onPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colorScheme.onPrimary.withOpacity(0.75),
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    AuthService.currentSession?.email ?? '',
-                    style: TextStyle(
-                      color: colorScheme.onPrimary.withOpacity(0.75),
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [themeControls, logoutButton],
                   ),
                 ],
               ),
-            ),
-            const ThemeSwitcher(),
-            IconButton(
-              icon: Icon(
-                Icons.logout,
-                color: colorScheme.onPrimary.withOpacity(0.85),
-                size: 18,
-              ),
-              onPressed: _logout,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'Logout',
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -732,7 +764,7 @@ class _DashboardView extends StatelessWidget {
   final School? school;
   final List<Student> students;
   final List<Teacher> teachers;
-  final List<app_parent.Parent> parents;
+  final List<app_user.AppUser> parents;
   final List<Worker> workers;
   final List<Device> devices;
   final List<Session> sessions;

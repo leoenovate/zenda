@@ -189,11 +189,30 @@ class Migrator {
       return;
     }
 
-    // 1. Guardian role per distinct org.
+    // Build studentId -> orgId so a parent with no schoolId inherits the org
+    // of their linked student(s).
+    const studentOrgById = {};
+    try {
+      const studentsSnap = await this.db.collection('students').get();
+      for (const s of studentsSnap.docs) {
+        const org = s.data().schoolId;
+        if (org) studentOrgById[s.id] = org;
+      }
+    } catch (e) {
+      console.log(`[error] failed to read students for parent-org derivation - ${e.message}`);
+    }
+
+    // Resolve each parent's org once.
+    const orgByParentId = {};
+    for (const doc of snap.docs) {
+      orgByParentId[doc.id] = M.resolveParentOrgId(doc.data(), studentOrgById);
+    }
+
+    // 1. Guardian role per distinct resolved org.
     const orgIds = new Set();
     for (const doc of snap.docs) {
-      const sid = doc.data().schoolId;
-      if (sid) orgIds.add(sid);
+      const org = orgByParentId[doc.id];
+      if (org) orgIds.add(org);
     }
     const roleLabel = 'parents -> roles (guardian)';
     for (const orgId of orgIds) {
@@ -210,10 +229,19 @@ class Migrator {
     }
     await this.flush();
 
-    // 2. parents -> users.
+    // 2. parents -> users (org/roleId derived above). Parents with no linked
+    //    students are empty accounts -> skip them.
+    let noOrg = 0;
     for (const doc of snap.docs) {
       try {
-        const res = M.transformParentToUser(doc.id, doc.data());
+        const pdata = doc.data();
+        if (!M.parentHasLinkedStudents(pdata)) {
+          this.skip(label, 'parents', doc.id, 'no linked students');
+          continue;
+        }
+        const orgId = orgByParentId[doc.id];
+        if (!orgId) noOrg++;
+        const res = M.transformParentToUser(doc.id, pdata, { orgId });
         if (!DRY_RUN) {
           const existing = await this.db.collection('users').doc(doc.id).get();
           if (existing.exists) {
@@ -231,6 +259,10 @@ class Migrator {
       }
     }
     await this.flush();
+    if (noOrg > 0) {
+      console.log(`[warn] ${noOrg} parent(s) had no resolvable org ` +
+        '(no schoolId and no linked student with one); orgId/roleId left null.');
+    }
   }
 
   printSummary() {

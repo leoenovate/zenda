@@ -1,9 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import '../../models/school.dart';
-import '../../models/parent.dart' as app_parent;
+import '../../models/user.dart' as app_user;
 import '../../services/firebase_service.dart';
 import '../../widgets/admin/admin_list_scaffold.dart';
 
+/// Manages guardian (parent) login accounts. Guardians live in the `users`
+/// collection (migrated from the old `parents` collection) and sign in with
+/// phone + password.
 class ParentsScreen extends StatefulWidget {
   final List<School> schools;
   final VoidCallback? onDataChanged;
@@ -22,8 +25,7 @@ class ParentsScreen extends StatefulWidget {
 
 class _ParentsScreenState extends State<ParentsScreen> {
   bool _isLoading = true;
-  bool _isSyncing = false;
-  List<app_parent.Parent> _parents = [];
+  List<app_user.AppUser> _guardians = [];
   String _searchQuery = '';
   String _schoolFilter = 'all';
 
@@ -36,48 +38,29 @@ class _ParentsScreenState extends State<ParentsScreen> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final parents = await FirebaseService.getParents();
+      final guardians = await FirebaseService.getGuardians();
       if (!mounted) return;
       setState(() {
-        _parents = parents;
+        _guardians = guardians;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading parents: $e')),
+        SnackBar(content: Text('Error loading guardians: $e')),
       );
     }
   }
 
-  Future<void> _syncFromStudents() async {
-    setState(() => _isSyncing = true);
-    try {
-      final created = await FirebaseService.syncParentsFromStudents();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Synced $created parent records from students')),
-      );
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
-    }
-  }
-
-  List<app_parent.Parent> get _filtered {
-    return _parents.where((p) {
+  List<app_user.AppUser> get _filtered {
+    return _guardians.where((p) {
       if (_schoolFilter != 'all' && p.schoolId != _schoolFilter) return false;
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final match = (p.name ?? '').toLowerCase().contains(q) ||
-            p.phone.toLowerCase().contains(q) ||
-            (p.email ?? '').toLowerCase().contains(q);
+            (p.phone ?? '').toLowerCase().contains(q) ||
+            p.email.toLowerCase().contains(q);
         if (!match) return false;
       }
       return true;
@@ -92,10 +75,10 @@ class _ParentsScreenState extends State<ParentsScreen> {
 
     final filtered = _filtered;
     return AdminListScaffold(
-      title: 'Parents',
+      title: 'Guardians',
       subtitle: widget.showSchoolFilter
-          ? 'Parent contacts derived from student records'
-          : 'Parent contacts for your school',
+          ? 'Parent/guardian login accounts (phone + password)'
+          : 'Guardian login accounts for your school',
       searchHint: 'Search by name, phone, or email...',
       searchQuery: _searchQuery,
       onSearchChanged: (v) => setState(() => _searchQuery = v),
@@ -103,28 +86,12 @@ class _ParentsScreenState extends State<ParentsScreen> {
       schoolFilter: _schoolFilter,
       onSchoolFilterChanged: (v) => setState(() => _schoolFilter = v),
       showSchoolFilter: widget.showSchoolFilter && widget.schools.length > 1,
-      addButtonLabel: 'Add Parent',
+      addButtonLabel: 'Add Guardian',
       onAddPressed: () => _showFormDialog(),
-      headerExtras: OutlinedButton.icon(
-        onPressed: _isSyncing ? null : _syncFromStudents,
-        icon: _isSyncing
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.sync, size: 18),
-        label: Text(_isSyncing ? 'Syncing...' : 'Sync from students'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Theme.of(context).colorScheme.primary,
-          side: BorderSide(color: Theme.of(context).colorScheme.primary),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-      ),
       listContent: filtered.isEmpty
           ? const AdminEmptyState(
               icon: Icons.family_restroom_outlined,
-              message: 'No parents found',
+              message: 'No guardians found',
             )
           : AdminListCard(
               child: ListView.separated(
@@ -139,18 +106,19 @@ class _ParentsScreenState extends State<ParentsScreen> {
     );
   }
 
-  Widget _buildRow(app_parent.Parent p) {
+  Widget _buildRow(app_user.AppUser p) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Colors.orange.withOpacity(0.15),
+            backgroundColor: scheme.primary.withValues(alpha: 0.15),
             radius: 20,
             child: Text(
               (p.name?.isNotEmpty ?? false) ? p.name![0].toUpperCase() : '?',
-              style: const TextStyle(
-                color: Colors.orange,
+              style: TextStyle(
+                color: scheme.primary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -163,7 +131,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                 Text(
                   p.name ?? '(no name)',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: scheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -171,12 +139,11 @@ class _ParentsScreenState extends State<ParentsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   [
-                    p.phone,
-                    if (p.relationship != null) p.relationship!,
-                    if (p.email != null) p.email!,
-                    '${p.studentIds.length} children',
-                  ].join(' · '),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                    if ((p.phone ?? '').isNotEmpty) p.phone!,
+                    if (p.email.isNotEmpty) p.email,
+                    '${p.linkedStudentIds.length} children',
+                  ].join(' \u00b7 '),
+                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
@@ -185,24 +152,29 @@ class _ParentsScreenState extends State<ParentsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.15),
+                color: scheme.error.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'INACTIVE',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: scheme.error,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
                 ),
               ),
             ),
           IconButton(
-            icon: Icon(Icons.edit, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            onPressed: () => _showFormDialog(parent: p),
+            tooltip: 'Set / reset password',
+            icon: Icon(Icons.key_outlined, size: 18, color: scheme.onSurfaceVariant),
+            onPressed: () => _showPasswordDialog(p),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            icon: Icon(Icons.edit, size: 18, color: scheme.onSurfaceVariant),
+            onPressed: () => _showFormDialog(guardian: p),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, size: 18, color: scheme.error),
             onPressed: () => _confirmDelete(p),
           ),
         ],
@@ -210,18 +182,17 @@ class _ParentsScreenState extends State<ParentsScreen> {
     );
   }
 
-  void _showFormDialog({app_parent.Parent? parent}) {
-    final nameController = TextEditingController(text: parent?.name ?? '');
-    final phoneController = TextEditingController(text: parent?.phone ?? '');
-    final emailController = TextEditingController(text: parent?.email ?? '');
-    String relationship = parent?.relationship ?? 'father';
-    String? schoolId = parent?.schoolId;
+  void _showFormDialog({app_user.AppUser? guardian}) {
+    final nameController = TextEditingController(text: guardian?.name ?? '');
+    final phoneController = TextEditingController(text: guardian?.phone ?? '');
+    final passwordController = TextEditingController();
+    String? schoolId = guardian?.schoolId;
     if (schoolId == null && widget.schools.length == 1) {
       schoolId = widget.schools.first.id;
     }
-    bool isActive = parent?.isActive ?? true;
+    bool isActive = guardian?.isActive ?? true;
     bool isSaving = false;
-    final isEdit = parent != null;
+    final isEdit = guardian != null;
 
     showDialog(
       context: context,
@@ -230,7 +201,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
         builder: (dialogCtx, setStateDialog) => AlertDialog(
           backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
           title: Text(
-            isEdit ? 'Edit Parent' : 'Add Parent',
+            isEdit ? 'Edit Guardian' : 'Add Guardian',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
           content: SizedBox(
@@ -253,28 +224,17 @@ class _ParentsScreenState extends State<ParentsScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: passwordController,
+                    obscureText: true,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                    decoration: adminInputDecoration('Email'),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: relationship,
-                    decoration: adminInputDecoration('Relationship'),
-                    dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                    items: const [
-                      DropdownMenuItem(value: 'father', child: Text('Father')),
-                      DropdownMenuItem(value: 'mother', child: Text('Mother')),
-                      DropdownMenuItem(value: 'guardian', child: Text('Guardian')),
-                    ],
-                    onChanged: (v) => setStateDialog(() => relationship = v ?? 'father'),
+                    decoration: adminInputDecoration(
+                      isEdit ? 'New password (optional)' : 'Login password',
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (widget.schools.length > 1) ...[
                     DropdownButtonFormField<String?>(
-                      value: schoolId,
+                      initialValue: schoolId,
                       decoration: adminInputDecoration('School'),
                       dropdownColor: Theme.of(dialogCtx).colorScheme.surface,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
@@ -291,7 +251,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: isActive,
-                    activeColor: Theme.of(context).colorScheme.primary,
+                    activeThumbColor: Theme.of(context).colorScheme.primary,
                     title: Text('Active', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                     onChanged: (v) => setStateDialog(() => isActive = v),
                   ),
@@ -316,32 +276,35 @@ class _ParentsScreenState extends State<ParentsScreen> {
                       }
                       setStateDialog(() => isSaving = true);
                       try {
-                        final updated = app_parent.Parent(
-                          id: parent?.id,
-                          phone: phoneController.text.trim(),
-                          name: nameController.text.trim().isEmpty
-                              ? null
-                              : nameController.text.trim(),
-                          email: emailController.text.trim().isEmpty
-                              ? null
-                              : emailController.text.trim(),
-                          relationship: relationship,
-                          studentIds: parent?.studentIds ?? const [],
-                          schoolId: schoolId,
-                          isActive: isActive,
-                          createdAt: parent?.createdAt,
-                          lastLogin: parent?.lastLogin,
-                        );
+                        final name = nameController.text.trim();
+                        final password = passwordController.text.trim();
                         if (isEdit) {
-                          await FirebaseService.updateParent(updated);
+                          final updated = guardian.copyWith(
+                            name: name.isEmpty ? null : name,
+                            phone: phoneController.text.trim(),
+                            schoolId: schoolId,
+                            isActive: isActive,
+                          );
+                          await FirebaseService.updateGuardian(updated);
+                          if (password.isNotEmpty) {
+                            await FirebaseService.setGuardianPassword(
+                              guardian.id!,
+                              password,
+                            );
+                          }
                         } else {
-                          await FirebaseService.addParent(updated);
+                          await FirebaseService.addGuardian(
+                            name: name,
+                            phone: phoneController.text.trim(),
+                            schoolId: schoolId,
+                            password: password.isEmpty ? null : password,
+                          );
                         }
                         if (!mounted) return;
                         Navigator.pop(dialogCtx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(isEdit ? 'Parent updated' : 'Parent added'),
+                            content: Text(isEdit ? 'Guardian updated' : 'Guardian added'),
                           ),
                         );
                         await _load();
@@ -365,14 +328,91 @@ class _ParentsScreenState extends State<ParentsScreen> {
     );
   }
 
-  void _confirmDelete(app_parent.Parent p) {
+  void _showPasswordDialog(app_user.AppUser p) {
+    final passwordController = TextEditingController();
+    bool isSaving = false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setStateDialog) => AlertDialog(
+          backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
+          title: Text(
+            'Set password',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Set a login password for ${p.name ?? p.phone ?? 'this guardian'}.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  decoration: adminInputDecoration('New password', required: true),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final password = passwordController.text.trim();
+                      if (password.length < 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Password must be at least 6 characters'),
+                          ),
+                        );
+                        return;
+                      }
+                      setStateDialog(() => isSaving = true);
+                      try {
+                        await FirebaseService.setGuardianPassword(p.id!, password);
+                        if (!mounted) return;
+                        Navigator.pop(dialogCtx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Password updated')),
+                        );
+                      } catch (e) {
+                        setStateDialog(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isSaving ? 'Saving...' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(app_user.AppUser p) {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: Theme.of(dialogCtx).colorScheme.surface,
-        title: Text('Delete Parent', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        title: Text('Delete Guardian', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Text(
-          'Delete parent record for ${p.name ?? p.phone}?',
+          'Delete guardian account for ${p.name ?? p.phone ?? p.id}?',
           style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         actions: [
@@ -383,11 +423,11 @@ class _ParentsScreenState extends State<ParentsScreen> {
           ElevatedButton(
             onPressed: () async {
               try {
-                await FirebaseService.deleteParent(p.id!);
+                await FirebaseService.deleteGuardian(p.id!);
                 if (!mounted) return;
                 Navigator.pop(dialogCtx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Parent deleted')),
+                  const SnackBar(content: Text('Guardian deleted')),
                 );
                 await _load();
                 widget.onDataChanged?.call();
@@ -398,7 +438,7 @@ class _ParentsScreenState extends State<ParentsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('Delete'),
